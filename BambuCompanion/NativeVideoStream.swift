@@ -19,10 +19,12 @@ private struct NativeVideoStreamSurface: View {
 
     @State private var errorMessage: String?
     @State private var hasVideo = false
+    @State private var pictureInPictureRequest = 0
+    @State private var shouldFallbackToWindow = false
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, pictureInPictureRequest: 0, onFrame: {
+            NativeVideoLayerView(url: url, pictureInPictureRequest: pictureInPictureRequest, onFrame: {
                 hasVideo = true
             }) { message in
                 errorMessage = message
@@ -46,7 +48,8 @@ private struct NativeVideoStreamSurface: View {
                     HStack {
                         Spacer()
                         Button {
-                            FloatingVideoWindowController.shared.toggle(url: url)
+                            pictureInPictureRequest += 1
+                            shouldFallbackToWindow = true
                         } label: {
                             Label("Picture in Picture", systemImage: "pip.enter")
                         }
@@ -65,6 +68,15 @@ private struct NativeVideoStreamSurface: View {
         .onChange(of: url) {
             hasVideo = false
             errorMessage = nil
+            pictureInPictureRequest = 0
+            shouldFallbackToWindow = false
+        }
+        .onChange(of: errorMessage) { message in
+            guard shouldFallbackToWindow, let url, let message, message.contains("Picture in Picture is unavailable") else {
+                return
+            }
+            shouldFallbackToWindow = false
+            FloatingVideoWindowController.shared.toggle(url: url)
         }
     }
 
