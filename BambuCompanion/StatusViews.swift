@@ -105,7 +105,7 @@ struct StatusSummaryView: View {
         guard let value else {
             return "--"
         }
-        return "\(Int(value.rounded())) C"
+        return "\(Int(value.rounded()))℃"
     }
 
     private func temperature(_ value: Double?, target: Double?) -> String {
@@ -115,7 +115,7 @@ struct StatusSummaryView: View {
         guard let target, target > 0 else {
             return temperature(value)
         }
-        return "\(Int(value.rounded())) / \(Int(target.rounded())) C"
+        return "\(Int(value.rounded())) / \(Int(target.rounded()))℃"
     }
 }
 
