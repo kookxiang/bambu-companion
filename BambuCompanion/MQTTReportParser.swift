@@ -166,6 +166,14 @@ enum MQTTReportParser {
                     material: material,
                     colorHex: colorHex,
                     remainingPercent: remainingPercent,
+                    name: normalizedMaterial(stringValue(tray?["tray_id_name"])),
+                    subBrands: normalizedMaterial(stringValue(tray?["tray_sub_brands"])),
+                    tagUID: normalizedMaterial(stringValue(tray?["tag_uid"])),
+                    trayInfoIndex: normalizedMaterial(stringValue(tray?["tray_info_idx"])),
+                    diameter: normalizedPositive(doubleValue(tray?["tray_diameter"])),
+                    weight: normalizedPositive(doubleValue(tray?["tray_weight"])),
+                    nozzleTemperatureMin: normalizedPositive(doubleValue(tray?["nozzle_temp_min"])),
+                    nozzleTemperatureMax: normalizedPositive(doubleValue(tray?["nozzle_temp_max"])),
                     isActive: activeSlot?.amsID == rawID && activeSlot?.slotIndex == slotIndex
                 )
             }

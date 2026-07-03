@@ -292,6 +292,7 @@ private struct AMSSlotView: View {
             RoundedRectangle(cornerRadius: 7)
                 .stroke(slot.isActive ? Color.accentColor : Color.clear, lineWidth: 1.5)
         }
+        .help(helpText)
     }
 
     private var slotColor: Color {
@@ -307,6 +308,49 @@ private struct AMSSlotView: View {
             return nil
         }
         return Color(hexRGB: colorHex)
+    }
+
+    private var helpText: String {
+        var lines: [String] = ["Slot \(slot.index + 1)"]
+        lines.append("Material: \(slot.material ?? "Empty")")
+        append("Name", slot.name, to: &lines)
+        append("Brand", slot.subBrands, to: &lines)
+        append("Color", slot.colorHex.map { "#\($0)" }, to: &lines)
+        if let remainingPercent = slot.remainingPercent {
+            lines.append("Remaining: \(remainingPercent)%")
+        }
+        append("Spool ID", slot.trayInfoIndex, to: &lines)
+        append("Tag UID", slot.tagUID, to: &lines)
+        if let diameter = slot.diameter {
+            lines.append("Diameter: \(diameter.formatted(.number.precision(.fractionLength(2)))) mm")
+        }
+        if let weight = slot.weight {
+            lines.append("Weight: \(weight.formatted(.number.precision(.fractionLength(0)))) g")
+        }
+        if slot.nozzleTemperatureMin != nil || slot.nozzleTemperatureMax != nil {
+            lines.append("Nozzle range: \(temperatureRangeText)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private var temperatureRangeText: String {
+        switch (slot.nozzleTemperatureMin, slot.nozzleTemperatureMax) {
+        case let (min?, max?):
+            return "\(TemperatureText.string(min)) - \(TemperatureText.string(max))"
+        case let (min?, nil):
+            return ">= \(TemperatureText.string(min))"
+        case let (nil, max?):
+            return "<= \(TemperatureText.string(max))"
+        default:
+            return "--"
+        }
+    }
+
+    private func append(_ title: String, _ value: String?, to lines: inout [String]) {
+        guard let value, !value.isEmpty else {
+            return
+        }
+        lines.append("\(title): \(value)")
     }
 }
 

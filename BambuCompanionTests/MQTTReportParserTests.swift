@@ -110,7 +110,20 @@ final class MQTTReportParserTests: XCTestCase {
                     "dry_filament": "PETG"
                   },
                   "tray": [
-                    {"id": "0", "tray_type": "PETG", "tray_color": "FFFFFFFF", "remain": 63},
+                    {
+                      "id": "0",
+                      "tray_type": "PETG",
+                      "tray_color": "FFFFFFFF",
+                      "remain": 63,
+                      "tray_id_name": "Bambu PETG HF",
+                      "tray_sub_brands": "Bambu",
+                      "tag_uid": "1234567890ABCDEF",
+                      "tray_info_idx": "GFG99",
+                      "tray_diameter": "1.75",
+                      "tray_weight": "1000",
+                      "nozzle_temp_min": "230",
+                      "nozzle_temp_max": "260"
+                    },
                     {"id": "1", "tray_type": "PLA", "tray_color": "00FF00FF", "remain": -1},
                     {"id": "3", "tray_type": "ASA", "tray_color": "00000000", "remain": 120}
                   ]
@@ -142,6 +155,14 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[0].slots.map(\.material), ["PETG", "PLA", nil, "ASA"])
         XCTAssertEqual(status.amsUnits[0].slots[0].colorHex, "FFFFFF")
         XCTAssertEqual(status.amsUnits[0].slots[0].remainingPercent, 63)
+        XCTAssertEqual(status.amsUnits[0].slots[0].name, "Bambu PETG HF")
+        XCTAssertEqual(status.amsUnits[0].slots[0].subBrands, "Bambu")
+        XCTAssertEqual(status.amsUnits[0].slots[0].tagUID, "1234567890ABCDEF")
+        XCTAssertEqual(status.amsUnits[0].slots[0].trayInfoIndex, "GFG99")
+        XCTAssertEqual(status.amsUnits[0].slots[0].diameter, 1.75)
+        XCTAssertEqual(status.amsUnits[0].slots[0].weight, 1000)
+        XCTAssertEqual(status.amsUnits[0].slots[0].nozzleTemperatureMin, 230)
+        XCTAssertEqual(status.amsUnits[0].slots[0].nozzleTemperatureMax, 260)
         XCTAssertEqual(status.amsUnits[0].slots[1].colorHex, "00FF00")
         XCTAssertNil(status.amsUnits[0].slots[1].remainingPercent)
         XCTAssertNil(status.amsUnits[0].slots[3].colorHex)

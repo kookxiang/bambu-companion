@@ -79,6 +79,14 @@ struct AMSSlotStatus: Equatable, Identifiable {
     var material: String?
     var colorHex: String?
     var remainingPercent: Int?
+    var name: String?
+    var subBrands: String?
+    var tagUID: String?
+    var trayInfoIndex: String?
+    var diameter: Double?
+    var weight: Double?
+    var nozzleTemperatureMin: Double?
+    var nozzleTemperatureMax: Double?
     var isActive: Bool = false
 }
 
