@@ -553,7 +553,7 @@ struct VideoPreviewView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .aspectRatio(16.0 / 9.0, contentMode: .fit)
+        .frame(height: 191)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onAppear {
