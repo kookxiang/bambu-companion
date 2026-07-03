@@ -51,12 +51,14 @@ struct MenuPanelView: View {
                     .lineLimit(1)
             }
 
-            Button {
-                appState.reconnectIfConfigured()
-            } label: {
-                Label("Reconnect", systemImage: "arrow.clockwise")
+            if showsReconnectButton {
+                Button {
+                    appState.reconnectIfConfigured()
+                } label: {
+                    Label("Reconnect", systemImage: "arrow.clockwise")
+                }
+                .disabled(!appState.configuration.isComplete)
             }
-            .disabled(!appState.configuration.isComplete)
 
             Spacer()
 
@@ -93,6 +95,18 @@ struct MenuPanelView: View {
             return .red
         default:
             return .secondary
+        }
+    }
+
+    private var showsReconnectButton: Bool {
+        guard appState.configuration.isComplete else {
+            return false
+        }
+        switch appState.connectionState {
+        case .connected, .connecting:
+            return false
+        default:
+            return true
         }
     }
 
