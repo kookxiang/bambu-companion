@@ -140,16 +140,7 @@ private struct AMSUnitsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(units) { unit in
-                HStack(spacing: 8) {
-                    AMSUnitLabelView(unit: unit)
-
-                    HStack(spacing: 6) {
-                        ForEach(unit.slots) { slot in
-                            AMSSlotView(slot: slot)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
+                AMSUnitRowView(unit: unit)
                 .help(amsHelpText(for: unit))
             }
         }
@@ -188,31 +179,31 @@ private struct AMSUnitsView: View {
     }
 }
 
-private struct AMSUnitLabelView: View {
+private struct AMSUnitRowView: View {
     let unit: AMSUnitStatus
     @State private var pulse = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text(unit.name)
-                .lineLimit(1)
-            if unit.isDrying {
-                Image(systemName: "flame.fill")
-                    .font(.caption2)
+        HStack(spacing: 8) {
+            AMSUnitLabelView(unit: unit)
+
+            HStack(spacing: 6) {
+                ForEach(unit.slots) { slot in
+                    AMSSlotView(slot: slot)
+                }
             }
+            .frame(maxWidth: .infinity)
         }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(unit.isDrying ? .orange : .secondary)
-        .frame(width: 54, height: 24, alignment: .center)
-        .padding(.horizontal, 4)
+        .padding(4)
         .background {
-            RoundedRectangle(cornerRadius: 7)
-                .fill(unit.isDrying ? Color.orange.opacity(pulse ? 0.26 : 0.12) : Color.clear)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(unit.isDrying ? Color.orange.opacity(pulse ? 0.18 : 0.08) : Color.clear)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(unit.isDrying ? Color.orange.opacity(pulse ? 0.85 : 0.35) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(unit.isDrying ? Color.orange.opacity(pulse ? 0.75 : 0.28) : Color.clear, lineWidth: 1)
         }
+        .animation(.easeInOut(duration: 0.2), value: unit.isDrying)
         .onAppear {
             guard unit.isDrying else {
                 return
@@ -230,6 +221,24 @@ private struct AMSUnitLabelView: View {
                 pulse = false
             }
         }
+    }
+}
+
+private struct AMSUnitLabelView: View {
+    let unit: AMSUnitStatus
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(unit.name)
+                .lineLimit(1)
+            if unit.isDrying {
+                Image(systemName: "flame.fill")
+                    .font(.caption2)
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(unit.isDrying ? .orange : .secondary)
+        .frame(width: 58, alignment: .leading)
     }
 }
 
