@@ -231,10 +231,6 @@ private struct AMSUnitLabelView: View {
         HStack(spacing: 4) {
             Text(unit.name)
                 .lineLimit(1)
-            if unit.isDrying {
-                Image(systemName: "flame.fill")
-                    .font(.caption2)
-            }
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(unit.isDrying ? .orange : .secondary)
