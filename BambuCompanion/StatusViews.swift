@@ -190,6 +190,7 @@ private struct AMSUnitsView: View {
 
 private struct AMSUnitLabelView: View {
     let unit: AMSUnitStatus
+    @State private var pulse = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -197,13 +198,38 @@ private struct AMSUnitLabelView: View {
                 .lineLimit(1)
             if unit.isDrying {
                 Image(systemName: "flame.fill")
-                    .foregroundStyle(.orange)
                     .font(.caption2)
             }
         }
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .frame(width: 58, alignment: .leading)
+        .foregroundStyle(unit.isDrying ? .orange : .secondary)
+        .frame(width: 54, height: 24, alignment: .center)
+        .padding(.horizontal, 4)
+        .background {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(unit.isDrying ? Color.orange.opacity(pulse ? 0.26 : 0.12) : Color.clear)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(unit.isDrying ? Color.orange.opacity(pulse ? 0.85 : 0.35) : Color.clear, lineWidth: 1)
+        }
+        .onAppear {
+            guard unit.isDrying else {
+                return
+            }
+            withAnimation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+        .onChange(of: unit.isDrying) { _, isDrying in
+            if isDrying {
+                withAnimation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            } else {
+                pulse = false
+            }
+        }
     }
 }
 
