@@ -135,7 +135,12 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard let view else {
                 return
             }
-            let client = NativeRTSPVideoClient(url: url, displayLayer: view.displayLayer, onFrame: onFrame) { [weak self] message in
+            let client = NativeRTSPVideoClient(
+                url: url,
+                displayLayer: view.displayLayer,
+                pictureInPictureController: pictureInPictureController,
+                onFrame: onFrame
+            ) { [weak self] message in
                 DispatchQueue.main.async {
                     self?.onError(message)
                 }
@@ -249,6 +254,17 @@ private final class VideoLayerHostView: NSView {
         wantsLayer = true
         displayLayer.videoGravity = .resizeAspectFill
         displayLayer.backgroundColor = NSColor.clear.cgColor
+        var timebase: CMTimebase?
+        CMTimebaseCreateWithSourceClock(
+            allocator: kCFAllocatorDefault,
+            sourceClock: CMClockGetHostTimeClock(),
+            timebaseOut: &timebase
+        )
+        if let timebase {
+            CMTimebaseSetTime(timebase, time: .zero)
+            CMTimebaseSetRate(timebase, rate: 1)
+            displayLayer.controlTimebase = timebase
+        }
         layer?.addSublayer(displayLayer)
     }
 
@@ -265,6 +281,7 @@ private final class VideoLayerHostView: NSView {
 private final class NativeRTSPVideoClient {
     private let url: URL
     private weak var displayLayer: AVSampleBufferDisplayLayer?
+    private weak var pictureInPictureController: AVPictureInPictureController?
     private let onError: (String) -> Void
     private let queue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient")
     private var connection: NWConnection?
@@ -286,9 +303,16 @@ private final class NativeRTSPVideoClient {
     private let onFrame: () -> Void
     private let staleFrameReconnectInterval: TimeInterval = 15
 
-    init(url: URL, displayLayer: AVSampleBufferDisplayLayer, onFrame: @escaping () -> Void, onError: @escaping (String) -> Void) {
+    init(
+        url: URL,
+        displayLayer: AVSampleBufferDisplayLayer,
+        pictureInPictureController: AVPictureInPictureController?,
+        onFrame: @escaping () -> Void,
+        onError: @escaping (String) -> Void
+    ) {
         self.url = url
         self.displayLayer = displayLayer
+        self.pictureInPictureController = pictureInPictureController
         self.onFrame = onFrame
         self.onError = onError
     }
@@ -710,6 +734,7 @@ private final class NativeRTSPVideoClient {
                 layer.enqueue(sampleBuffer)
                 if self?.didDisplayFrame == false {
                     self?.didDisplayFrame = true
+                    self?.pictureInPictureController?.invalidatePlaybackState()
                     self?.onFrame()
                 }
             }
