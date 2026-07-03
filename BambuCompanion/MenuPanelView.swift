@@ -6,8 +6,6 @@ struct MenuPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header
-
             if appState.configuration.isComplete {
                 StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
                 VideoPlaceholderView()
@@ -20,26 +18,6 @@ struct MenuPanelView: View {
         }
         .frame(width: 340)
         .padding(16)
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: appState.menuBarSymbolName)
-                .font(.system(size: 24))
-                .frame(width: 32, height: 32)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(appState.configuration.resolvedDisplayName)
-                    .font(.headline)
-                    .lineLimit(1)
-                Text(appState.connectionState.title)
-                    .font(.caption)
-                    .foregroundStyle(connectionColor)
-                    .lineLimit(2)
-            }
-
-            Spacer()
-        }
     }
 
     private var setupPrompt: some View {
@@ -63,6 +41,16 @@ struct MenuPanelView: View {
 
     private var footer: some View {
         HStack {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(connectionColor)
+                    .frame(width: 7, height: 7)
+                Text(appState.connectionState.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
             Button {
                 appState.reconnectIfConfigured()
             } label: {
