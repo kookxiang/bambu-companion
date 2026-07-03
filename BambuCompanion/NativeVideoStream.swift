@@ -265,7 +265,7 @@ private final class VideoLayerHostView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        displayLayer.videoGravity = .resizeAspect
+        displayLayer.videoGravity = .resizeAspectFill
         displayLayer.backgroundColor = NSColor.clear.cgColor
         var timebase: CMTimebase?
         CMTimebaseCreateWithSourceClock(
@@ -302,9 +302,8 @@ private final class VideoLayerHostView: NSView {
         let size = CGSize(width: CGFloat(renderSize.width), height: CGFloat(renderSize.height))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        displayLayer.bounds = CGRect(origin: .zero, size: size)
-        displayLayer.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        displayLayer.videoGravity = .resizeAspect
+        displayLayer.frame = CGRect(origin: .zero, size: size)
+        displayLayer.videoGravity = .resizeAspectFill
         CATransaction.commit()
     }
 
@@ -313,7 +312,7 @@ private final class VideoLayerHostView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayLayer.frame = bounds
-        displayLayer.videoGravity = .resizeAspect
+        displayLayer.videoGravity = .resizeAspectFill
         CATransaction.commit()
     }
 }
