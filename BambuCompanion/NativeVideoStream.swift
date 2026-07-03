@@ -108,6 +108,10 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var playbackDelegate: PictureInPicturePlaybackDelegate?
         private var lastHandledPictureInPictureRequest = 0
         private var isDetachedFromInlineView = false
+        private weak var sourceWindow: NSWindow?
+        private var sourceWindowFrame: NSRect?
+        private var sourceWindowAlpha: CGFloat?
+        private var pipFrameObserver: NSObjectProtocol?
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -117,6 +121,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         func attach(to view: VideoLayerHostView) {
             self.view = view
             isDetachedFromInlineView = false
+            sourceWindow = view.window
             configurePictureInPicture(for: view)
         }
 
@@ -183,6 +188,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             currentURL = nil
             pictureInPictureController?.stopPictureInPicture()
             stopStream()
+            restoreSourceWindowForPictureInPicture()
             releaseFromPictureInPicture()
         }
 
@@ -219,17 +225,120 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 currentURL = nil
                 stopStream()
             }
+            restoreSourceWindowForPictureInPicture()
             view?.restoreInlineLayout()
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
             onError("Picture in Picture failed: \(error.localizedDescription)")
+            restoreSourceWindowForPictureInPicture()
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            // Keep layer sizing to system-managed PiP lifecycle.
+            setupPiPSourceWindowResize()
+            schedulePiPHostFixPasses()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.syncSourceWindowToCurrentPiPSize()
+                self?.hideBrokenPiPHostView()
+            }
+            if let contentView = findPiPPanelWindow()?.contentView {
+                contentView.postsFrameChangedNotifications = true
+                pipFrameObserver = NotificationCenter.default.addObserver(
+                    forName: NSView.frameDidChangeNotification,
+                    object: contentView,
+                    queue: .main
+                ) { [weak self] _ in
+                    self?.syncSourceWindowToCurrentPiPSize()
+                }
+            }
+        }
+
+        private func setupPiPSourceWindowResize() {
+            guard let sourceWindow else {
+                return
+            }
+            if sourceWindowFrame == nil {
+                sourceWindowFrame = sourceWindow.frame
+            }
+            if sourceWindowAlpha == nil {
+                sourceWindowAlpha = sourceWindow.alphaValue
+            }
+            sourceWindow.alphaValue = 0
+            syncSourceWindowToCurrentPiPSize()
+        }
+
+        private func syncSourceWindowToCurrentPiPSize() {
+            guard let sourceWindow else {
+                return
+            }
+            guard
+                let pipWindow = findPiPPanelWindow(),
+                let contentView = pipWindow.contentView,
+                let referenceFrame = sourceWindowFrame
+            else {
+                return
+            }
+            let size = contentView.bounds.size
+            guard size.width > 0, size.height > 0 else {
+                return
+            }
+            sourceWindow.setFrame(NSRect(
+                x: referenceFrame.origin.x,
+                y: referenceFrame.origin.y + referenceFrame.height - size.height,
+                width: size.width,
+                height: size.height
+            ), display: true)
+            pipWindow.makeKeyAndOrderFront(nil)
+        }
+
+        private func schedulePiPHostFixPasses() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                self?.hideBrokenPiPHostView()
+                if let isActive = self?.pictureInPictureController?.isPictureInPictureActive, isActive {
+                    self?.schedulePiPHostFixPasses()
+                }
+            }
+        }
+
+        private func restoreSourceWindowForPictureInPicture() {
+            if let observer = pipFrameObserver {
+                NotificationCenter.default.removeObserver(observer)
+                pipFrameObserver = nil
+            }
+            if let sourceWindowFrame {
+                sourceWindow?.setFrame(sourceWindowFrame, display: true)
+            }
+            if let sourceWindowAlpha {
+                sourceWindow?.alphaValue = sourceWindowAlpha
+            } else {
+                sourceWindow?.alphaValue = 1
+            }
+            sourceWindow = nil
+            sourceWindowFrame = nil
+            sourceWindowAlpha = nil
+        }
+
+        private func hideBrokenPiPHostView() {
+            guard let contentView = findPiPPanelWindow()?.contentView else {
+                return
+            }
+            hideViews(named: "AVPictureInPictureCALayerHostView", in: contentView)
+        }
+
+        private func hideViews(named targetType: String, in root: NSView) {
+            var queue: [NSView] = [root]
+            while let view = queue.popLast() {
+                if String(describing: type(of: view)).contains(targetType) {
+                    view.isHidden = true
+                }
+                queue.append(contentsOf: view.subviews)
+            }
+        }
+
+        private func findPiPPanelWindow() -> NSWindow? {
+            NSApplication.shared.windows.first(where: { String(describing: type(of: $0)).contains("PIPPanel") })
         }
     }
 }
