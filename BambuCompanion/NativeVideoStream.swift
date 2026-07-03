@@ -299,7 +299,11 @@ private final class VideoLayerHostView: NSView {
         }
 
         isUsingPictureInPictureLayout = true
-        let size = CGSize(width: CGFloat(renderSize.width), height: CGFloat(renderSize.height))
+        let scale = window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        let size = CGSize(
+            width: CGFloat(renderSize.width) / scale,
+            height: CGFloat(renderSize.height) / scale
+        )
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayLayer.frame = CGRect(origin: .zero, size: size)
