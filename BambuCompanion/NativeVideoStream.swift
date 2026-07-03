@@ -108,7 +108,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var playbackDelegate: PictureInPicturePlaybackDelegate?
         private var lastHandledPictureInPictureRequest = 0
         private var isDetachedFromInlineView = false
-        private var pipLayoutWorkItem: DispatchWorkItem?
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -184,8 +183,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             currentURL = nil
             pictureInPictureController?.stopPictureInPicture()
             stopStream()
-            pipLayoutWorkItem?.cancel()
-            pipLayoutWorkItem = nil
             releaseFromPictureInPicture()
         }
 
@@ -222,46 +219,17 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 currentURL = nil
                 stopStream()
             }
-            pipLayoutWorkItem?.cancel()
-            pipLayoutWorkItem = nil
             view?.restoreInlineLayout()
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
             onError("Picture in Picture failed: \(error.localizedDescription)")
-            pipLayoutWorkItem?.cancel()
-            pipLayoutWorkItem = nil
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                self.applyCurrentPiPWindowLayout()
-            }
-            pipLayoutWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
-        }
-
-        private func applyCurrentPiPWindowLayout() {
-            guard let view else {
-                return
-            }
-            guard let window = NSApplication.shared.windows.first(where: { String(describing: type(of: $0)).contains("PIPPanel") }),
-                  let contentView = window.contentView else {
-                return
-            }
-            let size = contentView.bounds.size
-            guard size.width > 0, size.height > 0 else {
-                return
-            }
-            let scale = window.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-            let renderSize = CMVideoDimensions(
-                width: Int32(size.width * scale),
-                height: Int32(size.height * scale)
-            )
-            view.applyPictureInPictureRenderSize(renderSize)
+            // Keep layer sizing to system-managed PiP lifecycle.
         }
     }
 }
@@ -285,9 +253,7 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
-        DispatchQueue.main.async { [weak self] in
-            self?.videoView?.applyPictureInPictureRenderSize(newRenderSize)
-        }
+        // No-op to avoid fighting PiP layout.
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
@@ -297,7 +263,6 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
-    private var isUsingPictureInPictureLayout = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -324,31 +289,14 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
-        guard !isUsingPictureInPictureLayout else {
-            return
-        }
         displayLayer.frame = bounds
     }
 
     func applyPictureInPictureRenderSize(_ renderSize: CMVideoDimensions) {
-        guard renderSize.width > 0, renderSize.height > 0 else {
-            return
-        }
-        isUsingPictureInPictureLayout = true
-        let scale = window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        let size = CGSize(
-            width: CGFloat(renderSize.width) / scale,
-            height: CGFloat(renderSize.height) / scale
-        )
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        displayLayer.frame = CGRect(origin: .zero, size: size)
-        displayLayer.videoGravity = .resizeAspectFill
-        CATransaction.commit()
+        _ = renderSize
     }
 
     func restoreInlineLayout() {
-        isUsingPictureInPictureLayout = false
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayLayer.frame = bounds
