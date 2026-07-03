@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import CryptoKit
 import Network
 import SwiftUI
@@ -7,10 +8,11 @@ struct NativeVideoPreviewView: View {
     let url: URL?
     @State private var errorMessage: String?
     @State private var hasVideo = false
+    @State private var pictureInPictureRequest = 0
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, onFrame: {
+            NativeVideoLayerView(url: url, pictureInPictureRequest: pictureInPictureRequest, onFrame: {
                 hasVideo = true
             }) { message in
                 errorMessage = message
@@ -27,6 +29,23 @@ struct NativeVideoPreviewView: View {
                 }
             } else if url == nil {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
+            }
+
+            if hasVideo {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            pictureInPictureRequest += 1
+                        } label: {
+                            Label("Picture in Picture", systemImage: "pip.enter")
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .padding(8)
+                    }
+                    Spacer()
+                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -54,6 +73,7 @@ struct NativeVideoPreviewView: View {
 
 private struct NativeVideoLayerView: NSViewRepresentable {
     let url: URL?
+    let pictureInPictureRequest: Int
     let onFrame: () -> Void
     let onError: (String?) -> Void
 
@@ -65,6 +85,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
     func updateNSView(_ view: VideoLayerHostView, context: Context) {
         context.coordinator.start(url: url, onFrame: onFrame)
+        context.coordinator.handlePictureInPictureRequest(pictureInPictureRequest)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -72,21 +93,28 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ nsView: VideoLayerHostView, coordinator: Coordinator) {
-        coordinator.stop()
+        coordinator.detachFromInlineView()
     }
 
-    final class Coordinator {
+    final class Coordinator: NSObject, AVPictureInPictureControllerDelegate {
+        private static var retainedForPictureInPicture: [ObjectIdentifier: Coordinator] = [:]
+
         private let onError: (String?) -> Void
         private weak var view: VideoLayerHostView?
         private var client: NativeRTSPVideoClient?
         private var currentURL: URL?
+        private var pictureInPictureController: AVPictureInPictureController?
+        private var playbackDelegate: PictureInPicturePlaybackDelegate?
+        private var lastHandledPictureInPictureRequest = 0
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
+            super.init()
         }
 
         func attach(to view: VideoLayerHostView) {
             self.view = view
+            configurePictureInPicture(for: view)
         }
 
         func start(url: URL?, onFrame: @escaping () -> Void) {
@@ -114,11 +142,91 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             client.start()
         }
 
+        func handlePictureInPictureRequest(_ request: Int) {
+            guard request != lastHandledPictureInPictureRequest else {
+                return
+            }
+            lastHandledPictureInPictureRequest = request
+
+            guard let pictureInPictureController else {
+                onError("Picture in Picture is unavailable.")
+                return
+            }
+            if pictureInPictureController.isPictureInPictureActive {
+                pictureInPictureController.stopPictureInPicture()
+            } else if pictureInPictureController.isPictureInPicturePossible {
+                retainForPictureInPicture()
+                pictureInPictureController.startPictureInPicture()
+            } else {
+                onError("Picture in Picture is not ready yet.")
+            }
+        }
+
+        func detachFromInlineView() {
+            if pictureInPictureController?.isPictureInPictureActive == true {
+                retainForPictureInPicture()
+            } else {
+                stop()
+            }
+        }
+
         func stop() {
             currentURL = nil
+            pictureInPictureController?.stopPictureInPicture()
             client?.stop()
             client = nil
         }
+
+        private func configurePictureInPicture(for view: VideoLayerHostView) {
+            guard AVPictureInPictureController.isPictureInPictureSupported() else {
+                return
+            }
+            let playbackDelegate = PictureInPicturePlaybackDelegate()
+            let source = AVPictureInPictureController.ContentSource(
+                sampleBufferDisplayLayer: view.displayLayer,
+                playbackDelegate: playbackDelegate
+            )
+            let controller = AVPictureInPictureController(contentSource: source)
+            controller.delegate = self
+            self.playbackDelegate = playbackDelegate
+            self.pictureInPictureController = controller
+        }
+
+        private func retainForPictureInPicture() {
+            Self.retainedForPictureInPicture[ObjectIdentifier(self)] = self
+        }
+
+        private func releaseFromPictureInPicture() {
+            Self.retainedForPictureInPicture.removeValue(forKey: ObjectIdentifier(self))
+        }
+
+        func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+            stop()
+            releaseFromPictureInPicture()
+        }
+
+        func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
+            onError("Picture in Picture failed: \(error.localizedDescription)")
+            releaseFromPictureInPicture()
+        }
+    }
+}
+
+private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictureSampleBufferPlaybackDelegate {
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {}
+
+    func pictureInPictureControllerTimeRangeForPlayback(_ pictureInPictureController: AVPictureInPictureController) -> CMTimeRange {
+        CMTimeRange(start: .zero, duration: .positiveInfinity)
+    }
+
+    func pictureInPictureControllerIsPlaybackPaused(_ pictureInPictureController: AVPictureInPictureController) -> Bool {
+        false
+    }
+
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {}
+
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
+        completionHandler()
     }
 }
 
