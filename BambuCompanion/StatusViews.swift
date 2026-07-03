@@ -7,7 +7,7 @@ struct StatusSummaryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
-                CoverImageView(state: coverImageState, size: CGSize(width: 108, height: 108))
+                CoverImageView(state: coverImageState, size: CGSize(width: 96, height: 96))
 
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
