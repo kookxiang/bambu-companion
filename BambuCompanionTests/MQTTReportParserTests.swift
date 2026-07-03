@@ -53,6 +53,46 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.jobName, "Widget")
     }
 
+    func testParsesAMSUnitsIntoFourSlotRows() throws {
+        let json = """
+        {
+          "print": {
+            "ams": {
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {"id": "0", "tray_type": "PETG", "tray_color": "FFFFFFFF"},
+                    {"id": "1", "tray_type": "PLA", "tray_color": "00FF00FF"},
+                    {"id": "3", "tray_type": "ASA", "tray_color": "00000000"}
+                  ]
+                },
+                {
+                  "id": "1",
+                  "tray": [
+                    {"id": "0", "tray_type": "ABS", "tray_color": "#FF0000FF"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.amsUnits.count, 2)
+        XCTAssertEqual(status.amsUnits[0].name, "AMS 1")
+        XCTAssertEqual(status.amsUnits[0].slots.count, 4)
+        XCTAssertEqual(status.amsUnits[0].slots.map(\.material), ["PETG", "PLA", nil, "ASA"])
+        XCTAssertEqual(status.amsUnits[0].slots[0].colorHex, "FFFFFF")
+        XCTAssertEqual(status.amsUnits[0].slots[1].colorHex, "00FF00")
+        XCTAssertNil(status.amsUnits[0].slots[3].colorHex)
+        XCTAssertEqual(status.amsUnits[1].name, "AMS 2")
+        XCTAssertEqual(status.amsUnits[1].slots.map(\.material), ["ABS", nil, nil, nil])
+        XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
+    }
+
     func testCoverImageCandidatesPreferSubtaskNameAndSkipMetadataRamdisk() {
         let candidates = CoverImageCandidateBuilder.candidates(
             gcodeFile: "/data/Metadata/plate_1.gcode",

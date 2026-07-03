@@ -30,10 +30,23 @@ struct PrinterStatus: Equatable {
     var remainingMinutes: Int?
     var nozzleTemperature: Double?
     var bedTemperature: Double?
-    var filamentSummary: String?
+    var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
 
     static let empty = PrinterStatus()
+}
+
+struct AMSUnitStatus: Equatable, Identifiable {
+    var id: String
+    var name: String
+    var slots: [AMSSlotStatus]
+}
+
+struct AMSSlotStatus: Equatable, Identifiable {
+    var id: String
+    var index: Int
+    var material: String?
+    var colorHex: String?
 }
 
 enum ConnectionState: Equatable {

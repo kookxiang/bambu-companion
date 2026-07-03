@@ -29,11 +29,8 @@ struct StatusSummaryView: View {
                 MetricView(title: "Remaining", value: remainingTime)
             }
 
-            if let filamentSummary = status.filamentSummary {
-                Text(filamentSummary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            if !status.amsUnits.isEmpty {
+                AMSUnitsView(units: status.amsUnits)
             }
         }
     }
@@ -61,6 +58,77 @@ struct StatusSummaryView: View {
             return "--"
         }
         return "\(Int(value.rounded())) C"
+    }
+}
+
+private struct AMSUnitsView: View {
+    let units: [AMSUnitStatus]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(units) { unit in
+                HStack(spacing: 8) {
+                    Text(unit.name)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .frame(width: 44, alignment: .leading)
+
+                    HStack(spacing: 6) {
+                        ForEach(unit.slots) { slot in
+                            AMSSlotView(slot: slot)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+}
+
+private struct AMSSlotView: View {
+    let slot: AMSSlotStatus
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(slotColor)
+                .frame(width: 10, height: 10)
+                .overlay {
+                    Circle()
+                        .stroke(.secondary.opacity(0.45), lineWidth: 0.5)
+                }
+
+            Text(slot.material ?? "--")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(slot.material == nil ? .tertiary : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, minHeight: 28)
+        .padding(.horizontal, 6)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+    }
+
+    private var slotColor: Color {
+        guard let colorHex = slot.colorHex,
+              let color = Color(hexRGB: colorHex) else {
+            return .clear
+        }
+        return color
+    }
+}
+
+private extension Color {
+    init?(hexRGB: String) {
+        guard hexRGB.count == 6,
+              let value = UInt32(hexRGB, radix: 16) else {
+            return nil
+        }
+        let red = Double((value >> 16) & 0xFF) / 255
+        let green = Double((value >> 8) & 0xFF) / 255
+        let blue = Double(value & 0xFF) / 255
+        self.init(red: red, green: green, blue: blue)
     }
 }
 

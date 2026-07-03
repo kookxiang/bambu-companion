@@ -18,7 +18,7 @@ enum MQTTReportParser {
         status.remainingMinutes = intValue(print["mc_remaining_time"]) ?? intValue(print["remaining_time"])
         status.nozzleTemperature = doubleValue(print["nozzle_temper"]) ?? doubleValue(print["nozzle_temperature"])
         status.bedTemperature = doubleValue(print["bed_temper"]) ?? doubleValue(print["bed_temperature"])
-        status.filamentSummary = filamentSummary(from: print)
+        status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
         return status
     }
@@ -43,16 +43,72 @@ enum MQTTReportParser {
         }
     }
 
-    private static func filamentSummary(from print: [String: Any]) -> String? {
+    private static func amsUnits(from print: [String: Any]) -> [AMSUnitStatus] {
         guard let ams = print["ams"] as? [String: Any],
               let amsList = ams["ams"] as? [[String: Any]] else {
+            return []
+        }
+        return amsList.enumerated().compactMap { amsIndex, ams in
+            guard let trays = ams["tray"] as? [[String: Any]], !trays.isEmpty else {
+                return nil
+            }
+
+            let rawID = stringValue(ams["id"]) ?? "\(amsIndex)"
+            var trayByIndex: [Int: [String: Any]] = [:]
+            for tray in trays {
+                let trayIndex = intValue(tray["id"]) ?? 0
+                trayByIndex[trayIndex] = tray
+            }
+            let slots = (0..<4).map { slotIndex in
+                let tray = trayByIndex[slotIndex]
+                let material = normalizedMaterial(stringValue(tray?["tray_type"]))
+                let colorHex = normalizedColorHex(stringValue(tray?["tray_color"]))
+                return AMSSlotStatus(
+                    id: "\(rawID)-\(slotIndex)",
+                    index: slotIndex,
+                    material: material,
+                    colorHex: colorHex
+                )
+            }
+            let name = amsDisplayName(rawID: rawID, fallbackIndex: amsIndex)
+            return AMSUnitStatus(id: rawID, name: name, slots: slots)
+        }
+    }
+
+    private static func amsDisplayName(rawID: String, fallbackIndex: Int) -> String {
+        guard let numericID = Int(rawID) else {
+            return "AMS \(fallbackIndex + 1)"
+        }
+        return "AMS \(numericID + 1)"
+    }
+
+    private static func normalizedMaterial(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
             return nil
         }
-        let names = amsList
-            .flatMap { ($0["tray"] as? [[String: Any]]) ?? [] }
-            .compactMap { stringValue($0["tray_type"]) }
-            .filter { !$0.isEmpty }
-        return names.isEmpty ? nil : names.joined(separator: ", ")
+        return value
+    }
+
+    private static func normalizedColorHex(_ value: String?) -> String? {
+        guard var value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        if value.hasPrefix("#") {
+            value.removeFirst()
+        }
+        let allowed = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
+        guard value.rangeOfCharacter(from: allowed.inverted) == nil else {
+            return nil
+        }
+        if value.count == 8 {
+            value = String(value.prefix(6))
+        }
+        guard value.count == 6, value != "000000" else {
+            return nil
+        }
+        return value.uppercased()
     }
 
     private static func stringValue(_ value: Any?) -> String? {
