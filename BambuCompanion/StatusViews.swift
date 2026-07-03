@@ -53,7 +53,7 @@ struct StatusSummaryView: View {
                 if status.chamberTemperature != nil {
                     MetricView(title: "Chamber", value: temperature(status.chamberTemperature, target: status.targetChamberTemperature))
                 }
-                MetricView(title: "Remaining", value: remainingTime)
+                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
             }
 
             if !status.amsUnits.isEmpty {
@@ -102,6 +102,13 @@ struct StatusSummaryView: View {
             return "\(minutes)m"
         }
         return "\(minutes / 60)h \(minutes % 60)m"
+    }
+
+    private var estimatedCompletionDate: Date? {
+        guard let minutes = status.remainingMinutes else {
+            return nil
+        }
+        return Date().addingTimeInterval(TimeInterval(minutes * 60))
     }
 
     @ViewBuilder
@@ -425,6 +432,30 @@ private struct MetricView: View {
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
+}
+
+private struct RemainingMetricView: View {
+    let value: String
+    let completionDate: Date?
+
+    var body: some View {
+        MetricView(title: "Remaining", value: value)
+            .help(helpText)
+    }
+
+    private var helpText: String {
+        guard let completionDate else {
+            return "Estimated completion unavailable"
+        }
+        return "Estimated completion: \(Self.completionFormatter.string(from: completionDate))"
+    }
+
+    private static let completionFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
 }
 
 private struct DualNozzleMetricView: View {
