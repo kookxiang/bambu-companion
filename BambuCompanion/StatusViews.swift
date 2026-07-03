@@ -137,7 +137,7 @@ struct StatusSummaryView: View {
         guard let target, target > 0 else {
             return temperature(value)
         }
-        guard abs(value - target) > 3 else {
+        guard abs(value - target) > 1 else {
             return temperature(value)
         }
         return "\(TemperatureText.string(value)) / \(TemperatureText.string(target))"
