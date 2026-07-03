@@ -311,7 +311,9 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard AVPictureInPictureController.isPictureInPictureSupported() else {
                 return
             }
-            let playbackDelegate = PictureInPicturePlaybackDelegate(videoView: view)
+            let playbackDelegate = PictureInPicturePlaybackDelegate(videoView: view) { [weak self] paused in
+                self?.client?.setPaused(paused)
+            }
             let source = AVPictureInPictureController.ContentSource(
                 sampleBufferDisplayLayer: view.displayLayer,
                 playbackDelegate: playbackDelegate
@@ -398,10 +400,12 @@ private final class VideoHostContainerView: NSView {
 
 private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictureSampleBufferPlaybackDelegate {
     private weak var videoView: VideoLayerHostView?
+    private let onSetPaused: (Bool) -> Void
     private var isPlaybackPaused = false
 
-    init(videoView: VideoLayerHostView) {
+    init(videoView: VideoLayerHostView, onSetPaused: @escaping (Bool) -> Void) {
         self.videoView = videoView
+        self.onSetPaused = onSetPaused
         super.init()
     }
 
@@ -409,6 +413,7 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
         let paused = !playing
         guard isPlaybackPaused != paused else { return }
         isPlaybackPaused = paused
+        onSetPaused(paused)
         DispatchQueue.main.async { [weak self] in
             self?.videoView?.applyPlaybackRate(isPaused: paused)
         }
@@ -525,6 +530,7 @@ private final class NativeRTSPVideoClient {
     private var firstRTPTimestamp: UInt32?
     private var didDisplayFrame = false
     private var isStopped = false
+    private var isPaused = false
     private var isWatchdogScheduled = false
     private var lastFrameTime = Date()
     private let onFrame: () -> Void
@@ -547,6 +553,7 @@ private final class NativeRTSPVideoClient {
     func start() {
         queue.async {
             self.isStopped = false
+            self.isPaused = false
             self.lastFrameTime = Date()
             self.scheduleWatchdog()
             self.connect()
@@ -556,6 +563,7 @@ private final class NativeRTSPVideoClient {
     func stop() {
         queue.async {
             self.isStopped = true
+            self.isPaused = false
             self.connection?.cancel()
             self.connection = nil
             self.receiveBuffer.removeAll(keepingCapacity: false)
@@ -563,6 +571,21 @@ private final class NativeRTSPVideoClient {
             self.currentAccessUnit.removeAll(keepingCapacity: false)
             self.currentAccessUnitTimestamp = nil
             self.firstRTPTimestamp = nil
+        }
+    }
+
+    func setPaused(_ paused: Bool) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard self.isPaused != paused else { return }
+            self.isPaused = paused
+            self.currentAccessUnit.removeAll(keepingCapacity: true)
+            self.currentAccessUnitTimestamp = nil
+            self.fuBuffer.removeAll(keepingCapacity: true)
+            self.lastFrameTime = Date()
+            DispatchQueue.main.async { [weak self] in
+                self?.displayLayer?.flush()
+            }
         }
     }
 
@@ -779,6 +802,9 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleRTPPacket(_ packet: Data) {
+        guard !isPaused else {
+            return
+        }
         guard packet.count >= 12 else { return }
         let csrcCount = Int(packet[0] & 0x0F)
         let hasExtension = (packet[0] & 0x10) != 0
@@ -796,6 +822,9 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleH264Payload(_ payload: Data, timestamp: UInt32, marker: Bool) {
+        guard !isPaused else {
+            return
+        }
         guard let first = payload.first else { return }
         let type = first & 0x1F
         switch type {
@@ -811,6 +840,9 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleSTAPA(_ payload: Data.SubSequence, timestamp: UInt32, marker: Bool) {
+        guard !isPaused else {
+            return
+        }
         var offset = payload.startIndex
         while payload.distance(from: offset, to: payload.endIndex) >= 2 {
             let size = Int(payload[offset]) << 8 | Int(payload[payload.index(after: offset)])
@@ -826,6 +858,9 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleFUA(_ payload: Data, timestamp: UInt32, marker: Bool) {
+        guard !isPaused else {
+            return
+        }
         guard payload.count >= 2 else { return }
         let indicator = payload[0]
         let header = payload[1]
