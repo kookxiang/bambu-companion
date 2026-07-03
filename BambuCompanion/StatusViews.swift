@@ -531,7 +531,7 @@ private struct DualNozzleMetricView: View {
 
 struct VideoPreviewView: View {
     let url: URL?
-    @StateObject private var frameSource = FFmpegVideoFrameSource()
+    @StateObject private var frameSource = ExternalVideoFrameSource()
 
     var body: some View {
         Group {
@@ -580,7 +580,7 @@ struct VideoPreviewView: View {
     }
 }
 
-private final class FFmpegVideoFrameSource: ObservableObject {
+private final class ExternalVideoFrameSource: ObservableObject {
     @Published var image: NSImage?
     @Published var errorMessage: String?
 
@@ -589,7 +589,7 @@ private final class FFmpegVideoFrameSource: ObservableObject {
     private var stderrPipe: Pipe?
     private var currentURL: URL?
     private var buffer = Data()
-    private let queue = DispatchQueue(label: "BambuCompanion.FFmpegVideoFrameSource")
+    private let queue = DispatchQueue(label: "BambuCompanion.ExternalVideoFrameSource")
 
     func start(url: URL?) {
         guard let url else {
@@ -605,15 +605,15 @@ private final class FFmpegVideoFrameSource: ObservableObject {
         image = nil
         errorMessage = nil
 
-        guard let ffmpegURL = Self.ffmpegURL else {
-            errorMessage = "ffmpeg is required for RTSP video preview."
+        guard let decoderURL = Self.decoderURL else {
+            errorMessage = "Video decoder is not bundled in this build."
             return
         }
 
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
-        process.executableURL = ffmpegURL
+        process.executableURL = decoderURL
         process.arguments = [
             "-hide_banner",
             "-loglevel", "error",
@@ -662,7 +662,7 @@ private final class FFmpegVideoFrameSource: ObservableObject {
             try process.run()
         } catch {
             stop()
-            errorMessage = "Unable to start ffmpeg."
+            errorMessage = "Unable to start video decoder."
         }
     }
 
@@ -715,8 +715,13 @@ private final class FFmpegVideoFrameSource: ObservableObject {
         stop()
     }
 
-    private static var ffmpegURL: URL? {
-        [
+    private static var decoderURL: URL? {
+        if let bundledURL = Bundle.main.url(forResource: "ffmpeg", withExtension: nil),
+           FileManager.default.isExecutableFile(atPath: bundledURL.path) {
+            return bundledURL
+        }
+
+        return [
             "/opt/homebrew/bin/ffmpeg",
             "/usr/local/bin/ffmpeg",
             "/usr/bin/ffmpeg"
