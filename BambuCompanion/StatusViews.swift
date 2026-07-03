@@ -32,11 +32,11 @@ struct StatusSummaryView: View {
                 AlertBannerView(alert: alert)
             }
 
-            HStack(spacing: 10) {
+            LazyVGrid(columns: metricColumns, spacing: 10) {
                 nozzleMetric
-                MetricView(title: "Bed", value: temperature(status.bedTemperature))
+                MetricView(title: "Bed", value: temperature(status.bedTemperature, target: status.targetBedTemperature))
                 if status.chamberTemperature != nil {
-                    MetricView(title: "Chamber", value: temperature(status.chamberTemperature))
+                    MetricView(title: "Chamber", value: temperature(status.chamberTemperature, target: status.targetChamberTemperature))
                 }
                 MetricView(title: "Remaining", value: remainingTime)
             }
@@ -45,6 +45,13 @@ struct StatusSummaryView: View {
                 AMSUnitsView(units: status.amsUnits)
             }
         }
+    }
+
+    private var metricColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 10),
+            GridItem(.flexible(), spacing: 10)
+        ]
     }
 
     private var statusDetail: String {
@@ -99,6 +106,16 @@ struct StatusSummaryView: View {
             return "--"
         }
         return "\(Int(value.rounded())) C"
+    }
+
+    private func temperature(_ value: Double?, target: Double?) -> String {
+        guard let value else {
+            return "--"
+        }
+        guard let target, target > 0 else {
+            return temperature(value)
+        }
+        return "\(Int(value.rounded())) / \(Int(target.rounded())) C"
     }
 }
 
@@ -317,9 +334,9 @@ private struct DualNozzleMetricView: View {
                 Text(rightTemperature)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .font(.caption.monospacedDigit().weight(.semibold))
+            .font(.callout.monospacedDigit())
             .lineLimit(1)
-            .minimumScaleFactor(0.7)
+            .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)

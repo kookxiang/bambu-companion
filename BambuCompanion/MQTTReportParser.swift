@@ -24,8 +24,12 @@ enum MQTTReportParser {
         let nozzleTemperatures = dualNozzleTemperatures(from: print)
         status.leftNozzleTemperature = nozzleTemperatures.left
         status.rightNozzleTemperature = nozzleTemperatures.right
-        status.bedTemperature = doubleValue(print["bed_temper"]) ?? doubleValue(print["bed_temperature"])
-        status.chamberTemperature = chamberTemperature(from: print)
+        let bedTemperatures = bedTemperatures(from: print)
+        status.bedTemperature = bedTemperatures.current
+        status.targetBedTemperature = bedTemperatures.target
+        let chamberTemperatures = chamberTemperatures(from: print)
+        status.chamberTemperature = chamberTemperatures.current
+        status.targetChamberTemperature = chamberTemperatures.target
         status.alert = alert(from: print)
         status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
@@ -79,13 +83,34 @@ enum MQTTReportParser {
         return (left, right)
     }
 
-    private static func chamberTemperature(from print: [String: Any]) -> Double? {
+    private static func bedTemperatures(from print: [String: Any]) -> (current: Double?, target: Double?) {
+        if let bed = (print["device"] as? [String: Any])?["bed"] as? [String: Any],
+           let info = bed["info"] as? [String: Any],
+           let encodedTemperature = intValue(info["temp"]) {
+            return (
+                current: Double(encodedTemperature & 0xFFFF),
+                target: Double((encodedTemperature >> 16) & 0xFFFF)
+            )
+        }
+        return (
+            current: doubleValue(print["bed_temper"]) ?? doubleValue(print["bed_temperature"]),
+            target: doubleValue(print["bed_target_temper"]) ?? doubleValue(print["target_bed_temperature"])
+        )
+    }
+
+    private static func chamberTemperatures(from print: [String: Any]) -> (current: Double?, target: Double?) {
         if let ctc = (print["device"] as? [String: Any])?["ctc"] as? [String: Any],
            let info = ctc["info"] as? [String: Any],
            let encodedTemperature = intValue(info["temp"]) {
-            return Double(encodedTemperature & 0xFFFF)
+            return (
+                current: Double(encodedTemperature & 0xFFFF),
+                target: Double((encodedTemperature >> 16) & 0xFFFF)
+            )
         }
-        return doubleValue(print["chamber_temper"]) ?? doubleValue(print["chamber_temperature"])
+        return (
+            current: doubleValue(print["chamber_temper"]) ?? doubleValue(print["chamber_temperature"]),
+            target: doubleValue(print["chamber_target_temper"]) ?? doubleValue(print["target_chamber_temperature"])
+        )
     }
 
     private static func alert(from print: [String: Any]) -> PrinterAlert? {

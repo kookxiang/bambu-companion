@@ -36,7 +36,9 @@ struct PrinterStatus: Equatable {
     var leftNozzleTemperature: Double?
     var rightNozzleTemperature: Double?
     var bedTemperature: Double?
+    var targetBedTemperature: Double?
     var chamberTemperature: Double?
+    var targetChamberTemperature: Double?
     var alert: PrinterAlert?
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?

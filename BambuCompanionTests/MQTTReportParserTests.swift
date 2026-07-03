@@ -14,7 +14,9 @@ final class MQTTReportParserTests: XCTestCase {
             "gcode_file": "benchy.3mf",
             "nozzle_temper": 221.4,
             "bed_temper": 63,
-            "chamber_temper": 38
+            "bed_target_temper": 70,
+            "chamber_temper": 38,
+            "chamber_target_temper": 45
           }
         }
         """
@@ -29,7 +31,9 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.jobName, "benchy.3mf")
         XCTAssertEqual(status.nozzleTemperature, 221.4)
         XCTAssertEqual(status.bedTemperature, 63)
+        XCTAssertEqual(status.targetBedTemperature, 70)
         XCTAssertEqual(status.chamberTemperature, 38)
+        XCTAssertEqual(status.targetChamberTemperature, 45)
         XCTAssertNotNil(status.updatedAt)
     }
 
@@ -134,6 +138,11 @@ final class MQTTReportParserTests: XCTestCase {
           "print": {
             "print_error": 117473286,
             "device": {
+              "bed": {
+                "info": {
+                  "temp": 4587580
+                }
+              },
               "ctc": {
                 "info": {
                   "temp": 3276843
@@ -146,7 +155,10 @@ final class MQTTReportParserTests: XCTestCase {
 
         let status = try MQTTReportParser.parse(Data(json.utf8))
 
+        XCTAssertEqual(status.bedTemperature, 60)
+        XCTAssertEqual(status.targetBedTemperature, 70)
         XCTAssertEqual(status.chamberTemperature, 43)
+        XCTAssertEqual(status.targetChamberTemperature, 50)
         XCTAssertEqual(status.alert?.title, "Print error")
         XCTAssertEqual(status.alert?.detail, "0700_8006")
     }
