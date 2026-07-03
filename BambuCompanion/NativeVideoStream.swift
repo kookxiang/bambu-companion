@@ -131,13 +131,14 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             currentURL = url
             onError(nil)
             view?.displayLayer.flushAndRemoveImage()
+            view?.pictureInPictureLayer.flushAndRemoveImage()
 
             guard let view else {
                 return
             }
             let client = NativeRTSPVideoClient(
                 url: url,
-                displayLayer: view.displayLayer,
+                displayLayers: view.videoDisplayLayers,
                 pictureInPictureController: pictureInPictureController,
                 onFrame: onFrame
             ) { [weak self] message in
@@ -196,7 +197,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             }
             let playbackDelegate = PictureInPicturePlaybackDelegate()
             let source = AVPictureInPictureController.ContentSource(
-                sampleBufferDisplayLayer: view.displayLayer,
+                sampleBufferDisplayLayer: view.pictureInPictureLayer,
                 playbackDelegate: playbackDelegate
             )
             let controller = AVPictureInPictureController(contentSource: source)
@@ -248,12 +249,35 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
+    let pictureInPictureLayer = AVSampleBufferDisplayLayer()
+
+    var videoDisplayLayers: [AVSampleBufferDisplayLayer] {
+        [displayLayer, pictureInPictureLayer]
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        configure(displayLayer, hidden: false)
+        configure(pictureInPictureLayer, hidden: true)
+        layer?.addSublayer(displayLayer)
+        layer?.addSublayer(pictureInPictureLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        displayLayer.frame = bounds
+        pictureInPictureLayer.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+    }
+
+    private func configure(_ displayLayer: AVSampleBufferDisplayLayer, hidden: Bool) {
         displayLayer.videoGravity = .resizeAspectFill
         displayLayer.backgroundColor = NSColor.clear.cgColor
+        displayLayer.isHidden = hidden
         var timebase: CMTimebase?
         CMTimebaseCreateWithSourceClock(
             allocator: kCFAllocatorDefault,
@@ -265,22 +289,12 @@ private final class VideoLayerHostView: NSView {
             CMTimebaseSetRate(timebase, rate: 1)
             displayLayer.controlTimebase = timebase
         }
-        layer?.addSublayer(displayLayer)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layout() {
-        super.layout()
-        displayLayer.frame = bounds
     }
 }
 
 private final class NativeRTSPVideoClient {
     private let url: URL
-    private weak var displayLayer: AVSampleBufferDisplayLayer?
+    private let displayLayers: [AVSampleBufferDisplayLayer]
     private weak var pictureInPictureController: AVPictureInPictureController?
     private let onError: (String) -> Void
     private let queue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient")
@@ -305,13 +319,13 @@ private final class NativeRTSPVideoClient {
 
     init(
         url: URL,
-        displayLayer: AVSampleBufferDisplayLayer,
+        displayLayers: [AVSampleBufferDisplayLayer],
         pictureInPictureController: AVPictureInPictureController?,
         onFrame: @escaping () -> Void,
         onError: @escaping (String) -> Void
     ) {
         self.url = url
-        self.displayLayer = displayLayer
+        self.displayLayers = displayLayers
         self.pictureInPictureController = pictureInPictureController
         self.onFrame = onFrame
         self.onError = onError
@@ -726,17 +740,21 @@ private final class NativeRTSPVideoClient {
         )
         guard sampleStatus == noErr, let sampleBuffer else { return }
         DispatchQueue.main.async { [weak self] in
-            guard let layer = self?.displayLayer else { return }
-            if layer.status == .failed {
-                layer.flush()
-            }
-            if layer.isReadyForMoreMediaData {
-                layer.enqueue(sampleBuffer)
-                if self?.didDisplayFrame == false {
-                    self?.didDisplayFrame = true
-                    self?.pictureInPictureController?.invalidatePlaybackState()
-                    self?.onFrame()
+            guard let self else { return }
+            var enqueued = false
+            for layer in self.displayLayers {
+                if layer.status == .failed {
+                    layer.flush()
                 }
+                if layer.isReadyForMoreMediaData {
+                    layer.enqueue(sampleBuffer)
+                    enqueued = true
+                }
+            }
+            if enqueued, !self.didDisplayFrame {
+                self.didDisplayFrame = true
+                self.pictureInPictureController?.invalidatePlaybackState()
+                self.onFrame()
             }
         }
     }
@@ -808,7 +826,7 @@ private final class NativeRTSPVideoClient {
         lastFrameTime = Date()
 
         DispatchQueue.main.async { [weak self] in
-            self?.displayLayer?.flush()
+            self?.displayLayers.forEach { $0.flush() }
         }
         connect()
     }
