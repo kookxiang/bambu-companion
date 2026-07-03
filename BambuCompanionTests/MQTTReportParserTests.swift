@@ -119,6 +119,84 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
     }
 
+    func testParsesActiveAMSSlotFromTrayNow() throws {
+        let json = """
+        {
+          "print": {
+            "ams": {
+              "tray_now": "5",
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {"id": "0", "tray_type": "PLA"},
+                    {"id": "1", "tray_type": "PLA"}
+                  ]
+                },
+                {
+                  "id": "1",
+                  "tray": [
+                    {"id": "0", "tray_type": "PETG"},
+                    {"id": "1", "tray_type": "ASA"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertFalse(status.amsUnits[0].slots[1].isActive)
+        XCTAssertTrue(status.amsUnits[1].slots[1].isActive)
+    }
+
+    func testParsesActiveAMSSlotFromDualNozzleSnow() throws {
+        let json = """
+        {
+          "print": {
+            "device": {
+              "extruder": {
+                "state": 18,
+                "info": [
+                  {"id": 0, "snow": 259},
+                  {"id": 1, "snow": 3}
+                ]
+              }
+            },
+            "ams": {
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {"id": "0", "tray_type": "PETG"},
+                    {"id": "1", "tray_type": "PLA"},
+                    {"id": "2", "tray_type": "ASA"},
+                    {"id": "3", "tray_type": "PETG"}
+                  ]
+                },
+                {
+                  "id": "1",
+                  "tray": [
+                    {"id": "0", "tray_type": "PETG"},
+                    {"id": "1", "tray_type": "PLA"},
+                    {"id": "2", "tray_type": "ASA"},
+                    {"id": "3", "tray_type": "PETG"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertTrue(status.amsUnits[0].slots[3].isActive)
+        XCTAssertFalse(status.amsUnits[1].slots[3].isActive)
+    }
+
     func testCoverImageCandidatesPreferSubtaskNameAndSkipMetadataRamdisk() {
         let candidates = CoverImageCandidateBuilder.candidates(
             gcodeFile: "/data/Metadata/plate_1.gcode",

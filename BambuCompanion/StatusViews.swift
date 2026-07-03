@@ -123,7 +123,11 @@ private struct AMSSlotView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 28)
         .padding(.horizontal, 6)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+        .background(slot.isActive ? Color.accentColor.opacity(0.18) : Color(NSColor.quaternaryLabelColor), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(slot.isActive ? Color.accentColor : Color.clear, lineWidth: 1.5)
+        }
     }
 
     private var slotColor: Color {

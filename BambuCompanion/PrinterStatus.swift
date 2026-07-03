@@ -51,6 +51,7 @@ struct AMSSlotStatus: Equatable, Identifiable {
     var index: Int
     var material: String?
     var colorHex: String?
+    var isActive: Bool = false
 }
 
 enum ConnectionState: Equatable {

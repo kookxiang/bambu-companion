@@ -80,6 +80,7 @@ enum MQTTReportParser {
               let amsList = ams["ams"] as? [[String: Any]] else {
             return []
         }
+        let activeSlot = activeAMSSlot(from: print, ams: ams)
         return amsList.enumerated().compactMap { amsIndex, ams in
             guard let trays = ams["tray"] as? [[String: Any]], !trays.isEmpty else {
                 return nil
@@ -99,12 +100,61 @@ enum MQTTReportParser {
                     id: "\(rawID)-\(slotIndex)",
                     index: slotIndex,
                     material: material,
-                    colorHex: colorHex
+                    colorHex: colorHex,
+                    isActive: activeSlot?.amsID == rawID && activeSlot?.slotIndex == slotIndex
                 )
             }
             let name = amsDisplayName(rawID: rawID, fallbackIndex: amsIndex)
             return AMSUnitStatus(id: rawID, name: name, slots: slots)
         }
+    }
+
+    private static func activeAMSSlot(from print: [String: Any], ams: [String: Any]) -> (amsID: String, slotIndex: Int)? {
+        if let slot = activeAMSSlotFromExtruder(print) {
+            return slot
+        }
+        if let trayNow = intValue(ams["tray_now"]) {
+            return activeAMSSlot(fromEncodedTray: trayNow)
+        }
+        return nil
+    }
+
+    private static func activeAMSSlotFromExtruder(_ print: [String: Any]) -> (amsID: String, slotIndex: Int)? {
+        guard let extruder = (print["device"] as? [String: Any])?["extruder"] as? [String: Any],
+              let info = extruder["info"] as? [[String: Any]] else {
+            return nil
+        }
+
+        let activeNozzleID: Int
+        if let state = intValue(extruder["state"]) {
+            activeNozzleID = (state >> 4) & 0xF
+        } else {
+            activeNozzleID = 0
+        }
+
+        guard let activeEntry = info.first(where: { intValue($0["id"]) == activeNozzleID }),
+              let snow = intValue(activeEntry["snow"]) else {
+            return nil
+        }
+
+        let slotIndex = snow & 0x3
+        let amsIndex = snow >> 8
+        guard slotIndex < 4, amsIndex < 128 else {
+            return nil
+        }
+        return ("\(amsIndex)", slotIndex)
+    }
+
+    private static func activeAMSSlot(fromEncodedTray trayNow: Int) -> (amsID: String, slotIndex: Int)? {
+        guard trayNow >= 0, trayNow != 254, trayNow != 255 else {
+            return nil
+        }
+        if trayNow >= 80 {
+            return ("\(trayNow)", 0)
+        }
+        let slotIndex = trayNow & 0x3
+        let amsIndex = trayNow >> 2
+        return ("\(amsIndex)", slotIndex)
     }
 
     private static func amsDisplayName(rawID: String, fallbackIndex: Int) -> String {
