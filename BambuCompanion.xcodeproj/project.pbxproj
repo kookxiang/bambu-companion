@@ -26,6 +26,7 @@
 		1A0000010000000000000025 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
 		1A0000010000000000000027 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
 		1A0000010000000000000028 /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
+		2A0000010000000000000001 /* NativeVideoStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0000010000000000000002 /* NativeVideoStream.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 		1A000001000000000000001F /* FTPSDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTPSDownloader.swift; sourceTree = "<group>"; };
 		1A0000010000000000000023 /* ZIPArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZIPArchive.swift; sourceTree = "<group>"; };
 		1A0000010000000000000026 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
+		2A0000010000000000000002 /* NativeVideoStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoStream.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +93,7 @@
 				1A0000010000000000000018 /* MenuPanelView.swift */,
 				1A0000010000000000000019 /* SettingsView.swift */,
 				1A000001000000000000001A /* StatusViews.swift */,
+				2A0000010000000000000002 /* NativeVideoStream.swift */,
 				1A000001000000000000001C /* Info.plist */,
 			);
 			path = BambuCompanion;
@@ -202,6 +205,7 @@
 				1A0000010000000000000008 /* MenuPanelView.swift in Sources */,
 				1A0000010000000000000009 /* SettingsView.swift in Sources */,
 				1A000001000000000000000A /* StatusViews.swift in Sources */,
+				2A0000010000000000000001 /* NativeVideoStream.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
