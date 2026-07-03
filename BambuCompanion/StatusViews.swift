@@ -5,11 +5,11 @@ struct StatusSummaryView: View {
     let coverImageState: CoverImageState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                CoverImageView(state: coverImageState, size: CGSize(width: 96, height: 96))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                CoverImageView(state: coverImageState, size: CGSize(width: 84, height: 84))
 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(status.activity.title)
@@ -26,7 +26,6 @@ struct StatusSummaryView: View {
 
                     ProgressView(value: Double(status.progress ?? 0), total: 100)
                 }
-                .padding(.top, 2)
             }
 
             HStack(spacing: 10) {
