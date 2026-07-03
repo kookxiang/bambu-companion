@@ -7,13 +7,22 @@ import AppKit
 
 struct NativeVideoPreviewView: View {
     let url: URL?
+
+    var body: some View {
+        NativeVideoStreamSurface(url: url, showFloatingButton: true)
+    }
+}
+
+private struct NativeVideoStreamSurface: View {
+    let url: URL?
+    let showFloatingButton: Bool
+
     @State private var errorMessage: String?
     @State private var hasVideo = false
-    @State private var pictureInPictureRequest = 0
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, pictureInPictureRequest: pictureInPictureRequest, onFrame: {
+            NativeVideoLayerView(url: url, pictureInPictureRequest: 0, onFrame: {
                 hasVideo = true
             }) { message in
                 errorMessage = message
@@ -32,12 +41,12 @@ struct NativeVideoPreviewView: View {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
             }
 
-            if hasVideo {
+            if hasVideo && showFloatingButton {
                 VStack {
                     HStack {
                         Spacer()
                         Button {
-                            pictureInPictureRequest += 1
+                            FloatingVideoWindowController.shared.toggle(url: url)
                         } label: {
                             Label("Picture in Picture", systemImage: "pip.enter")
                         }
@@ -50,9 +59,9 @@ struct NativeVideoPreviewView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 191)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .frame(height: showFloatingButton ? 191 : nil)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
+        .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .onChange(of: url) {
             hasVideo = false
             errorMessage = nil
@@ -69,6 +78,98 @@ struct NativeVideoPreviewView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+    }
+}
+
+private struct FloatingVideoStreamView: View {
+    let url: URL?
+
+    var body: some View {
+        NativeVideoStreamSurface(url: url, showFloatingButton: false)
+            .frame(minWidth: 360, minHeight: 200)
+            .onAppear {
+                if url == nil {
+                    FloatingVideoWindowController.shared.dismiss()
+                }
+            }
+    }
+}
+
+private final class FloatingVideoWindowController {
+    static let shared = FloatingVideoWindowController()
+
+    private var panel: NSPanel?
+    private var delegate: FloatingVideoWindowDelegate?
+    private let defaultSize = NSSize(width: 640, height: 360)
+
+    @MainActor func toggle(url: URL?) {
+        guard let url else {
+            dismiss()
+            return
+        }
+        if let panel, panel.isVisible {
+            panel.close()
+            return
+        }
+        show(url: url)
+    }
+
+    @MainActor func show(url: URL) {
+        if let panel {
+            if let host = panel.contentViewController as? NSHostingController<FloatingVideoStreamView> {
+                host.rootView = FloatingVideoStreamView(url: url)
+            } else {
+                panel.contentViewController = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+            }
+            panel.makeKeyAndOrderFront(nil)
+            panel.deminiaturize(nil)
+            return
+        }
+
+        let panel = makePanel()
+        panel.contentViewController = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+        panel.center()
+        panel.makeKeyAndOrderFront(nil)
+        self.panel = panel
+    }
+
+    @MainActor func dismiss() {
+        panel?.close()
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: defaultSize),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.title = "Printer Camera"
+        panel.isReleasedWhenClosed = false
+        panel.titlebarAppearsTransparent = false
+
+        let panelDelegate = FloatingVideoWindowDelegate { [weak self] in
+            self?.panel = nil
+            self?.delegate = nil
+        }
+        panel.delegate = panelDelegate
+        delegate = panelDelegate
+        return panel
+    }
+}
+
+private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
+    private let onClose: () -> Void
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }
 
