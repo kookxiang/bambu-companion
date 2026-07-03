@@ -1,5 +1,20 @@
 import SwiftUI
 
+private enum TemperatureText {
+    static func string(_ value: Double) -> String {
+        formatter.string(from: Measurement<UnitTemperature>(value: value.rounded(), unit: .celsius))
+    }
+
+    private static let formatter: MeasurementFormatter = {
+        let formatter = MeasurementFormatter()
+        formatter.unitOptions = .providedUnit
+        formatter.unitStyle = .short
+        formatter.numberFormatter.maximumFractionDigits = 0
+        formatter.numberFormatter.minimumFractionDigits = 0
+        return formatter
+    }()
+}
+
 struct StatusSummaryView: View {
     let status: PrinterStatus
     let coverImageState: CoverImageState
@@ -105,7 +120,7 @@ struct StatusSummaryView: View {
         guard let value else {
             return "--"
         }
-        return Self.formattedTemperature(value)
+        return TemperatureText.string(value)
     }
 
     private func temperature(_ value: Double?, target: Double?) -> String {
@@ -115,21 +130,8 @@ struct StatusSummaryView: View {
         guard let target, target > 0 else {
             return temperature(value)
         }
-        return "\(Self.formattedTemperature(value)) / \(Self.formattedTemperature(target))"
+        return "\(TemperatureText.string(value)) / \(TemperatureText.string(target))"
     }
-
-    private static func formattedTemperature(_ value: Double) -> String {
-        temperatureFormatter.string(from: Measurement<UnitTemperature>(value: value.rounded(), unit: .celsius))
-    }
-
-    private static let temperatureFormatter: MeasurementFormatter = {
-        let formatter = MeasurementFormatter()
-        formatter.unitOptions = .providedUnit
-        formatter.unitStyle = .short
-        formatter.numberFormatter.maximumFractionDigits = 0
-        formatter.numberFormatter.minimumFractionDigits = 0
-        return formatter
-    }()
 }
 
 private struct AMSUnitsView: View {
@@ -139,11 +141,7 @@ private struct AMSUnitsView: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(units) { unit in
                 HStack(spacing: 8) {
-                    Text(unit.name)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .frame(width: 44, alignment: .leading)
+                    AMSUnitLabelView(unit: unit)
 
                     HStack(spacing: 6) {
                         ForEach(unit.slots) { slot in
@@ -152,8 +150,60 @@ private struct AMSUnitsView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
+                .help(amsHelpText(for: unit))
             }
         }
+    }
+
+    private func amsHelpText(for unit: AMSUnitStatus) -> String {
+        var lines: [String] = [unit.name]
+        if let temperature = unit.temperature {
+            lines.append("Temperature: \(TemperatureText.string(temperature))")
+        }
+        if let humidityPercent = unit.humidityPercent {
+            lines.append("Humidity: \(humidityPercent)%")
+        } else if let humidityIndex = unit.humidityIndex {
+            lines.append("Humidity index: \(humidityIndex)")
+        }
+        if unit.isDrying {
+            lines.append("Drying: \(dryingRemainingText(unit.dryingRemainingMinutes)) remaining")
+            if let dryingTemperature = unit.dryingTemperature {
+                lines.append("Drying temperature: \(TemperatureText.string(dryingTemperature))")
+            }
+            if let dryingFilament = unit.dryingFilament {
+                lines.append("Drying filament: \(dryingFilament)")
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func dryingRemainingText(_ minutes: Int?) -> String {
+        guard let minutes else {
+            return "--"
+        }
+        if minutes < 60 {
+            return "\(minutes)m"
+        }
+        return "\(minutes / 60)h \(minutes % 60)m"
+    }
+}
+
+private struct AMSUnitLabelView: View {
+    let unit: AMSUnitStatus
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(unit.name)
+                .lineLimit(1)
+            if unit.isDrying {
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption2)
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .frame(width: 58, alignment: .leading)
     }
 }
 

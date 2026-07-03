@@ -156,8 +156,28 @@ enum MQTTReportParser {
                 )
             }
             let name = amsDisplayName(rawID: rawID, fallbackIndex: amsIndex)
-            return AMSUnitStatus(id: rawID, name: name, slots: slots)
+            let drying = dryingStatus(from: ams)
+            return AMSUnitStatus(
+                id: rawID,
+                name: name,
+                slots: slots,
+                temperature: normalizedPositive(doubleValue(ams["temp"])),
+                humidityIndex: normalizedPositive(intValue(ams["humidity"])),
+                humidityPercent: normalizedPercent(intValue(ams["humidity_raw"])),
+                dryingRemainingMinutes: drying.remainingMinutes,
+                dryingTemperature: drying.temperature,
+                dryingFilament: drying.filament
+            )
         }
+    }
+
+    private static func dryingStatus(from ams: [String: Any]) -> (remainingMinutes: Int?, temperature: Double?, filament: String?) {
+        let drySetting = ams["dry_setting"] as? [String: Any]
+        return (
+            remainingMinutes: normalizedPositive(intValue(ams["dry_time"])),
+            temperature: normalizedPositive(doubleValue(drySetting?["dry_temperature"])),
+            filament: normalizedMaterial(stringValue(drySetting?["dry_filament"]))
+        )
     }
 
     private static func activeAMSSlot(from print: [String: Any], ams: [String: Any]) -> (amsID: String, slotIndex: Int)? {
@@ -249,6 +269,20 @@ enum MQTTReportParser {
             return nil
         }
         return min(value, 100)
+    }
+
+    private static func normalizedPositive(_ value: Int?) -> Int? {
+        guard let value, value > 0 else {
+            return nil
+        }
+        return value
+    }
+
+    private static func normalizedPositive(_ value: Double?) -> Double? {
+        guard let value, value > 0 else {
+            return nil
+        }
+        return value
     }
 
     private static func formattedErrorCode(_ value: Int) -> String {

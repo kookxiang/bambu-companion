@@ -55,6 +55,19 @@ struct AMSUnitStatus: Equatable, Identifiable {
     var id: String
     var name: String
     var slots: [AMSSlotStatus]
+    var temperature: Double?
+    var humidityIndex: Int?
+    var humidityPercent: Int?
+    var dryingRemainingMinutes: Int?
+    var dryingTemperature: Double?
+    var dryingFilament: String?
+
+    var isDrying: Bool {
+        guard let dryingRemainingMinutes else {
+            return false
+        }
+        return dryingRemainingMinutes > 0
+    }
 }
 
 struct AMSSlotStatus: Equatable, Identifiable {

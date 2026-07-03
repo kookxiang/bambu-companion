@@ -97,6 +97,14 @@ final class MQTTReportParserTests: XCTestCase {
               "ams": [
                 {
                   "id": "0",
+                  "humidity": "2",
+                  "humidity_raw": 41,
+                  "temp": "34.5",
+                  "dry_time": 125,
+                  "dry_setting": {
+                    "dry_temperature": 55,
+                    "dry_filament": "PETG"
+                  },
                   "tray": [
                     {"id": "0", "tray_type": "PETG", "tray_color": "FFFFFFFF", "remain": 63},
                     {"id": "1", "tray_type": "PLA", "tray_color": "00FF00FF", "remain": -1},
@@ -119,6 +127,13 @@ final class MQTTReportParserTests: XCTestCase {
 
         XCTAssertEqual(status.amsUnits.count, 2)
         XCTAssertEqual(status.amsUnits[0].name, "AMS 1")
+        XCTAssertEqual(status.amsUnits[0].temperature, 34.5)
+        XCTAssertEqual(status.amsUnits[0].humidityIndex, 2)
+        XCTAssertEqual(status.amsUnits[0].humidityPercent, 41)
+        XCTAssertEqual(status.amsUnits[0].dryingRemainingMinutes, 125)
+        XCTAssertEqual(status.amsUnits[0].dryingTemperature, 55)
+        XCTAssertEqual(status.amsUnits[0].dryingFilament, "PETG")
+        XCTAssertTrue(status.amsUnits[0].isDrying)
         XCTAssertEqual(status.amsUnits[0].slots.count, 4)
         XCTAssertEqual(status.amsUnits[0].slots.map(\.material), ["PETG", "PLA", nil, "ASA"])
         XCTAssertEqual(status.amsUnits[0].slots[0].colorHex, "FFFFFF")
