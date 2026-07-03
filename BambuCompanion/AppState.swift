@@ -157,20 +157,41 @@ enum VideoStreamURLBuilder {
     }
 
     private static func authenticatedURL(from rawURL: String, configuration: PrinterConfiguration) -> URL? {
-        guard var components = URLComponents(string: rawURL),
-              components.host != nil else {
+        let normalizedRawURL = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        var components = URLComponents()
+
+        if let parsed = URLComponents(string: normalizedRawURL), parsed.host != nil {
+            components = parsed
+        } else {
+            if let withScheme = URLComponents(string: "rtsp://\(normalizedRawURL)"), withScheme.host != nil {
+                components = withScheme
+            } else {
+                return nil
+            }
+        }
+
+        guard let host = components.host else {
             return nil
         }
-        components.scheme = "rtsps"
-        components.user = "bblp"
-        components.password = configuration.accessCode
-        if components.port == nil {
-            components.port = 322
+
+        let scheme = {
+            guard let sourceScheme = components.scheme?.lowercased(),
+                  ["rtsp", "rtsps"].contains(sourceScheme) else {
+                return "rtsps"
+            }
+            return sourceScheme
         }
-        if components.path.isEmpty {
-            components.path = "/streaming/live/1"
-        }
-        return components.url
+
+        var rebuilt = URLComponents()
+        rebuilt.scheme = scheme()
+        rebuilt.user = "bblp"
+        rebuilt.password = configuration.accessCode
+        rebuilt.host = host
+        rebuilt.port = components.port ?? 322
+        rebuilt.path = components.path.isEmpty ? "/streaming/live/1" : components.path
+        rebuilt.fragment = components.fragment
+        rebuilt.percentEncodedQuery = components.percentEncodedQuery
+        return rebuilt.url
     }
 
     private static func defaultURL(configuration: PrinterConfiguration) -> URL? {

@@ -1006,7 +1006,7 @@ private final class NativeRTSPVideoClient {
     }
 
     private func fail(_ message: String) {
-        onError(message)
+        onError("\(message) (\(url.absoluteString))")
         connection?.cancel()
         connection = nil
     }
