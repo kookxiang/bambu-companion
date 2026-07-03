@@ -17,28 +17,21 @@ private struct NativeVideoStreamSurface: View {
     let url: URL?
     let showFloatingButton: Bool
 
-    @State private var errorMessage: String?
-    @State private var hasVideo = false
+    @StateObject private var streamState = VideoStreamState()
 
     var body: some View {
         ZStack {
             NativeVideoLayerView(url: url, pictureInPictureRequest: 0, onFrame: {
-                DispatchQueue.main.async {
-                    guard hasVideo == false else { return }
-                    hasVideo = true
-                }
+                streamState.setHasVideo()
             }) { message in
-                DispatchQueue.main.async {
-                    guard errorMessage != message else { return }
-                    errorMessage = message
-                }
+                streamState.setErrorMessage(message)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
 
-            if let errorMessage {
+            if let errorMessage = streamState.errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
-            } else if url != nil, !hasVideo {
+            } else if url != nil, !streamState.hasVideo {
                 VStack(spacing: 8) {
                     ProgressView()
                     Text("Connecting video...")
@@ -49,7 +42,7 @@ private struct NativeVideoStreamSurface: View {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
             }
 
-            if hasVideo && showFloatingButton {
+            if streamState.hasVideo && showFloatingButton {
                 VStack {
                     HStack {
                         Spacer()
@@ -74,10 +67,7 @@ private struct NativeVideoStreamSurface: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .onChange(of: url) {
-            DispatchQueue.main.async {
-                hasVideo = false
-                errorMessage = nil
-            }
+            streamState.reset()
         }
     }
 
@@ -91,6 +81,29 @@ private struct NativeVideoStreamSurface: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+    }
+}
+
+@MainActor
+private final class VideoStreamState: ObservableObject {
+    @Published private(set) var errorMessage: String?
+    @Published private(set) var hasVideo = false
+
+    func setHasVideo() {
+        if !hasVideo {
+            hasVideo = true
+        }
+    }
+
+    func setErrorMessage(_ message: String?) {
+        if errorMessage != message {
+            errorMessage = message
+        }
+    }
+
+    func reset() {
+        hasVideo = false
+        errorMessage = nil
     }
 }
 
