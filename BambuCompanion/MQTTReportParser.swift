@@ -19,6 +19,9 @@ enum MQTTReportParser {
         status.jobName = status.subtaskName?.isEmpty == false ? status.subtaskName : status.gcodeFile
         status.remainingMinutes = intValue(print["mc_remaining_time"]) ?? intValue(print["remaining_time"])
         status.nozzleTemperature = doubleValue(print["nozzle_temper"]) ?? doubleValue(print["nozzle_temperature"])
+        let nozzleTemperatures = dualNozzleTemperatures(from: print)
+        status.leftNozzleTemperature = nozzleTemperatures.left
+        status.rightNozzleTemperature = nozzleTemperatures.right
         status.bedTemperature = doubleValue(print["bed_temper"]) ?? doubleValue(print["bed_temperature"])
         status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
@@ -43,6 +46,33 @@ enum MQTTReportParser {
         default:
             return .unknown
         }
+    }
+
+    private static func dualNozzleTemperatures(from print: [String: Any]) -> (left: Double?, right: Double?) {
+        guard let device = print["device"] as? [String: Any],
+              let extruder = device["extruder"] as? [String: Any],
+              let info = extruder["info"] as? [[String: Any]] else {
+            return (nil, nil)
+        }
+
+        var left: Double?
+        var right: Double?
+        for entry in info {
+            guard let id = intValue(entry["id"]),
+                  let encodedTemperature = intValue(entry["temp"]) else {
+                continue
+            }
+            let currentTemperature = Double(encodedTemperature & 0xFFFF)
+            switch id {
+            case 0:
+                right = currentTemperature
+            case 1:
+                left = currentTemperature
+            default:
+                break
+            }
+        }
+        return (left, right)
     }
 
     private static func amsUnits(from print: [String: Any]) -> [AMSUnitStatus] {

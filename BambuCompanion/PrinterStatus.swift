@@ -31,6 +31,8 @@ struct PrinterStatus: Equatable {
     var gcodeFilePreparePercent: Int?
     var remainingMinutes: Int?
     var nozzleTemperature: Double?
+    var leftNozzleTemperature: Double?
+    var rightNozzleTemperature: Double?
     var bedTemperature: Double?
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?

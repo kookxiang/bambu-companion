@@ -44,6 +44,30 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
 
+    func testParsesDualNozzleTemperatures() throws {
+        let json = """
+        {
+          "print": {
+            "device": {
+              "extruder": {
+                "info": [
+                  {"id": 0, "temp": 16056565},
+                  {"id": 1, "temp": 5767327}
+                ]
+              }
+            },
+            "nozzle_temper": 245
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.rightNozzleTemperature, 245)
+        XCTAssertEqual(status.leftNozzleTemperature, 159)
+        XCTAssertEqual(status.nozzleTemperature, 245)
+    }
+
     func testParsesCoverImageFileHints() throws {
         let status = try MQTTReportParser.parse(Data(#"{"print":{"file":"/data/Metadata/plate_1.gcode","gcode_file":"widget.gcode.3mf","gcode_file_downloaded":"downloaded.gcode","subtask_name":"Widget","gcode_file_prepare_percent":"100"}}"#.utf8))
 

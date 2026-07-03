@@ -30,7 +30,7 @@ struct StatusSummaryView: View {
             }
 
             HStack(spacing: 10) {
-                MetricView(title: "Nozzle", value: temperature(status.nozzleTemperature))
+                MetricView(title: "Nozzle", value: nozzleTemperature)
                 MetricView(title: "Bed", value: temperature(status.bedTemperature))
                 MetricView(title: "Remaining", value: remainingTime)
             }
@@ -56,6 +56,13 @@ struct StatusSummaryView: View {
             return "\(minutes)m"
         }
         return "\(minutes / 60)h \(minutes % 60)m"
+    }
+
+    private var nozzleTemperature: String {
+        if status.leftNozzleTemperature != nil || status.rightNozzleTemperature != nil {
+            return "L \(temperature(status.leftNozzleTemperature))\nR \(temperature(status.rightNozzleTemperature))"
+        }
+        return temperature(status.nozzleTemperature)
     }
 
     private func temperature(_ value: Double?) -> String {
@@ -189,7 +196,7 @@ private struct MetricView: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.callout.monospacedDigit())
-                .lineLimit(1)
+                .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
