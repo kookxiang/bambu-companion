@@ -1,4 +1,3 @@
-import AVKit
 import SwiftUI
 
 private enum TemperatureText {
@@ -532,36 +531,44 @@ private struct DualNozzleMetricView: View {
 
 struct VideoPreviewView: View {
     let url: URL?
-    @State private var player = AVPlayer()
+    @StateObject private var frameSource = FFmpegVideoFrameSource()
 
     var body: some View {
         Group {
-            if let url {
-                AVPlayerContainerView(player: player)
-                    .onAppear {
-                        player.replaceCurrentItem(with: AVPlayerItem(url: url))
-                        player.play()
-                    }
-                    .onChange(of: url) { _, newURL in
-                        player.replaceCurrentItem(with: AVPlayerItem(url: newURL))
-                        player.play()
-                    }
-                    .onDisappear {
-                        player.pause()
-                        player.replaceCurrentItem(with: nil)
-                    }
+            if let image = frameSource.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if let errorMessage = frameSource.errorMessage {
+                placeholder(icon: "video.slash", text: errorMessage)
+            } else if url != nil {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Connecting video...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else {
-                placeholder(text: "Video preview is unavailable.")
+                placeholder(icon: "video.slash", text: "Video preview is unavailable.")
             }
         }
         .frame(maxWidth: .infinity, minHeight: 116)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onAppear {
+            frameSource.start(url: url)
+        }
+        .onChange(of: url) { _, newURL in
+            frameSource.start(url: newURL)
+        }
+        .onDisappear {
+            frameSource.stop()
+        }
     }
 
-    private func placeholder(text: String) -> some View {
+    private func placeholder(icon: String, text: String) -> some View {
         VStack(spacing: 8) {
-            Image(systemName: "video.slash")
+            Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(.secondary)
             Text(text)
@@ -572,23 +579,147 @@ struct VideoPreviewView: View {
     }
 }
 
-private struct AVPlayerContainerView: NSViewRepresentable {
-    let player: AVPlayer
+private final class FFmpegVideoFrameSource: ObservableObject {
+    @Published var image: NSImage?
+    @Published var errorMessage: String?
 
-    func makeNSView(context: Context) -> AVPlayerView {
-        let view = AVPlayerView()
-        view.controlsStyle = .none
-        view.player = player
-        return view
-    }
+    private var process: Process?
+    private var stdoutPipe: Pipe?
+    private var stderrPipe: Pipe?
+    private var currentURL: URL?
+    private var buffer = Data()
+    private let queue = DispatchQueue(label: "BambuCompanion.FFmpegVideoFrameSource")
 
-    func updateNSView(_ nsView: AVPlayerView, context: Context) {
-        if nsView.player !== player {
-            nsView.player = player
+    func start(url: URL?) {
+        guard let url else {
+            stop()
+            return
+        }
+        guard currentURL != url || process == nil else {
+            return
+        }
+
+        stop()
+        currentURL = url
+        image = nil
+        errorMessage = nil
+
+        guard let ffmpegURL = Self.ffmpegURL else {
+            errorMessage = "ffmpeg is required for RTSP video preview."
+            return
+        }
+
+        let process = Process()
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.executableURL = ffmpegURL
+        process.arguments = [
+            "-hide_banner",
+            "-loglevel", "error",
+            "-rtsp_transport", "tcp",
+            "-i", url.absoluteString,
+            "-an",
+            "-vf", "fps=6,scale=640:-1",
+            "-f", "image2pipe",
+            "-vcodec", "mjpeg",
+            "pipe:1"
+        ]
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        self.process = process
+        self.stdoutPipe = stdoutPipe
+        self.stderrPipe = stderrPipe
+
+        stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty else {
+                return
+            }
+            self?.append(data)
+        }
+
+        process.terminationHandler = { [weak self] _ in
+            guard let self else { return }
+            let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            let errorText = String(data: errorData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            DispatchQueue.main.async {
+                guard self.process === process else {
+                    return
+                }
+                self.process = nil
+                self.stdoutPipe = nil
+                self.stderrPipe = nil
+                if self.image == nil {
+                    self.errorMessage = errorText?.isEmpty == false ? "Video preview failed." : "Video preview stopped."
+                }
+            }
+        }
+
+        do {
+            try process.run()
+        } catch {
+            stop()
+            errorMessage = "Unable to start ffmpeg."
         }
     }
 
-    static func dismantleNSView(_ nsView: AVPlayerView, coordinator: ()) {
-        nsView.player = nil
+    func stop() {
+        currentURL = nil
+        stdoutPipe?.fileHandleForReading.readabilityHandler = nil
+        if let process, process.isRunning {
+            process.terminate()
+        }
+        process = nil
+        stdoutPipe = nil
+        stderrPipe = nil
+        queue.sync {
+            buffer.removeAll(keepingCapacity: true)
+        }
+    }
+
+    private func append(_ data: Data) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.buffer.append(data)
+            while let frame = self.nextJPEGFrame() {
+                guard let image = NSImage(data: frame) else {
+                    continue
+                }
+                DispatchQueue.main.async {
+                    self.image = image
+                    self.errorMessage = nil
+                }
+            }
+        }
+    }
+
+    private func nextJPEGFrame() -> Data? {
+        guard let start = buffer.firstRange(of: Data([0xFF, 0xD8]))?.lowerBound,
+              let endRange = buffer[start...].firstRange(of: Data([0xFF, 0xD9])) else {
+            if buffer.count > 2_000_000 {
+                buffer.removeAll(keepingCapacity: true)
+            }
+            return nil
+        }
+
+        let end = endRange.upperBound
+        let frame = buffer[start..<end]
+        buffer.removeSubrange(buffer.startIndex..<end)
+        return Data(frame)
+    }
+
+    deinit {
+        stop()
+    }
+
+    private static var ffmpegURL: URL? {
+        [
+            "/opt/homebrew/bin/ffmpeg",
+            "/usr/local/bin/ffmpeg",
+            "/usr/bin/ffmpeg"
+        ]
+        .map(URL.init(fileURLWithPath:))
+        .first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 }
