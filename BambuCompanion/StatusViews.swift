@@ -105,7 +105,7 @@ struct StatusSummaryView: View {
         guard let value else {
             return "--"
         }
-        return "\(Int(value.rounded()))℃"
+        return Self.formattedTemperature(value)
     }
 
     private func temperature(_ value: Double?, target: Double?) -> String {
@@ -115,8 +115,21 @@ struct StatusSummaryView: View {
         guard let target, target > 0 else {
             return temperature(value)
         }
-        return "\(Int(value.rounded())) / \(Int(target.rounded()))℃"
+        return "\(Self.formattedTemperature(value)) / \(Self.formattedTemperature(target))"
     }
+
+    private static func formattedTemperature(_ value: Double) -> String {
+        temperatureFormatter.string(from: Measurement<UnitTemperature>(value: value.rounded(), unit: .celsius))
+    }
+
+    private static let temperatureFormatter: MeasurementFormatter = {
+        let formatter = MeasurementFormatter()
+        formatter.unitOptions = .providedUnit
+        formatter.unitStyle = .short
+        formatter.numberFormatter.maximumFractionDigits = 0
+        formatter.numberFormatter.minimumFractionDigits = 0
+        return formatter
+    }()
 }
 
 private struct AMSUnitsView: View {
