@@ -138,6 +138,7 @@ enum CoverImageMetadataParser {
 final class CoverImageService {
     private static let retryCount = 13
     private static let retryDelayNanoseconds: UInt64 = 5_000_000_000
+    private static let fallbackDownloadLimit = 8
 
     private let cache: CoverImageCache
     private let downloader: FTPSDownloader
@@ -161,13 +162,18 @@ final class CoverImageService {
             gcodeFileDownloaded: job.gcodeFileDownloaded,
             subtaskName: job.subtaskName
         )
+        diagnostic("cover candidates: \(candidates)")
         for attempt in 0..<Self.retryCount {
+            diagnostic("cover lookup attempt \(attempt + 1)/\(Self.retryCount)")
             for filename in candidates {
                 for remotePath in ["/cache/\(filename)", "/\(filename)"] {
                     if let url = try await loadCover(from: remotePath, job: job) {
                         return url
                     }
                 }
+            }
+            if let fallbackURL = try await loadCoverFromRecentModels(job: job) {
+                return fallbackURL
             }
 
             if attempt < Self.retryCount - 1 {
@@ -179,18 +185,79 @@ final class CoverImageService {
 
     private func loadCover(from remotePath: String, job: CoverImageJob) async throws -> URL? {
         if let cached = cache.cachedCoverURL(for: remotePath, size: nil) {
+            diagnostic("cover cache hit: \(remotePath)")
             return cached
         }
-        guard let remoteFile = try await downloader.stat(host: job.host, accessCode: job.accessCode, remotePath: remotePath) else {
+        diagnostic("stat cover candidate: \(remotePath)")
+        let remoteFile: RemoteFileInfo?
+        do {
+            remoteFile = try await downloader.stat(host: job.host, accessCode: job.accessCode, remotePath: remotePath)
+        } catch {
+            if isMissingRemoteFileError(error) {
+                diagnostic("cover candidate missing: \(remotePath)")
+                return nil
+            }
+            diagnostic("stat failed for \(remotePath): \(error.localizedDescription); trying direct download")
+            return try await downloadAndExtractCover(from: remotePath, size: nil, job: job)
+        }
+        guard let remoteFile else {
+            diagnostic("cover candidate missing: \(remotePath)")
             return nil
         }
         if let cached = cache.cachedCoverURL(for: remotePath, size: remoteFile.size) {
+            diagnostic("cover cache hit: \(remotePath) size=\(remoteFile.size.map(String.init) ?? "unknown")")
             return cached
         }
-        let modelURL = try cache.modelURL(for: remotePath, size: remoteFile.size)
-        if cache.cachedModelURL(for: remotePath, size: remoteFile.size) == nil {
+        return try await downloadAndExtractCover(from: remotePath, size: remoteFile.size, job: job)
+    }
+
+    private func loadCoverFromRecentModels(job: CoverImageJob) async throws -> URL? {
+        for directory in ["/cache", "/"] {
+            diagnostic("listing FTPS directory for cover fallback: \(directory)")
+            let entries = try await downloader.list(host: job.host, accessCode: job.accessCode, remoteDirectory: directory)
+            let modelEntries = entries
+                .filter { $0.path.localizedCaseInsensitiveContains(".3mf") }
+                .filter { !$0.path.contains("/Metadata/") }
+                .suffix(Self.fallbackDownloadLimit)
+                .reversed()
+
+            for entry in modelEntries {
+                if let cached = cache.cachedCoverURL(for: entry.path, size: entry.size) {
+                    diagnostic("fallback cover cache hit: \(entry.path)")
+                    return cached
+                }
+                do {
+                    return try await downloadAndExtractCover(from: entry.path, size: entry.size, job: job, isFallback: true)
+                } catch {
+                    diagnostic("fallback cover extraction failed: \(entry.path): \(error.localizedDescription)")
+                }
+            }
+        }
+        return nil
+    }
+
+    private func downloadAndExtractCover(
+        from remotePath: String,
+        size: Int64?,
+        job: CoverImageJob,
+        isFallback: Bool = false
+    ) async throws -> URL {
+        let modelURL = try cache.modelURL(for: remotePath, size: size)
+        if cache.cachedModelURL(for: remotePath, size: size) == nil {
+            diagnostic("\(isFallback ? "fallback " : "")downloading model for cover: \(remotePath) size=\(size.map(String.init) ?? "unknown")")
             try await downloader.download(host: job.host, accessCode: job.accessCode, remotePath: remotePath, destination: modelURL)
         }
-        return try cache.extractCover(from: modelURL, remotePath: remotePath, size: remoteFile.size)
+        let coverURL = try cache.extractCover(from: modelURL, remotePath: remotePath, size: size)
+        diagnostic("\(isFallback ? "fallback " : "")cover extracted: \(remotePath)")
+        return coverURL
+    }
+
+    private func diagnostic(_ message: String) {
+        FileHandle.standardError.write(Data("[BambuCompanion] \(message)\n".utf8))
+    }
+
+    private func isMissingRemoteFileError(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("550") || message.contains("curl: (78)") || message.contains("does not exist")
     }
 }

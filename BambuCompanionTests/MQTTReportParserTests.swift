@@ -127,6 +127,20 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(CoverImageMetadataParser.plateNumber(from: Data(xml.utf8)), 3)
     }
 
+    func testFTPSDirectoryListingParserKeepsFilenamesWithSpaces() {
+        let listing = """
+        -rw-r--r-- 1 owner group 1234 Jul 03 22:30 0.2mm 层高, 2 层墙, 15% 填充.3mf
+        -rw-r--r-- 1 owner group 99 Jul 03 22:31 Air Slides.gcode.3mf
+        """
+
+        let entries = FTPSDownloader().parseDirectoryListing(listing, remoteDirectory: "/cache")
+
+        XCTAssertEqual(entries, [
+            RemoteDirectoryEntry(path: "/cache/0.2mm 层高, 2 层墙, 15% 填充.3mf", size: 1234),
+            RemoteDirectoryEntry(path: "/cache/Air Slides.gcode.3mf", size: 99)
+        ])
+    }
+
     func testZIPArchiveReadsDeflatedEntries() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("BambuCompanionZIPArchiveTests-\(UUID().uuidString)", isDirectory: true)

@@ -4,6 +4,11 @@ struct RemoteFileInfo: Equatable {
     let size: Int64?
 }
 
+struct RemoteDirectoryEntry: Equatable {
+    let path: String
+    let size: Int64?
+}
+
 final class FTPSDownloader {
     enum DownloaderError: LocalizedError {
         case curlFailed(Int32, String)
@@ -26,6 +31,8 @@ final class FTPSDownloader {
                 "--show-error",
                 "--insecure",
                 "--ftp-ssl-reqd",
+                "--connect-timeout", "5",
+                "--max-time", "10",
                 "--user", "bblp:\(accessCode)",
                 "--head",
                 ftpsURL(host: host, remotePath: remotePath)
@@ -47,10 +54,33 @@ final class FTPSDownloader {
             "--fail",
             "--insecure",
             "--ftp-ssl-reqd",
+            "--connect-timeout", "5",
+            "--max-time", "180",
             "--user", "bblp:\(accessCode)",
             "--output", destination.path,
             ftpsURL(host: host, remotePath: remotePath)
         ])
+    }
+
+    func list(host: String, accessCode: String, remoteDirectory: String) async throws -> [RemoteDirectoryEntry] {
+        do {
+            let output = try await runCurl(arguments: [
+                "--silent",
+                "--show-error",
+                "--insecure",
+                "--ftp-ssl-reqd",
+                "--connect-timeout", "5",
+                "--max-time", "20",
+                "--user", "bblp:\(accessCode)",
+                ftpsURL(host: host, remotePath: remoteDirectory)
+            ])
+            return parseDirectoryListing(output, remoteDirectory: remoteDirectory)
+        } catch {
+            if error.localizedDescription.contains("550") {
+                return []
+            }
+            throw error
+        }
     }
 
     private func ftpsURL(host: String, remotePath: String) -> String {
@@ -69,6 +99,35 @@ final class FTPSDownloader {
             }
         }
         return nil
+    }
+
+    func parseDirectoryListing(_ output: String, remoteDirectory: String) -> [RemoteDirectoryEntry] {
+        let directory = remoteDirectory.hasSuffix("/") ? String(remoteDirectory.dropLast()) : remoteDirectory
+        return output.components(separatedBy: .newlines).compactMap { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                return nil
+            }
+            if let entry = parseUnixDirectoryLine(trimmed, remoteDirectory: directory) {
+                return entry
+            }
+            return RemoteDirectoryEntry(path: "\(directory)/\(trimmed)", size: nil)
+        }
+    }
+
+    private func parseUnixDirectoryLine(_ line: String, remoteDirectory: String) -> RemoteDirectoryEntry? {
+        guard let first = line.first, first == "-" || first == "l" else {
+            return nil
+        }
+        let parts = line.split(separator: " ", omittingEmptySubsequences: true)
+        guard parts.count >= 9, let size = Int64(parts[4]) else {
+            return nil
+        }
+        let name = parts[8...].joined(separator: " ")
+        guard !name.isEmpty else {
+            return nil
+        }
+        return RemoteDirectoryEntry(path: "\(remoteDirectory)/\(name)", size: size)
     }
 
     private func runCurl(arguments: [String]) async throws -> String {
@@ -92,4 +151,3 @@ final class FTPSDownloader {
         }.value
     }
 }
-
