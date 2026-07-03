@@ -537,6 +537,7 @@ private final class NativeRTSPVideoClient {
     private weak var pictureInPictureController: AVPictureInPictureController?
     private let onError: (String) -> Void
     private let queue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient")
+    private let enqueueQueue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient.enqueue")
     private var connection: NWConnection?
     private var receiveBuffer = Data()
     private var cseq = 1
@@ -550,6 +551,8 @@ private final class NativeRTSPVideoClient {
     private var currentAccessUnitTimestamp: UInt32?
     private var firstRTPTimestamp: UInt32?
     private var didDisplayFrame = false
+    private var pendingSampleBuffer: CMSampleBuffer?
+    private var isDisplayFrameScheduled = false
     private var isStopped = false
     private var isPaused = false
     private var isWatchdogScheduled = false
@@ -1008,18 +1011,62 @@ private final class NativeRTSPVideoClient {
             sampleBufferOut: &sampleBuffer
         )
         guard sampleStatus == noErr, let sampleBuffer else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let layer = self?.displayLayer else { return }
-            if layer.status == .failed {
-                layer.flush()
+        enqueueQueue.async { [weak self] in
+            guard let self else { return }
+            self.pendingSampleBuffer = sampleBuffer
+            guard !self.isDisplayFrameScheduled else {
+                return
             }
-            if layer.isReadyForMoreMediaData {
-                layer.enqueue(sampleBuffer)
-                if self?.didDisplayFrame == false {
-                    self?.didDisplayFrame = true
-                    self?.pictureInPictureController?.invalidatePlaybackState()
-                    self?.onFrame()
+            self.isDisplayFrameScheduled = true
+            DispatchQueue.main.async { [weak self] in
+                self?.flushPendingSample()
+            }
+        }
+    }
+
+    private func flushPendingSample() {
+        guard let layer = displayLayer else {
+            enqueueQueue.async { [weak self] in
+                self?.pendingSampleBuffer = nil
+                self?.isDisplayFrameScheduled = false
+            }
+            return
+        }
+
+        var sampleToRender: CMSampleBuffer?
+        enqueueQueue.sync {
+            sampleToRender = pendingSampleBuffer
+            pendingSampleBuffer = nil
+        }
+        guard let sampleToRender else {
+            enqueueQueue.async { [weak self] in
+                self?.isDisplayFrameScheduled = false
+            }
+            return
+        }
+
+        if layer.status == .failed {
+            layer.flush()
+        }
+        if layer.isReadyForMoreMediaData {
+            layer.enqueueSampleBuffer(sampleToRender)
+            if !didDisplayFrame {
+                didDisplayFrame = true
+                pictureInPictureController?.invalidatePlaybackState()
+                onFrame()
+            }
+            enqueueQueue.async { [weak self] in
+                guard let self else { return }
+                if pendingSampleBuffer == nil {
+                    isDisplayFrameScheduled = false
                 }
+            }
+        } else {
+            enqueueQueue.async { [weak self] in
+                self?.pendingSampleBuffer = sampleToRender
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
+                self?.flushPendingSample()
             }
         }
     }
@@ -1089,6 +1136,11 @@ private final class NativeRTSPVideoClient {
         pendingResponses.removeAll()
         cseq = 1
         lastFrameTime = Date()
+
+        enqueueQueue.sync {
+            pendingSampleBuffer = nil
+            isDisplayFrameScheduled = false
+        }
 
         DispatchQueue.main.async { [weak self] in
             self?.displayLayer?.flush()
