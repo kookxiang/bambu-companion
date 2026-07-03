@@ -537,7 +537,7 @@ struct VideoPreviewView: View {
     var body: some View {
         Group {
             if let url {
-                VideoPlayer(player: player)
+                AVPlayerContainerView(player: player)
                     .onAppear {
                         player.replaceCurrentItem(with: AVPlayerItem(url: url))
                         player.play()
@@ -569,5 +569,26 @@ struct VideoPreviewView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+    }
+}
+
+private struct AVPlayerContainerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.controlsStyle = .none
+        view.player = player
+        return view
+    }
+
+    func updateNSView(_ nsView: AVPlayerView, context: Context) {
+        if nsView.player !== player {
+            nsView.player = player
+        }
+    }
+
+    static func dismantleNSView(_ nsView: AVPlayerView, coordinator: ()) {
+        nsView.player = nil
     }
 }
