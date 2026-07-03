@@ -65,9 +65,7 @@ struct MenuPanelView: View {
 
             Spacer()
 
-            Button {
-                appState.openSettings()
-            } label: {
+            SettingsLink {
                 Label("Settings", systemImage: "gearshape")
             }
 

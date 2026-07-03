@@ -60,11 +60,6 @@ final class AppState: NSObject, ObservableObject {
         mqttClient = nil
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
     }
-
-    func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
 }
 
 extension AppState: BambuMQTTClientDelegate {
