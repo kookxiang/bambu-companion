@@ -34,6 +34,7 @@ enum MQTTReportParser {
         let chamberTemperatures = chamberTemperatures(from: print)
         status.chamberTemperature = chamberTemperatures.current
         status.targetChamberTemperature = chamberTemperatures.target
+        status.cameraStreamURL = cameraStreamURL(from: print)
         status.alert = alert(from: print)
         status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
@@ -136,6 +137,15 @@ enum MQTTReportParser {
             return PrinterAlert(title: "Printer warning", detail: firstCode)
         }
         return nil
+    }
+
+    private static func cameraStreamURL(from print: [String: Any]) -> String? {
+        guard let ipcam = print["ipcam"] as? [String: Any],
+              let rtspURL = normalizedMaterial(stringValue(ipcam["rtsp_url"])),
+              rtspURL.localizedCaseInsensitiveCompare("disable") != .orderedSame else {
+            return nil
+        }
+        return rtspURL
     }
 
     private static func amsUnits(from print: [String: Any]) -> [AMSUnitStatus] {

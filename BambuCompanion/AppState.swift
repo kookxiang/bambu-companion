@@ -38,6 +38,10 @@ final class AppState: NSObject, ObservableObject {
         return "\(progress)%"
     }
 
+    var videoStreamURL: URL? {
+        VideoStreamURLBuilder.url(configuration: configuration, status: status)
+    }
+
     override init() {
         let configurationStore = PrinterConfigurationStore()
         self.configurationStore = configurationStore
@@ -137,6 +141,58 @@ final class AppState: NSObject, ObservableObject {
                 }
             }
         }
+    }
+}
+
+enum VideoStreamURLBuilder {
+    static func url(configuration: PrinterConfiguration, status: PrinterStatus) -> URL? {
+        guard configuration.isComplete else {
+            return nil
+        }
+        if let rawURL = status.cameraStreamURL,
+           let url = authenticatedURL(from: rawURL, configuration: configuration) {
+            return url
+        }
+        return defaultURL(configuration: configuration)
+    }
+
+    private static func authenticatedURL(from rawURL: String, configuration: PrinterConfiguration) -> URL? {
+        guard var components = URLComponents(string: rawURL),
+              components.host != nil else {
+            return nil
+        }
+        components.scheme = "rtsps"
+        components.user = "bblp"
+        components.password = configuration.accessCode
+        if components.port == nil {
+            components.port = 322
+        }
+        if components.path.isEmpty {
+            components.path = "/streaming/live/1"
+        }
+        return components.url
+    }
+
+    private static func defaultURL(configuration: PrinterConfiguration) -> URL? {
+        var components = URLComponents()
+        components.scheme = "rtsps"
+        components.user = "bblp"
+        components.password = configuration.accessCode
+        components.host = sanitizedHost(configuration.host)
+        components.port = 322
+        components.path = "/streaming/live/1"
+        return components.url
+    }
+
+    private static func sanitizedHost(_ host: String) -> String {
+        var value = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URLComponents(string: value), let parsedHost = url.host {
+            value = parsedHost
+        }
+        if let colonIndex = value.lastIndex(of: ":") {
+            value = String(value[..<colonIndex])
+        }
+        return value
     }
 }
 

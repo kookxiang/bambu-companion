@@ -93,6 +93,40 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.jobName, "Widget")
     }
 
+    func testParsesCameraStreamURL() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"ipcam":{"rtsp_url":"rtsp://192.168.1.50/streaming/live/1"}}}"#.utf8))
+
+        XCTAssertEqual(status.cameraStreamURL, "rtsp://192.168.1.50/streaming/live/1")
+    }
+
+    func testVideoStreamURLBuilderUsesMQTTURLWithLANCredentials() {
+        var status = BambuCompanion.PrinterStatus.empty
+        status.cameraStreamURL = "rtsp://192.168.1.50/streaming/live/1"
+        let configuration = PrinterConfiguration(
+            displayName: "",
+            host: "192.168.1.20",
+            serialNumber: "SERIAL",
+            accessCode: "12345678"
+        )
+
+        let url = VideoStreamURLBuilder.url(configuration: configuration, status: status)
+
+        XCTAssertEqual(url?.absoluteString, "rtsps://bblp:12345678@192.168.1.50:322/streaming/live/1")
+    }
+
+    func testVideoStreamURLBuilderFallsBackToDefaultLANURL() {
+        let configuration = PrinterConfiguration(
+            displayName: "",
+            host: "https://192.168.1.20:443",
+            serialNumber: "SERIAL",
+            accessCode: "12345678"
+        )
+
+        let url = VideoStreamURLBuilder.url(configuration: configuration, status: BambuCompanion.PrinterStatus.empty)
+
+        XCTAssertEqual(url?.absoluteString, "rtsps://bblp:12345678@192.168.1.20:322/streaming/live/1")
+    }
+
     func testParsesAMSUnitsIntoFourSlotRows() throws {
         let json = """
         {

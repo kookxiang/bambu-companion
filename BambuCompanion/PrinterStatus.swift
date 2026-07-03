@@ -42,6 +42,7 @@ struct PrinterStatus: Equatable {
     var targetBedTemperature: Double?
     var chamberTemperature: Double?
     var targetChamberTemperature: Double?
+    var cameraStreamURL: String?
     var alert: PrinterAlert?
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?

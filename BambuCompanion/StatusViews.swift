@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 
 private enum TemperatureText {
@@ -529,18 +530,44 @@ private struct DualNozzleMetricView: View {
     }
 }
 
-struct VideoPlaceholderView: View {
+struct VideoPreviewView: View {
+    let url: URL?
+    @State private var player = AVPlayer()
+
     var body: some View {
+        Group {
+            if let url {
+                VideoPlayer(player: player)
+                    .onAppear {
+                        player.replaceCurrentItem(with: AVPlayerItem(url: url))
+                        player.play()
+                    }
+                    .onChange(of: url) { _, newURL in
+                        player.replaceCurrentItem(with: AVPlayerItem(url: newURL))
+                        player.play()
+                    }
+                    .onDisappear {
+                        player.pause()
+                        player.replaceCurrentItem(with: nil)
+                    }
+            } else {
+                placeholder(text: "Video preview is unavailable.")
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 116)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func placeholder(text: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: "video.slash")
                 .font(.title2)
                 .foregroundStyle(.secondary)
-            Text("Video preview is not enabled in this version.")
+            Text(text)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, minHeight: 116)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 }
