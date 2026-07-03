@@ -23,9 +23,15 @@ private struct NativeVideoStreamSurface: View {
     var body: some View {
         ZStack {
             NativeVideoLayerView(url: url, pictureInPictureRequest: 0, onFrame: {
-                hasVideo = true
+                DispatchQueue.main.async {
+                    guard hasVideo == false else { return }
+                    hasVideo = true
+                }
             }) { message in
-                errorMessage = message
+                DispatchQueue.main.async {
+                    guard errorMessage != message else { return }
+                    errorMessage = message
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
@@ -68,8 +74,10 @@ private struct NativeVideoStreamSurface: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .onChange(of: url) {
-            hasVideo = false
-            errorMessage = nil
+            DispatchQueue.main.async {
+                hasVideo = false
+                errorMessage = nil
+            }
         }
     }
 
