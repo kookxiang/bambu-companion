@@ -106,6 +106,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var pictureInPictureController: AVPictureInPictureController?
         private var playbackDelegate: PictureInPicturePlaybackDelegate?
         private var lastHandledPictureInPictureRequest = 0
+        private var isDetachedFromInlineView = false
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -114,6 +115,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
         func attach(to view: VideoLayerHostView) {
             self.view = view
+            isDetachedFromInlineView = false
             configurePictureInPicture(for: view)
         }
 
@@ -163,6 +165,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func detachFromInlineView() {
+            isDetachedFromInlineView = true
             if pictureInPictureController?.isPictureInPictureActive == true {
                 retainForPictureInPicture()
             } else {
@@ -173,6 +176,11 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         func stop() {
             currentURL = nil
             pictureInPictureController?.stopPictureInPicture()
+            stopStream()
+            releaseFromPictureInPicture()
+        }
+
+        private func stopStream() {
             client?.stop()
             client = nil
         }
@@ -201,7 +209,10 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            stop()
+            if isDetachedFromInlineView {
+                currentURL = nil
+                stopStream()
+            }
             releaseFromPictureInPicture()
         }
 
@@ -266,8 +277,14 @@ private final class NativeRTSPVideoClient {
     private var formatDescription: CMVideoFormatDescription?
     private var fuBuffer = Data()
     private var currentAccessUnit = Data()
+    private var currentAccessUnitTimestamp: UInt32?
+    private var firstRTPTimestamp: UInt32?
     private var didDisplayFrame = false
+    private var isStopped = false
+    private var isWatchdogScheduled = false
+    private var lastFrameTime = Date()
     private let onFrame: () -> Void
+    private let staleFrameReconnectInterval: TimeInterval = 15
 
     init(url: URL, displayLayer: AVSampleBufferDisplayLayer, onFrame: @escaping () -> Void, onError: @escaping (String) -> Void) {
         self.url = url
@@ -278,21 +295,30 @@ private final class NativeRTSPVideoClient {
 
     func start() {
         queue.async {
+            self.isStopped = false
+            self.lastFrameTime = Date()
+            self.scheduleWatchdog()
             self.connect()
         }
     }
 
     func stop() {
         queue.async {
+            self.isStopped = true
             self.connection?.cancel()
             self.connection = nil
             self.receiveBuffer.removeAll(keepingCapacity: false)
             self.fuBuffer.removeAll(keepingCapacity: false)
             self.currentAccessUnit.removeAll(keepingCapacity: false)
+            self.currentAccessUnitTimestamp = nil
+            self.firstRTPTimestamp = nil
         }
     }
 
     private func connect() {
+        guard !isStopped else {
+            return
+        }
         guard let host = url.host, let port = url.port else {
             fail("Video stream URL is invalid.")
             return
@@ -514,40 +540,41 @@ private final class NativeRTSPVideoClient {
             guard packet.count > offset else { return }
         }
         let marker = (packet[1] & 0x80) != 0
-        handleH264Payload(Data(packet[offset...]), marker: marker)
+        let timestamp = UInt32(packet[4]) << 24 | UInt32(packet[5]) << 16 | UInt32(packet[6]) << 8 | UInt32(packet[7])
+        handleH264Payload(Data(packet[offset...]), timestamp: timestamp, marker: marker)
     }
 
-    private func handleH264Payload(_ payload: Data, marker: Bool) {
+    private func handleH264Payload(_ payload: Data, timestamp: UInt32, marker: Bool) {
         guard let first = payload.first else { return }
         let type = first & 0x1F
         switch type {
         case 1...23:
-            handleNALUnit(payload, marker: marker)
+            handleNALUnit(payload, timestamp: timestamp, marker: marker)
         case 24:
-            handleSTAPA(payload.dropFirst(), marker: marker)
+            handleSTAPA(payload.dropFirst(), timestamp: timestamp, marker: marker)
         case 28:
-            handleFUA(payload, marker: marker)
+            handleFUA(payload, timestamp: timestamp, marker: marker)
         default:
             break
         }
     }
 
-    private func handleSTAPA(_ payload: Data.SubSequence, marker: Bool) {
+    private func handleSTAPA(_ payload: Data.SubSequence, timestamp: UInt32, marker: Bool) {
         var offset = payload.startIndex
         while payload.distance(from: offset, to: payload.endIndex) >= 2 {
             let size = Int(payload[offset]) << 8 | Int(payload[payload.index(after: offset)])
             offset = payload.index(offset, offsetBy: 2)
             guard payload.distance(from: offset, to: payload.endIndex) >= size else { return }
             let end = payload.index(offset, offsetBy: size)
-            handleNALUnit(Data(payload[offset..<end]), marker: false)
+            handleNALUnit(Data(payload[offset..<end]), timestamp: timestamp, marker: false)
             offset = end
         }
         if marker {
-            enqueueCurrentAccessUnit()
+            enqueueCurrentAccessUnit(timestamp: timestamp)
         }
     }
 
-    private func handleFUA(_ payload: Data, marker: Bool) {
+    private func handleFUA(_ payload: Data, timestamp: UInt32, marker: Bool) {
         guard payload.count >= 2 else { return }
         let indicator = payload[0]
         let header = payload[1]
@@ -562,12 +589,12 @@ private final class NativeRTSPVideoClient {
         guard !fuBuffer.isEmpty else { return }
         fuBuffer.append(payload.dropFirst(2))
         if end {
-            handleNALUnit(fuBuffer, marker: marker)
+            handleNALUnit(fuBuffer, timestamp: timestamp, marker: marker)
             fuBuffer.removeAll(keepingCapacity: true)
         }
     }
 
-    private func handleNALUnit(_ nalUnit: Data, marker: Bool) {
+    private func handleNALUnit(_ nalUnit: Data, timestamp: UInt32, marker: Bool) {
         guard let first = nalUnit.first else { return }
         switch first & 0x1F {
         case 7:
@@ -577,9 +604,9 @@ private final class NativeRTSPVideoClient {
             pps = nalUnit
             updateFormatDescriptionIfNeeded()
         case 1, 5:
-            appendToCurrentAccessUnit(nalUnit)
+            appendToCurrentAccessUnit(nalUnit, timestamp: timestamp)
             if marker {
-                enqueueCurrentAccessUnit()
+                enqueueCurrentAccessUnit(timestamp: timestamp)
             }
         default:
             break
@@ -611,20 +638,26 @@ private final class NativeRTSPVideoClient {
         }
     }
 
-    private func appendToCurrentAccessUnit(_ nalUnit: Data) {
+    private func appendToCurrentAccessUnit(_ nalUnit: Data, timestamp: UInt32) {
+        if let currentAccessUnitTimestamp, currentAccessUnitTimestamp != timestamp {
+            enqueueCurrentAccessUnit(timestamp: currentAccessUnitTimestamp)
+        }
+        currentAccessUnitTimestamp = timestamp
         var length = UInt32(nalUnit.count).bigEndian
         currentAccessUnit.append(Data(bytes: &length, count: 4))
         currentAccessUnit.append(nalUnit)
     }
 
-    private func enqueueCurrentAccessUnit() {
+    private func enqueueCurrentAccessUnit(timestamp: UInt32) {
         guard !currentAccessUnit.isEmpty else { return }
-        enqueue(currentAccessUnit)
+        enqueue(currentAccessUnit, timestamp: currentAccessUnitTimestamp ?? timestamp)
         currentAccessUnit.removeAll(keepingCapacity: true)
+        currentAccessUnitTimestamp = nil
     }
 
-    private func enqueue(_ sampleData: Data) {
+    private func enqueue(_ sampleData: Data, timestamp: UInt32) {
         guard let formatDescription else { return }
+        lastFrameTime = Date()
 
         var blockBuffer: CMBlockBuffer?
         let status = sampleData.withUnsafeBytes { buffer in
@@ -645,9 +678,13 @@ private final class NativeRTSPVideoClient {
             _ = CMBlockBufferReplaceDataBytes(with: buffer.baseAddress!, blockBuffer: blockBuffer, offsetIntoDestination: 0, dataLength: sampleData.count)
         }
 
+        if firstRTPTimestamp == nil {
+            firstRTPTimestamp = timestamp
+        }
+        let relativeTimestamp = timestamp &- (firstRTPTimestamp ?? timestamp)
         var timing = CMSampleTimingInfo(
-            duration: .invalid,
-            presentationTimeStamp: .invalid,
+            duration: CMTime(value: 1, timescale: 30),
+            presentationTimeStamp: CMTime(value: CMTimeValue(relativeTimestamp), timescale: 90_000),
             decodeTimeStamp: .invalid
         )
         var sampleBuffer: CMSampleBuffer?
@@ -664,16 +701,6 @@ private final class NativeRTSPVideoClient {
             sampleBufferOut: &sampleBuffer
         )
         guard sampleStatus == noErr, let sampleBuffer else { return }
-        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
-           CFArrayGetCount(attachments) > 0,
-           let attachment = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary?.self) {
-            CFDictionarySetValue(
-                attachment,
-                Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
-                Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
-            )
-        }
-
         DispatchQueue.main.async { [weak self] in
             guard let layer = self?.displayLayer else { return }
             if layer.status == .failed {
@@ -720,6 +747,45 @@ private final class NativeRTSPVideoClient {
         onError(message)
         connection?.cancel()
         connection = nil
+    }
+
+    private func scheduleWatchdog() {
+        guard !isWatchdogScheduled else {
+            return
+        }
+        isWatchdogScheduled = true
+        queue.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self else { return }
+            self.isWatchdogScheduled = false
+            guard !self.isStopped else {
+                return
+            }
+
+            if Date().timeIntervalSince(self.lastFrameTime) > self.staleFrameReconnectInterval {
+                self.reconnect()
+            }
+            self.scheduleWatchdog()
+        }
+    }
+
+    private func reconnect() {
+        connection?.cancel()
+        connection = nil
+        receiveBuffer.removeAll(keepingCapacity: false)
+        fuBuffer.removeAll(keepingCapacity: false)
+        currentAccessUnit.removeAll(keepingCapacity: false)
+        currentAccessUnitTimestamp = nil
+        firstRTPTimestamp = nil
+        session = nil
+        digestChallenge = nil
+        pendingResponses.removeAll()
+        cseq = 1
+        lastFrameTime = Date()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.displayLayer?.flush()
+        }
+        connect()
     }
 }
 
