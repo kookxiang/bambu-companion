@@ -194,14 +194,9 @@ private struct AMSUnitRowView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .padding(4)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .fill(unit.isDrying ? Color.orange.opacity(pulse ? 0.18 : 0.08) : Color.clear)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(unit.isDrying ? Color.orange.opacity(pulse ? 0.75 : 0.28) : Color.clear, lineWidth: 1)
+                .fill(unit.isDrying ? Color.orange.opacity(pulse ? 0.16 : 0.07) : Color.clear)
         }
         .animation(.easeInOut(duration: 0.2), value: unit.isDrying)
         .onAppear {
