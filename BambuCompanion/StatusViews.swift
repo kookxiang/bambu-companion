@@ -589,7 +589,11 @@ private final class ExternalVideoFrameSource: ObservableObject {
     private var stderrPipe: Pipe?
     private var currentURL: URL?
     private var buffer = Data()
+    private var latestFrame: NSImage?
+    private var publishScheduled = false
+    private var lastPublishTime = DispatchTime.now()
     private let queue = DispatchQueue(label: "BambuCompanion.ExternalVideoFrameSource")
+    private let minimumPublishInterval: TimeInterval = 1.0 / 8.0
 
     func start(url: URL?) {
         guard let url else {
@@ -617,12 +621,8 @@ private final class ExternalVideoFrameSource: ObservableObject {
         process.arguments = [
             "-hide_banner",
             "-loglevel", "error",
-            "-fflags", "nobuffer",
             "-flags", "low_delay",
-            "-analyzeduration", "0",
-            "-probesize", "32",
             "-rtsp_transport", "tcp",
-            "-reorder_queue_size", "0",
             "-i", url.absoluteString,
             "-an",
             "-vf", "fps=8,scale=960:-2",
@@ -683,6 +683,8 @@ private final class ExternalVideoFrameSource: ObservableObject {
         stderrPipe = nil
         queue.sync {
             buffer.removeAll(keepingCapacity: true)
+            latestFrame = nil
+            publishScheduled = false
         }
     }
 
@@ -694,10 +696,35 @@ private final class ExternalVideoFrameSource: ObservableObject {
                 guard let image = NSImage(data: frame) else {
                     continue
                 }
-                DispatchQueue.main.async {
-                    self.image = image
-                    self.errorMessage = nil
-                }
+                self.schedulePublish(image)
+            }
+        }
+    }
+
+    private func schedulePublish(_ image: NSImage) {
+        latestFrame = image
+        guard !publishScheduled else {
+            return
+        }
+
+        publishScheduled = true
+        let now = DispatchTime.now()
+        let elapsed = Double(now.uptimeNanoseconds - lastPublishTime.uptimeNanoseconds) / 1_000_000_000
+        let delay = max(0, minimumPublishInterval - elapsed)
+
+        queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            let image = self.latestFrame
+            self.latestFrame = nil
+            self.publishScheduled = false
+            self.lastPublishTime = DispatchTime.now()
+
+            guard let image else {
+                return
+            }
+            DispatchQueue.main.async {
+                self.image = image
+                self.errorMessage = nil
             }
         }
     }
