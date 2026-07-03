@@ -33,8 +33,11 @@ struct PrinterStatus: Equatable {
     var currentLayer: Int?
     var totalLayers: Int?
     var nozzleTemperature: Double?
+    var targetNozzleTemperature: Double?
     var leftNozzleTemperature: Double?
+    var targetLeftNozzleTemperature: Double?
     var rightNozzleTemperature: Double?
+    var targetRightNozzleTemperature: Double?
     var bedTemperature: Double?
     var targetBedTemperature: Double?
     var chamberTemperature: Double?

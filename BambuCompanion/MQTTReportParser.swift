@@ -20,10 +20,14 @@ enum MQTTReportParser {
         status.remainingMinutes = intValue(print["mc_remaining_time"]) ?? intValue(print["remaining_time"])
         status.currentLayer = intValue(print["layer_num"]) ?? intValue(print["current_layer"])
         status.totalLayers = intValue(print["total_layer_num"]) ?? intValue(print["total_layers"])
-        status.nozzleTemperature = doubleValue(print["nozzle_temper"]) ?? doubleValue(print["nozzle_temperature"])
-        let nozzleTemperatures = dualNozzleTemperatures(from: print)
-        status.leftNozzleTemperature = nozzleTemperatures.left
-        status.rightNozzleTemperature = nozzleTemperatures.right
+        let nozzle = nozzleTemperatures(from: print)
+        status.nozzleTemperature = nozzle.current
+        status.targetNozzleTemperature = nozzle.target
+        let dualNozzles = dualNozzleTemperatures(from: print)
+        status.leftNozzleTemperature = dualNozzles.left.current
+        status.targetLeftNozzleTemperature = dualNozzles.left.target
+        status.rightNozzleTemperature = dualNozzles.right.current
+        status.targetRightNozzleTemperature = dualNozzles.right.target
         let bedTemperatures = bedTemperatures(from: print)
         status.bedTemperature = bedTemperatures.current
         status.targetBedTemperature = bedTemperatures.target
@@ -56,26 +60,36 @@ enum MQTTReportParser {
         }
     }
 
-    private static func dualNozzleTemperatures(from print: [String: Any]) -> (left: Double?, right: Double?) {
+    private static func nozzleTemperatures(from print: [String: Any]) -> (current: Double?, target: Double?) {
+        return (
+            current: doubleValue(print["nozzle_temper"]) ?? doubleValue(print["nozzle_temperature"]),
+            target: doubleValue(print["nozzle_target_temper"]) ?? doubleValue(print["target_nozzle_temperature"])
+        )
+    }
+
+    private static func dualNozzleTemperatures(from print: [String: Any]) -> (left: (current: Double?, target: Double?), right: (current: Double?, target: Double?)) {
         guard let device = print["device"] as? [String: Any],
               let extruder = device["extruder"] as? [String: Any],
               let info = extruder["info"] as? [[String: Any]] else {
-            return (nil, nil)
+            return ((nil, nil), (nil, nil))
         }
 
-        var left: Double?
-        var right: Double?
+        var left: (current: Double?, target: Double?) = (nil, nil)
+        var right: (current: Double?, target: Double?) = (nil, nil)
         for entry in info {
             guard let id = intValue(entry["id"]),
                   let encodedTemperature = intValue(entry["temp"]) else {
                 continue
             }
-            let currentTemperature = Double(encodedTemperature & 0xFFFF)
+            let temperatures = (
+                current: Double(encodedTemperature & 0xFFFF),
+                target: Double((encodedTemperature >> 16) & 0xFFFF)
+            )
             switch id {
             case 0:
-                right = currentTemperature
+                right = temperatures
             case 1:
-                left = currentTemperature
+                left = temperatures
             default:
                 break
             }

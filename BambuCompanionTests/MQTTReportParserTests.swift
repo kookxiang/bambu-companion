@@ -13,6 +13,7 @@ final class MQTTReportParserTests: XCTestCase {
             "total_layer_num": 180,
             "gcode_file": "benchy.3mf",
             "nozzle_temper": 221.4,
+            "nozzle_target_temper": 245,
             "bed_temper": 63,
             "bed_target_temper": 70,
             "chamber_temper": 38,
@@ -30,6 +31,7 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.totalLayers, 180)
         XCTAssertEqual(status.jobName, "benchy.3mf")
         XCTAssertEqual(status.nozzleTemperature, 221.4)
+        XCTAssertEqual(status.targetNozzleTemperature, 245)
         XCTAssertEqual(status.bedTemperature, 63)
         XCTAssertEqual(status.targetBedTemperature, 70)
         XCTAssertEqual(status.chamberTemperature, 38)
@@ -74,7 +76,9 @@ final class MQTTReportParserTests: XCTestCase {
         let status = try MQTTReportParser.parse(Data(json.utf8))
 
         XCTAssertEqual(status.rightNozzleTemperature, 245)
+        XCTAssertEqual(status.targetRightNozzleTemperature, 245)
         XCTAssertEqual(status.leftNozzleTemperature, 159)
+        XCTAssertEqual(status.targetLeftNozzleTemperature, 88)
         XCTAssertEqual(status.nozzleTemperature, 245)
     }
 

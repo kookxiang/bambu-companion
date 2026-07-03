@@ -108,11 +108,11 @@ struct StatusSummaryView: View {
     private var nozzleMetric: some View {
         if status.leftNozzleTemperature != nil || status.rightNozzleTemperature != nil {
             DualNozzleMetricView(
-                leftTemperature: temperature(status.leftNozzleTemperature),
-                rightTemperature: temperature(status.rightNozzleTemperature)
+                leftTemperature: temperature(status.leftNozzleTemperature, target: status.targetLeftNozzleTemperature),
+                rightTemperature: temperature(status.rightNozzleTemperature, target: status.targetRightNozzleTemperature)
             )
         } else {
-            MetricView(title: "Nozzle", value: temperature(status.nozzleTemperature))
+            MetricView(title: "Nozzle", value: temperature(status.nozzleTemperature, target: status.targetNozzleTemperature))
         }
     }
 
@@ -196,9 +196,9 @@ private struct AMSUnitRowView: View {
         }
         .background {
             Rectangle()
-                .fill(unit.isDrying ? Color.orange.opacity(pulse ? 0.16 : 0.07) : Color.clear)
+                .fill(dryingHighlight)
                 .padding(.horizontal, -16)
-                .padding(.vertical, -6)
+                .padding(.vertical, -8)
         }
         .animation(.easeInOut(duration: 0.2), value: unit.isDrying)
         .onAppear {
@@ -218,6 +218,21 @@ private struct AMSUnitRowView: View {
                 pulse = false
             }
         }
+    }
+
+    private var dryingHighlight: LinearGradient {
+        let centerOpacity = unit.isDrying ? (pulse ? 0.18 : 0.08) : 0
+        let edgeOpacity = unit.isDrying ? (pulse ? 0.04 : 0.015) : 0
+        return LinearGradient(
+            stops: [
+                .init(color: Color.orange.opacity(edgeOpacity), location: 0),
+                .init(color: Color.orange.opacity(centerOpacity), location: 0.35),
+                .init(color: Color.orange.opacity(centerOpacity), location: 0.65),
+                .init(color: Color.orange.opacity(edgeOpacity), location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 
@@ -425,9 +440,9 @@ private struct DualNozzleMetricView: View {
                 Text(rightTemperature)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .font(.callout.monospacedDigit())
+            .font(.caption.monospacedDigit().weight(.semibold))
             .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
