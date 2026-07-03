@@ -2,9 +2,12 @@ import SwiftUI
 
 struct StatusSummaryView: View {
     let status: PrinterStatus
+    let coverImageState: CoverImageState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            CoverImageView(state: coverImageState)
+
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(status.activity.title)
@@ -58,6 +61,44 @@ struct StatusSummaryView: View {
             return "--"
         }
         return "\(Int(value.rounded())) C"
+    }
+}
+
+private struct CoverImageView: View {
+    let state: CoverImageState
+
+    var body: some View {
+        switch state {
+        case .ready(let url):
+            AsyncImage(url: url) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                ProgressView()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 150)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        case .loading:
+            placeholder(icon: "photo", text: "Loading cover image")
+        case .failed:
+            placeholder(icon: "photo.badge.exclamationmark", text: "Cover image unavailable")
+        case .unavailable:
+            EmptyView()
+        }
+    }
+
+    private func placeholder(icon: String, text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+            Text(text)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity)
+        .frame(height: 48)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 }
 

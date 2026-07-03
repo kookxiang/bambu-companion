@@ -9,7 +9,7 @@ struct MenuPanelView: View {
             header
 
             if appState.configuration.isComplete {
-                StatusSummaryView(status: appState.status)
+                StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
                 VideoPlaceholderView()
             } else {
                 setupPrompt

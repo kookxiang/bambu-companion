@@ -44,6 +44,58 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
 
+    func testParsesCoverImageFileHints() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_file":"widget.gcode.3mf","subtask_name":"Widget","gcode_file_prepare_percent":"100"}}"#.utf8))
+
+        XCTAssertEqual(status.gcodeFile, "widget.gcode.3mf")
+        XCTAssertEqual(status.subtaskName, "Widget")
+        XCTAssertEqual(status.gcodeFilePreparePercent, 100)
+        XCTAssertEqual(status.jobName, "Widget")
+    }
+
+    func testCoverImageCandidatesPreferSubtaskNameAndSkipMetadataRamdisk() {
+        let candidates = CoverImageCandidateBuilder.candidates(
+            gcodeFile: "/data/Metadata/plate_1.gcode",
+            subtaskName: "Air Slides"
+        )
+
+        XCTAssertEqual(candidates, ["Air Slides.3mf", "Air Slides.gcode.3mf"])
+    }
+
+    func testCoverImageMetadataParserReadsPlateIndex() throws {
+        let xml = """
+        <config>
+          <plate>
+            <metadata key="index" value="3"/>
+          </plate>
+        </config>
+        """
+
+        XCTAssertEqual(CoverImageMetadataParser.plateNumber(from: Data(xml.utf8)), 3)
+    }
+
+    func testZIPArchiveReadsDeflatedEntries() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BambuCompanionZIPArchiveTests-\(UUID().uuidString)", isDirectory: true)
+        let metadataDirectory = directory.appendingPathComponent("Metadata", isDirectory: true)
+        try FileManager.default.createDirectory(at: metadataDirectory, withIntermediateDirectories: true)
+        let entryURL = metadataDirectory.appendingPathComponent("slice_info.config")
+        try Data("<config/>".utf8).write(to: entryURL)
+
+        let zipURL = directory.appendingPathComponent("model.3mf")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        process.currentDirectoryURL = directory
+        process.arguments = ["-q", zipURL.path, "Metadata/slice_info.config"]
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let archive = try ZIPArchive(data: Data(contentsOf: zipURL))
+
+        XCTAssertEqual(try archive.data(named: "Metadata/slice_info.config"), Data("<config/>".utf8))
+    }
+
     func testMQTTPublishPacketExtractsPayload() throws {
         let json = Data(#"{"print":{"gcode_state":"RUNNING"}}"#.utf8)
         var publishPayload = Data()

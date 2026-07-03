@@ -6,10 +6,15 @@ final class AppState: NSObject, ObservableObject {
     @Published private(set) var configuration: PrinterConfiguration
     @Published private(set) var connectionState: ConnectionState = .notConfigured
     @Published private(set) var status: PrinterStatus = .empty
+    @Published private(set) var coverImageState: CoverImageState = .unavailable
     @Published var isShowingSettings = false
 
     private let configurationStore: PrinterConfigurationStore
+    private let coverImageService = CoverImageService()
     private var mqttClient: BambuMQTTClient?
+    private var coverImageTask: Task<Void, Never>?
+    private var currentCoverJobKey: String?
+    private var currentCoverAttemptKey: String?
 
     var menuBarSymbolName: String {
         switch connectionState {
@@ -41,7 +46,13 @@ final class AppState: NSObject, ObservableObject {
     func reconnectIfConfigured() {
         mqttClient?.disconnect()
         mqttClient = nil
+        coverImageTask?.cancel()
+        coverImageTask = nil
+        coverImageService.reset()
+        currentCoverJobKey = nil
+        currentCoverAttemptKey = nil
         status = .empty
+        coverImageState = .unavailable
 
         guard configuration.isComplete else {
             connectionState = .notConfigured
@@ -58,7 +69,63 @@ final class AppState: NSObject, ObservableObject {
     func disconnect() {
         mqttClient?.disconnect()
         mqttClient = nil
+        coverImageTask?.cancel()
+        coverImageTask = nil
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
+    }
+
+    private func updateCoverImageIfNeeded(for status: PrinterStatus) {
+        guard configuration.isComplete,
+              status.activity == .printing || status.activity == .paused,
+              status.gcodeFile?.isEmpty == false || status.subtaskName?.isEmpty == false else {
+            coverImageState = .unavailable
+            coverImageTask?.cancel()
+            coverImageTask = nil
+            coverImageService.reset()
+            currentCoverJobKey = nil
+            currentCoverAttemptKey = nil
+            return
+        }
+
+        let job = CoverImageJob(
+            host: configuration.host,
+            accessCode: configuration.accessCode,
+            gcodeFile: status.gcodeFile,
+            subtaskName: status.subtaskName
+        )
+        guard let jobKey = job.cacheKey else {
+            return
+        }
+        if case .ready = coverImageState, jobKey == currentCoverJobKey {
+            return
+        }
+        let attemptKey = "\(jobKey)|\(status.activity.rawValue)|\(status.gcodeFilePreparePercent ?? -1)"
+        guard attemptKey != currentCoverAttemptKey else {
+            return
+        }
+        currentCoverAttemptKey = attemptKey
+        currentCoverJobKey = jobKey
+
+        coverImageTask?.cancel()
+        coverImageState = .loading
+        coverImageTask = Task { [coverImageService] in
+            do {
+                let url = try await coverImageService.loadCover(for: job)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    if let url {
+                        self.coverImageState = .ready(url)
+                    } else if case .loading = self.coverImageState {
+                        self.coverImageState = .unavailable
+                    }
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self.coverImageState = .failed(error.localizedDescription)
+                }
+            }
+        }
     }
 }
 
@@ -72,7 +139,9 @@ extension AppState: BambuMQTTClientDelegate {
     nonisolated func mqttClient(_ client: BambuMQTTClient, didReceiveReport data: Data) {
         Task { @MainActor in
             do {
-                self.status = try MQTTReportParser.parse(data)
+                let status = try MQTTReportParser.parse(data)
+                self.status = status
+                self.updateCoverImageIfNeeded(for: status)
             } catch {
                 self.connectionState = .failed(error.localizedDescription)
             }

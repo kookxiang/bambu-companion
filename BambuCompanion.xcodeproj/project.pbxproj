@@ -18,6 +18,14 @@
 		1A0000010000000000000009 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000019 /* SettingsView.swift */; };
 		1A000001000000000000000A /* StatusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001A /* StatusViews.swift */; };
 		1A000001000000000000000B /* MQTTReportParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001B /* MQTTReportParserTests.swift */; };
+		1A000001000000000000000C /* CoverImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001E /* CoverImageService.swift */; };
+		1A000001000000000000000D /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
+		1A000001000000000000000E /* ZIPArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000023 /* ZIPArchive.swift */; };
+		1A000001000000000000000F /* CoverImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001E /* CoverImageService.swift */; };
+		1A0000010000000000000024 /* ZIPArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000023 /* ZIPArchive.swift */; };
+		1A0000010000000000000025 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
+		1A0000010000000000000027 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
+		1A0000010000000000000028 /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +53,10 @@
 		1A000001000000000000001B /* MQTTReportParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTTReportParserTests.swift; sourceTree = "<group>"; };
 		1A000001000000000000001C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A000001000000000000001D /* BambuCompanionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BambuCompanionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A000001000000000000001E /* CoverImageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverImageService.swift; sourceTree = "<group>"; };
+		1A000001000000000000001F /* FTPSDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTPSDownloader.swift; sourceTree = "<group>"; };
+		1A0000010000000000000023 /* ZIPArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZIPArchive.swift; sourceTree = "<group>"; };
+		1A0000010000000000000026 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +84,10 @@
 				1A0000010000000000000015 /* PrinterConfiguration.swift */,
 				1A0000010000000000000016 /* PrinterStatus.swift */,
 				1A0000010000000000000017 /* MQTTReportParser.swift */,
+				1A000001000000000000001E /* CoverImageService.swift */,
+				1A000001000000000000001F /* FTPSDownloader.swift */,
+				1A0000010000000000000023 /* ZIPArchive.swift */,
+				1A0000010000000000000026 /* Utilities.swift */,
 				1A0000010000000000000018 /* MenuPanelView.swift */,
 				1A0000010000000000000019 /* SettingsView.swift */,
 				1A000001000000000000001A /* StatusViews.swift */,
@@ -179,6 +195,10 @@
 				1A0000010000000000000005 /* PrinterConfiguration.swift in Sources */,
 				1A0000010000000000000006 /* PrinterStatus.swift in Sources */,
 				1A0000010000000000000007 /* MQTTReportParser.swift in Sources */,
+				1A000001000000000000000C /* CoverImageService.swift in Sources */,
+				1A000001000000000000000D /* FTPSDownloader.swift in Sources */,
+				1A000001000000000000000E /* ZIPArchive.swift in Sources */,
+				1A0000010000000000000025 /* Utilities.swift in Sources */,
 				1A0000010000000000000008 /* MenuPanelView.swift in Sources */,
 				1A0000010000000000000009 /* SettingsView.swift in Sources */,
 				1A000001000000000000000A /* StatusViews.swift in Sources */,
@@ -192,6 +212,10 @@
 				1A000001000000000000000B /* MQTTReportParserTests.swift in Sources */,
 				1A0000010000000000000007 /* MQTTReportParser.swift in Sources */,
 				1A0000010000000000000006 /* PrinterStatus.swift in Sources */,
+				1A000001000000000000000F /* CoverImageService.swift in Sources */,
+				1A0000010000000000000028 /* FTPSDownloader.swift in Sources */,
+				1A0000010000000000000024 /* ZIPArchive.swift in Sources */,
+				1A0000010000000000000027 /* Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

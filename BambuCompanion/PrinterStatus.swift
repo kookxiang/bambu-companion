@@ -24,6 +24,9 @@ struct PrinterStatus: Equatable {
     var activity: PrinterActivity = .unknown
     var progress: Int?
     var jobName: String?
+    var gcodeFile: String?
+    var subtaskName: String?
+    var gcodeFilePreparePercent: Int?
     var remainingMinutes: Int?
     var nozzleTemperature: Double?
     var bedTemperature: Double?
