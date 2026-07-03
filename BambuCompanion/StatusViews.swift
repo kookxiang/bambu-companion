@@ -552,7 +552,8 @@ struct VideoPreviewView: View {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 116)
+        .frame(maxWidth: .infinity)
+        .aspectRatio(16.0 / 9.0, contentMode: .fit)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onAppear {
@@ -619,9 +620,10 @@ private final class FFmpegVideoFrameSource: ObservableObject {
             "-rtsp_transport", "tcp",
             "-i", url.absoluteString,
             "-an",
-            "-vf", "fps=6,scale=640:-1",
+            "-vf", "fps=8,scale=960:-2",
             "-f", "image2pipe",
             "-vcodec", "mjpeg",
+            "-q:v", "3",
             "pipe:1"
         ]
         process.standardOutput = stdoutPipe
