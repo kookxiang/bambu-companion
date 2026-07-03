@@ -29,6 +29,15 @@ final class AppState: NSObject, ObservableObject {
         }
     }
 
+    var menuBarProgressTitle: String? {
+        guard connectionState == .connected,
+              status.activity == .printing || status.activity == .paused,
+              let progress = status.progress else {
+            return nil
+        }
+        return "\(progress)%"
+    }
+
     override init() {
         let configurationStore = PrinterConfigurationStore()
         self.configurationStore = configurationStore
@@ -90,7 +99,9 @@ final class AppState: NSObject, ObservableObject {
         let job = CoverImageJob(
             host: configuration.host,
             accessCode: configuration.accessCode,
+            rawFile: status.rawFile,
             gcodeFile: status.gcodeFile,
+            gcodeFileDownloaded: status.gcodeFileDownloaded,
             subtaskName: status.subtaskName
         )
         guard let jobKey = job.cacheKey else {

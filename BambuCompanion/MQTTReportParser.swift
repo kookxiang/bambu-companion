@@ -11,7 +11,9 @@ enum MQTTReportParser {
         var status = PrinterStatus()
         status.activity = activity(from: stringValue(print["gcode_state"]) ?? stringValue(print["print_status"]))
         status.progress = intValue(print["mc_percent"]) ?? intValue(print["print_progress"])
+        status.rawFile = stringValue(print["file"])
         status.gcodeFile = stringValue(print["gcode_file"])
+        status.gcodeFileDownloaded = stringValue(print["gcode_file_downloaded"])
         status.subtaskName = stringValue(print["subtask_name"])
         status.gcodeFilePreparePercent = intValue(print["gcode_file_prepare_percent"])
         status.jobName = status.subtaskName?.isEmpty == false ? status.subtaskName : status.gcodeFile

@@ -10,21 +10,39 @@ enum CoverImageState: Equatable {
 struct CoverImageJob: Equatable {
     let host: String
     let accessCode: String
+    let rawFile: String?
     let gcodeFile: String?
+    let gcodeFileDownloaded: String?
     let subtaskName: String?
 
     var cacheKey: String? {
-        let candidates = CoverImageCandidateBuilder.candidates(gcodeFile: gcodeFile, subtaskName: subtaskName)
+        let candidates = CoverImageCandidateBuilder.candidates(
+            rawFile: rawFile,
+            gcodeFile: gcodeFile,
+            gcodeFileDownloaded: gcodeFileDownloaded,
+            subtaskName: subtaskName
+        )
         return candidates.first
     }
 }
 
 enum CoverImageCandidateBuilder {
-    static func candidates(gcodeFile: String?, subtaskName: String?) -> [String] {
+    static func candidates(
+        rawFile: String? = nil,
+        gcodeFile: String?,
+        gcodeFileDownloaded: String? = nil,
+        subtaskName: String?
+    ) -> [String] {
         var names: [String] = []
+        appendCandidates(from: gcodeFileDownloaded, to: &names)
         appendCandidates(from: subtaskName, to: &names)
         appendCandidates(from: gcodeFile, to: &names)
+        appendCandidates(from: rawFile, to: &names)
         return names.removingDuplicates()
+    }
+
+    static func candidates(gcodeFile: String?, subtaskName: String?) -> [String] {
+        candidates(rawFile: nil, gcodeFile: gcodeFile, gcodeFileDownloaded: nil, subtaskName: subtaskName)
     }
 
     private static func appendCandidates(from value: String?, to names: inout [String]) {
@@ -118,6 +136,9 @@ enum CoverImageMetadataParser {
 }
 
 final class CoverImageService {
+    private static let retryCount = 13
+    private static let retryDelayNanoseconds: UInt64 = 5_000_000_000
+
     private let cache: CoverImageCache
     private let downloader: FTPSDownloader
 
@@ -134,25 +155,42 @@ final class CoverImageService {
             return nil
         }
 
-        let candidates = CoverImageCandidateBuilder.candidates(gcodeFile: job.gcodeFile, subtaskName: job.subtaskName)
-        for filename in candidates {
-            for remotePath in ["/cache/\(filename)", "/\(filename)"] {
-                if let cached = cache.cachedCoverURL(for: remotePath, size: nil) {
-                    return cached
+        let candidates = CoverImageCandidateBuilder.candidates(
+            rawFile: job.rawFile,
+            gcodeFile: job.gcodeFile,
+            gcodeFileDownloaded: job.gcodeFileDownloaded,
+            subtaskName: job.subtaskName
+        )
+        for attempt in 0..<Self.retryCount {
+            for filename in candidates {
+                for remotePath in ["/cache/\(filename)", "/\(filename)"] {
+                    if let url = try await loadCover(from: remotePath, job: job) {
+                        return url
+                    }
                 }
-                guard let remoteFile = try await downloader.stat(host: job.host, accessCode: job.accessCode, remotePath: remotePath) else {
-                    continue
-                }
-                if let cached = cache.cachedCoverURL(for: remotePath, size: remoteFile.size) {
-                    return cached
-                }
-                let modelURL = try cache.modelURL(for: remotePath, size: remoteFile.size)
-                if cache.cachedModelURL(for: remotePath, size: remoteFile.size) == nil {
-                    try await downloader.download(host: job.host, accessCode: job.accessCode, remotePath: remotePath, destination: modelURL)
-                }
-                return try cache.extractCover(from: modelURL, remotePath: remotePath, size: remoteFile.size)
+            }
+
+            if attempt < Self.retryCount - 1 {
+                try await Task.sleep(nanoseconds: Self.retryDelayNanoseconds)
             }
         }
         return nil
+    }
+
+    private func loadCover(from remotePath: String, job: CoverImageJob) async throws -> URL? {
+        if let cached = cache.cachedCoverURL(for: remotePath, size: nil) {
+            return cached
+        }
+        guard let remoteFile = try await downloader.stat(host: job.host, accessCode: job.accessCode, remotePath: remotePath) else {
+            return nil
+        }
+        if let cached = cache.cachedCoverURL(for: remotePath, size: remoteFile.size) {
+            return cached
+        }
+        let modelURL = try cache.modelURL(for: remotePath, size: remoteFile.size)
+        if cache.cachedModelURL(for: remotePath, size: remoteFile.size) == nil {
+            try await downloader.download(host: job.host, accessCode: job.accessCode, remotePath: remotePath, destination: modelURL)
+        }
+        return try cache.extractCover(from: modelURL, remotePath: remotePath, size: remoteFile.size)
     }
 }

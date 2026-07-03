@@ -9,7 +9,13 @@ struct BambuCompanionApp: App {
             MenuPanelView()
                 .environmentObject(appState)
         } label: {
-            Image(systemName: appState.menuBarSymbolName)
+            HStack(spacing: 4) {
+                Image(systemName: appState.menuBarSymbolName)
+                if let progress = appState.menuBarProgressTitle {
+                    Text(progress)
+                        .monospacedDigit()
+                }
+            }
         }
         .menuBarExtraStyle(.window)
 

@@ -45,9 +45,11 @@ final class MQTTReportParserTests: XCTestCase {
     }
 
     func testParsesCoverImageFileHints() throws {
-        let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_file":"widget.gcode.3mf","subtask_name":"Widget","gcode_file_prepare_percent":"100"}}"#.utf8))
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"file":"/data/Metadata/plate_1.gcode","gcode_file":"widget.gcode.3mf","gcode_file_downloaded":"downloaded.gcode","subtask_name":"Widget","gcode_file_prepare_percent":"100"}}"#.utf8))
 
+        XCTAssertEqual(status.rawFile, "/data/Metadata/plate_1.gcode")
         XCTAssertEqual(status.gcodeFile, "widget.gcode.3mf")
+        XCTAssertEqual(status.gcodeFileDownloaded, "downloaded.gcode")
         XCTAssertEqual(status.subtaskName, "Widget")
         XCTAssertEqual(status.gcodeFilePreparePercent, 100)
         XCTAssertEqual(status.jobName, "Widget")
@@ -100,6 +102,17 @@ final class MQTTReportParserTests: XCTestCase {
         )
 
         XCTAssertEqual(candidates, ["Air Slides.3mf", "Air Slides.gcode.3mf"])
+    }
+
+    func testCoverImageCandidatesPreferDownloadedFileWhenPresent() {
+        let candidates = CoverImageCandidateBuilder.candidates(
+            rawFile: "/data/Metadata/plate_2.gcode",
+            gcodeFile: "/data/Metadata/plate_1.gcode",
+            gcodeFileDownloaded: "Air Slides.gcode.3mf",
+            subtaskName: "Air Slides"
+        )
+
+        XCTAssertEqual(candidates, ["Air Slides.gcode.3mf", "Air Slides.3mf"])
     }
 
     func testCoverImageMetadataParserReadsPlateIndex() throws {
