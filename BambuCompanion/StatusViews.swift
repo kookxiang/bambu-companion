@@ -145,16 +145,6 @@ private struct AMSSlotView: View {
                 .foregroundStyle(slot.material == nil ? .tertiary : .secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-
-            Spacer(minLength: 2)
-
-            if let remainingPercent = slot.remainingPercent {
-                Text("\(remainingPercent)%")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
         }
         .frame(maxWidth: .infinity, minHeight: 28)
         .padding(.horizontal, 6)
@@ -327,9 +317,9 @@ private struct DualNozzleMetricView: View {
                 Text(rightTemperature)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .font(.callout.monospacedDigit())
+            .font(.caption.monospacedDigit().weight(.semibold))
             .lineLimit(1)
-            .minimumScaleFactor(0.75)
+            .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
