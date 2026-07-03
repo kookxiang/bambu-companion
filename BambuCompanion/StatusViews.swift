@@ -14,7 +14,7 @@ struct StatusSummaryView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(status.activity.title)
                                 .font(.title3.bold())
-                            Text(status.jobName?.isEmpty == false ? status.jobName! : "No active job")
+                            Text(statusDetail)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
@@ -28,9 +28,16 @@ struct StatusSummaryView: View {
                 }
             }
 
+            if let alert = status.alert {
+                AlertBannerView(alert: alert)
+            }
+
             HStack(spacing: 10) {
                 nozzleMetric
                 MetricView(title: "Bed", value: temperature(status.bedTemperature))
+                if status.chamberTemperature != nil {
+                    MetricView(title: "Chamber", value: temperature(status.chamberTemperature))
+                }
                 MetricView(title: "Remaining", value: remainingTime)
             }
 
@@ -38,6 +45,24 @@ struct StatusSummaryView: View {
                 AMSUnitsView(units: status.amsUnits)
             }
         }
+    }
+
+    private var statusDetail: String {
+        let job = status.jobName?.isEmpty == false ? status.jobName! : "No active job"
+        guard let layerText else {
+            return job
+        }
+        return "\(job) - \(layerText)"
+    }
+
+    private var layerText: String? {
+        guard let currentLayer = status.currentLayer, currentLayer > 0 else {
+            return nil
+        }
+        if let totalLayers = status.totalLayers, totalLayers > 0 {
+            return "Layer \(currentLayer)/\(totalLayers)"
+        }
+        return "Layer \(currentLayer)"
     }
 
     private var progressBadge: some View {
@@ -120,10 +145,26 @@ private struct AMSSlotView: View {
                 .foregroundStyle(slot.material == nil ? .tertiary : .secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+
+            Spacer(minLength: 2)
+
+            if let remainingPercent = slot.remainingPercent {
+                Text("\(remainingPercent)%")
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 28)
         .padding(.horizontal, 6)
-        .background(slot.isActive ? Color.accentColor.opacity(0.18) : Color(NSColor.quaternaryLabelColor), in: RoundedRectangle(cornerRadius: 7))
+        .background {
+            AMSSlotProgressBackground(
+                color: slotProgressColor,
+                percent: slot.remainingPercent,
+                isActive: slot.isActive
+            )
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 7)
                 .stroke(slot.isActive ? Color.accentColor : Color.clear, lineWidth: 1.5)
@@ -136,6 +177,63 @@ private struct AMSSlotView: View {
             return .clear
         }
         return color
+    }
+
+    private var slotProgressColor: Color? {
+        guard let colorHex = slot.colorHex else {
+            return nil
+        }
+        return Color(hexRGB: colorHex)
+    }
+}
+
+private struct AMSSlotProgressBackground: View {
+    let color: Color?
+    let percent: Int?
+    let isActive: Bool
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(isActive ? Color.accentColor.opacity(0.16) : Color(NSColor.quaternaryLabelColor))
+
+            if let percent {
+                GeometryReader { proxy in
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(progressColor.opacity(isActive ? 0.34 : 0.24))
+                        .frame(width: proxy.size.width * CGFloat(percent) / 100)
+                        .frame(maxHeight: .infinity, alignment: .leading)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+            }
+        }
+    }
+
+    private var progressColor: Color {
+        color ?? .accentColor
+    }
+}
+
+private struct AlertBannerView: View {
+    let alert: PrinterAlert
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(alert.title)
+                .font(.caption.weight(.semibold))
+            if let detail = alert.detail {
+                Text(detail)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 

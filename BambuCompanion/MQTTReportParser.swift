@@ -18,11 +18,15 @@ enum MQTTReportParser {
         status.gcodeFilePreparePercent = intValue(print["gcode_file_prepare_percent"])
         status.jobName = status.subtaskName?.isEmpty == false ? status.subtaskName : status.gcodeFile
         status.remainingMinutes = intValue(print["mc_remaining_time"]) ?? intValue(print["remaining_time"])
+        status.currentLayer = intValue(print["layer_num"]) ?? intValue(print["current_layer"])
+        status.totalLayers = intValue(print["total_layer_num"]) ?? intValue(print["total_layers"])
         status.nozzleTemperature = doubleValue(print["nozzle_temper"]) ?? doubleValue(print["nozzle_temperature"])
         let nozzleTemperatures = dualNozzleTemperatures(from: print)
         status.leftNozzleTemperature = nozzleTemperatures.left
         status.rightNozzleTemperature = nozzleTemperatures.right
         status.bedTemperature = doubleValue(print["bed_temper"]) ?? doubleValue(print["bed_temperature"])
+        status.chamberTemperature = chamberTemperature(from: print)
+        status.alert = alert(from: print)
         status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
         return status
@@ -75,6 +79,26 @@ enum MQTTReportParser {
         return (left, right)
     }
 
+    private static func chamberTemperature(from print: [String: Any]) -> Double? {
+        if let ctc = (print["device"] as? [String: Any])?["ctc"] as? [String: Any],
+           let info = ctc["info"] as? [String: Any],
+           let encodedTemperature = intValue(info["temp"]) {
+            return Double(encodedTemperature & 0xFFFF)
+        }
+        return doubleValue(print["chamber_temper"]) ?? doubleValue(print["chamber_temperature"])
+    }
+
+    private static func alert(from print: [String: Any]) -> PrinterAlert? {
+        if let printError = intValue(print["print_error"]), printError != 0 {
+            return PrinterAlert(title: "Print error", detail: formattedErrorCode(printError))
+        }
+        if let hms = print["hms"] as? [[String: Any]], !hms.isEmpty {
+            let firstCode = hms.compactMap { stringValue($0["code"]) ?? stringValue($0["attr"]) }.first
+            return PrinterAlert(title: "Printer warning", detail: firstCode)
+        }
+        return nil
+    }
+
     private static func amsUnits(from print: [String: Any]) -> [AMSUnitStatus] {
         guard let ams = print["ams"] as? [String: Any],
               let amsList = ams["ams"] as? [[String: Any]] else {
@@ -96,11 +120,13 @@ enum MQTTReportParser {
                 let tray = trayByIndex[slotIndex]
                 let material = normalizedMaterial(stringValue(tray?["tray_type"]))
                 let colorHex = normalizedColorHex(stringValue(tray?["tray_color"]))
+                let remainingPercent = normalizedPercent(intValue(tray?["remain"]))
                 return AMSSlotStatus(
                     id: "\(rawID)-\(slotIndex)",
                     index: slotIndex,
                     material: material,
                     colorHex: colorHex,
+                    remainingPercent: remainingPercent,
                     isActive: activeSlot?.amsID == rawID && activeSlot?.slotIndex == slotIndex
                 )
             }
@@ -191,6 +217,19 @@ enum MQTTReportParser {
             return nil
         }
         return value.uppercased()
+    }
+
+    private static func normalizedPercent(_ value: Int?) -> Int? {
+        guard let value, value >= 0 else {
+            return nil
+        }
+        return min(value, 100)
+    }
+
+    private static func formattedErrorCode(_ value: Int) -> String {
+        let hex = String(format: "%08X", value)
+        let separator = hex.index(hex.startIndex, offsetBy: 4)
+        return "\(hex[..<separator])_\(hex[separator...])"
     }
 
     private static func stringValue(_ value: Any?) -> String? {

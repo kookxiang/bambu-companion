@@ -9,9 +9,12 @@ final class MQTTReportParserTests: XCTestCase {
             "gcode_state": "RUNNING",
             "mc_percent": 42,
             "mc_remaining_time": 93,
+            "layer_num": 12,
+            "total_layer_num": 180,
             "gcode_file": "benchy.3mf",
             "nozzle_temper": 221.4,
-            "bed_temper": 63
+            "bed_temper": 63,
+            "chamber_temper": 38
           }
         }
         """
@@ -21,9 +24,12 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.activity, .printing)
         XCTAssertEqual(status.progress, 42)
         XCTAssertEqual(status.remainingMinutes, 93)
+        XCTAssertEqual(status.currentLayer, 12)
+        XCTAssertEqual(status.totalLayers, 180)
         XCTAssertEqual(status.jobName, "benchy.3mf")
         XCTAssertEqual(status.nozzleTemperature, 221.4)
         XCTAssertEqual(status.bedTemperature, 63)
+        XCTAssertEqual(status.chamberTemperature, 38)
         XCTAssertNotNil(status.updatedAt)
     }
 
@@ -88,9 +94,9 @@ final class MQTTReportParserTests: XCTestCase {
                 {
                   "id": "0",
                   "tray": [
-                    {"id": "0", "tray_type": "PETG", "tray_color": "FFFFFFFF"},
-                    {"id": "1", "tray_type": "PLA", "tray_color": "00FF00FF"},
-                    {"id": "3", "tray_type": "ASA", "tray_color": "00000000"}
+                    {"id": "0", "tray_type": "PETG", "tray_color": "FFFFFFFF", "remain": 63},
+                    {"id": "1", "tray_type": "PLA", "tray_color": "00FF00FF", "remain": -1},
+                    {"id": "3", "tray_type": "ASA", "tray_color": "00000000", "remain": 120}
                   ]
                 },
                 {
@@ -112,11 +118,37 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[0].slots.count, 4)
         XCTAssertEqual(status.amsUnits[0].slots.map(\.material), ["PETG", "PLA", nil, "ASA"])
         XCTAssertEqual(status.amsUnits[0].slots[0].colorHex, "FFFFFF")
+        XCTAssertEqual(status.amsUnits[0].slots[0].remainingPercent, 63)
         XCTAssertEqual(status.amsUnits[0].slots[1].colorHex, "00FF00")
+        XCTAssertNil(status.amsUnits[0].slots[1].remainingPercent)
         XCTAssertNil(status.amsUnits[0].slots[3].colorHex)
+        XCTAssertEqual(status.amsUnits[0].slots[3].remainingPercent, 100)
         XCTAssertEqual(status.amsUnits[1].name, "AMS 2")
         XCTAssertEqual(status.amsUnits[1].slots.map(\.material), ["ABS", nil, nil, nil])
         XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
+    }
+
+    func testParsesEncodedChamberTemperatureAndPrintError() throws {
+        let json = """
+        {
+          "print": {
+            "print_error": 117473286,
+            "device": {
+              "ctc": {
+                "info": {
+                  "temp": 3276843
+                }
+              }
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.chamberTemperature, 43)
+        XCTAssertEqual(status.alert?.title, "Print error")
+        XCTAssertEqual(status.alert?.detail, "0700_8006")
     }
 
     func testParsesActiveAMSSlotFromTrayNow() throws {

@@ -30,14 +30,23 @@ struct PrinterStatus: Equatable {
     var subtaskName: String?
     var gcodeFilePreparePercent: Int?
     var remainingMinutes: Int?
+    var currentLayer: Int?
+    var totalLayers: Int?
     var nozzleTemperature: Double?
     var leftNozzleTemperature: Double?
     var rightNozzleTemperature: Double?
     var bedTemperature: Double?
+    var chamberTemperature: Double?
+    var alert: PrinterAlert?
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
 
     static let empty = PrinterStatus()
+}
+
+struct PrinterAlert: Equatable {
+    var title: String
+    var detail: String?
 }
 
 struct AMSUnitStatus: Equatable, Identifiable {
@@ -51,6 +60,7 @@ struct AMSSlotStatus: Equatable, Identifiable {
     var index: Int
     var material: String?
     var colorHex: String?
+    var remainingPercent: Int?
     var isActive: Bool = false
 }
 
