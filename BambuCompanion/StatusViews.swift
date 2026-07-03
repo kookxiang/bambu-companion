@@ -130,6 +130,9 @@ struct StatusSummaryView: View {
         guard let target, target > 0 else {
             return temperature(value)
         }
+        guard abs(value - target) > 3 else {
+            return temperature(value)
+        }
         return "\(TemperatureText.string(value)) / \(TemperatureText.string(target))"
     }
 }
@@ -440,9 +443,9 @@ private struct DualNozzleMetricView: View {
                 Text(rightTemperature)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .font(.caption.monospacedDigit().weight(.semibold))
+            .font(.callout.monospacedDigit())
             .lineLimit(1)
-            .minimumScaleFactor(0.7)
+            .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
