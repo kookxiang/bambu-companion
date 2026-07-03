@@ -43,4 +43,32 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.progress, 7)
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
+
+    func testMQTTPublishPacketExtractsPayload() throws {
+        let json = Data(#"{"print":{"gcode_state":"RUNNING"}}"#.utf8)
+        var publishPayload = Data()
+        publishPayload.appendMQTTString("device/serial/report")
+        publishPayload.append(json)
+
+        var buffer = Data([0x30])
+        buffer.appendEncodedRemainingLength(publishPayload.count)
+        buffer.append(publishPayload)
+
+        let packet = try XCTUnwrap(buffer.consumeMQTTPacket())
+
+        XCTAssertEqual(packet.type, 0x30)
+        XCTAssertEqual(packet.publishPayload, json)
+    }
+
+    func testMQTTPublishPayloadHandlesSlicedData() throws {
+        let json = Data(#"{"print":{"mc_percent":12}}"#.utf8)
+        var slicedPayload = Data([0xFF])
+        slicedPayload.appendMQTTString("device/serial/report")
+        slicedPayload.append(json)
+        slicedPayload.removeFirst()
+
+        let packet = MQTTPacket(type: 0x30, payload: slicedPayload)
+
+        XCTAssertEqual(packet.publishPayload, json)
+    }
 }

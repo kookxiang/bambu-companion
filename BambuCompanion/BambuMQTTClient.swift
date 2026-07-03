@@ -182,7 +182,7 @@ final class BambuMQTTClient {
     }
 }
 
-private struct MQTTPacket {
+struct MQTTPacket {
     let type: UInt8
     let payload: Data
 
@@ -190,12 +190,15 @@ private struct MQTTPacket {
         guard type & 0xF0 == 0x30, payload.count >= 2 else {
             return nil
         }
-        let topicLength = Int(payload[0]) << 8 | Int(payload[1])
+        let topicLengthIndex = payload.startIndex
+        let topicLengthNextIndex = payload.index(after: topicLengthIndex)
+        let topicLength = Int(payload[topicLengthIndex]) << 8 | Int(payload[topicLengthNextIndex])
         let payloadStart = 2 + topicLength + qosPacketIdentifierLength
         guard payloadStart <= payload.count else {
             return nil
         }
-        return payload[payloadStart...]
+        let startIndex = payload.index(payload.startIndex, offsetBy: payloadStart)
+        return Data(payload[startIndex...])
     }
 
     private var qosPacketIdentifierLength: Int {
@@ -204,7 +207,7 @@ private struct MQTTPacket {
     }
 }
 
-private extension Data {
+extension Data {
     mutating func appendUInt16(_ value: UInt16) {
         append(UInt8((value >> 8) & 0xFF))
         append(UInt8(value & 0xFF))
@@ -235,12 +238,12 @@ private extension Data {
 
         var multiplier = 1
         var value = 0
-        var index = 1
-        while index < count {
+        var index = self.index(after: startIndex)
+        while index < endIndex {
             let encodedByte = self[index]
             value += Int(encodedByte & 127) * multiplier
             multiplier *= 128
-            index += 1
+            formIndex(after: &index)
             if encodedByte & 128 == 0 {
                 break
             }
@@ -250,14 +253,16 @@ private extension Data {
             }
         }
 
-        let headerLength = index
+        let headerLength = distance(from: startIndex, to: index)
         let packetLength = headerLength + value
         guard count >= packetLength else {
             return nil
         }
 
-        let packet = MQTTPacket(type: self[0], payload: self[headerLength..<packetLength])
-        removeSubrange(0..<packetLength)
+        let payloadStart = self.index(startIndex, offsetBy: headerLength)
+        let payloadEnd = self.index(startIndex, offsetBy: packetLength)
+        let packet = MQTTPacket(type: self[startIndex], payload: Data(self[payloadStart..<payloadEnd]))
+        removeSubrange(startIndex..<payloadEnd)
         return packet
     }
 }
