@@ -6,15 +6,25 @@ import SwiftUI
 struct NativeVideoPreviewView: View {
     let url: URL?
     @State private var errorMessage: String?
+    @State private var hasVideo = false
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url) { message in
+            NativeVideoLayerView(url: url, onFrame: {
+                hasVideo = true
+            }) { message in
                 errorMessage = message
             }
 
             if let errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
+            } else if url != nil, !hasVideo {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Connecting video...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else if url == nil {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
             }
@@ -23,6 +33,10 @@ struct NativeVideoPreviewView: View {
         .frame(height: 191)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onChange(of: url) {
+            hasVideo = false
+            errorMessage = nil
+        }
     }
 
     private func placeholder(icon: String, text: String) -> some View {
@@ -40,6 +54,7 @@ struct NativeVideoPreviewView: View {
 
 private struct NativeVideoLayerView: NSViewRepresentable {
     let url: URL?
+    let onFrame: () -> Void
     let onError: (String?) -> Void
 
     func makeNSView(context: Context) -> VideoLayerHostView {
@@ -49,7 +64,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: VideoLayerHostView, context: Context) {
-        context.coordinator.start(url: url)
+        context.coordinator.start(url: url, onFrame: onFrame)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -74,7 +89,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             self.view = view
         }
 
-        func start(url: URL?) {
+        func start(url: URL?, onFrame: @escaping () -> Void) {
             guard let url else {
                 stop()
                 return
@@ -90,7 +105,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard let view else {
                 return
             }
-            let client = NativeRTSPVideoClient(url: url, displayLayer: view.displayLayer) { [weak self] message in
+            let client = NativeRTSPVideoClient(url: url, displayLayer: view.displayLayer, onFrame: onFrame) { [weak self] message in
                 DispatchQueue.main.async {
                     self?.onError(message)
                 }
@@ -142,10 +157,14 @@ private final class NativeRTSPVideoClient {
     private var pps: Data?
     private var formatDescription: CMVideoFormatDescription?
     private var fuBuffer = Data()
+    private var currentAccessUnit = Data()
+    private var didDisplayFrame = false
+    private let onFrame: () -> Void
 
-    init(url: URL, displayLayer: AVSampleBufferDisplayLayer, onError: @escaping (String) -> Void) {
+    init(url: URL, displayLayer: AVSampleBufferDisplayLayer, onFrame: @escaping () -> Void, onError: @escaping (String) -> Void) {
         self.url = url
         self.displayLayer = displayLayer
+        self.onFrame = onFrame
         self.onError = onError
     }
 
@@ -161,6 +180,7 @@ private final class NativeRTSPVideoClient {
             self.connection = nil
             self.receiveBuffer.removeAll(keepingCapacity: false)
             self.fuBuffer.removeAll(keepingCapacity: false)
+            self.currentAccessUnit.removeAll(keepingCapacity: false)
         }
     }
 
@@ -385,37 +405,41 @@ private final class NativeRTSPVideoClient {
             offset += 4 + extensionLength * 4
             guard packet.count > offset else { return }
         }
-        handleH264Payload(Data(packet[offset...]))
+        let marker = (packet[1] & 0x80) != 0
+        handleH264Payload(Data(packet[offset...]), marker: marker)
     }
 
-    private func handleH264Payload(_ payload: Data) {
+    private func handleH264Payload(_ payload: Data, marker: Bool) {
         guard let first = payload.first else { return }
         let type = first & 0x1F
         switch type {
         case 1...23:
-            handleNALUnit(payload)
+            handleNALUnit(payload, marker: marker)
         case 24:
-            handleSTAPA(payload.dropFirst())
+            handleSTAPA(payload.dropFirst(), marker: marker)
         case 28:
-            handleFUA(payload)
+            handleFUA(payload, marker: marker)
         default:
             break
         }
     }
 
-    private func handleSTAPA(_ payload: Data.SubSequence) {
+    private func handleSTAPA(_ payload: Data.SubSequence, marker: Bool) {
         var offset = payload.startIndex
         while payload.distance(from: offset, to: payload.endIndex) >= 2 {
             let size = Int(payload[offset]) << 8 | Int(payload[payload.index(after: offset)])
             offset = payload.index(offset, offsetBy: 2)
             guard payload.distance(from: offset, to: payload.endIndex) >= size else { return }
             let end = payload.index(offset, offsetBy: size)
-            handleNALUnit(Data(payload[offset..<end]))
+            handleNALUnit(Data(payload[offset..<end]), marker: false)
             offset = end
+        }
+        if marker {
+            enqueueCurrentAccessUnit()
         }
     }
 
-    private func handleFUA(_ payload: Data) {
+    private func handleFUA(_ payload: Data, marker: Bool) {
         guard payload.count >= 2 else { return }
         let indicator = payload[0]
         let header = payload[1]
@@ -430,12 +454,12 @@ private final class NativeRTSPVideoClient {
         guard !fuBuffer.isEmpty else { return }
         fuBuffer.append(payload.dropFirst(2))
         if end {
-            handleNALUnit(fuBuffer)
+            handleNALUnit(fuBuffer, marker: marker)
             fuBuffer.removeAll(keepingCapacity: true)
         }
     }
 
-    private func handleNALUnit(_ nalUnit: Data) {
+    private func handleNALUnit(_ nalUnit: Data, marker: Bool) {
         guard let first = nalUnit.first else { return }
         switch first & 0x1F {
         case 7:
@@ -445,7 +469,10 @@ private final class NativeRTSPVideoClient {
             pps = nalUnit
             updateFormatDescriptionIfNeeded()
         case 1, 5:
-            enqueue(nalUnit)
+            appendToCurrentAccessUnit(nalUnit)
+            if marker {
+                enqueueCurrentAccessUnit()
+            }
         default:
             break
         }
@@ -476,12 +503,20 @@ private final class NativeRTSPVideoClient {
         }
     }
 
-    private func enqueue(_ nalUnit: Data) {
-        guard let formatDescription else { return }
-        var sampleData = Data()
+    private func appendToCurrentAccessUnit(_ nalUnit: Data) {
         var length = UInt32(nalUnit.count).bigEndian
-        sampleData.append(Data(bytes: &length, count: 4))
-        sampleData.append(nalUnit)
+        currentAccessUnit.append(Data(bytes: &length, count: 4))
+        currentAccessUnit.append(nalUnit)
+    }
+
+    private func enqueueCurrentAccessUnit() {
+        guard !currentAccessUnit.isEmpty else { return }
+        enqueue(currentAccessUnit)
+        currentAccessUnit.removeAll(keepingCapacity: true)
+    }
+
+    private func enqueue(_ sampleData: Data) {
+        guard let formatDescription else { return }
 
         var blockBuffer: CMBlockBuffer?
         let status = sampleData.withUnsafeBytes { buffer in
@@ -521,9 +556,14 @@ private final class NativeRTSPVideoClient {
             sampleBufferOut: &sampleBuffer
         )
         guard sampleStatus == noErr, let sampleBuffer else { return }
-        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true) as? [[CFString: Any]],
-           let attachment = attachments.first as? NSMutableDictionary {
-            attachment[kCMSampleAttachmentKey_DisplayImmediately] = true
+        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
+           CFArrayGetCount(attachments) > 0,
+           let attachment = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary?.self) {
+            CFDictionarySetValue(
+                attachment,
+                Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
+            )
         }
 
         DispatchQueue.main.async { [weak self] in
@@ -533,6 +573,10 @@ private final class NativeRTSPVideoClient {
             }
             if layer.isReadyForMoreMediaData {
                 layer.enqueue(sampleBuffer)
+                if self?.didDisplayFrame == false {
+                    self?.didDisplayFrame = true
+                    self?.onFrame()
+                }
             }
         }
     }
