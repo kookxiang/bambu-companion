@@ -150,8 +150,7 @@ private struct AMSUnitsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(units) { unit in
-                AMSUnitRowView(unit: unit)
-                .help(amsHelpText(for: unit))
+                AMSUnitRowView(unit: unit, helpText: amsHelpText(for: unit))
             }
         }
     }
@@ -191,11 +190,13 @@ private struct AMSUnitsView: View {
 
 private struct AMSUnitRowView: View {
     let unit: AMSUnitStatus
+    let helpText: String
     @State private var pulse = false
 
     var body: some View {
         HStack(spacing: 8) {
             AMSUnitLabelView(unit: unit)
+                .help(helpText)
 
             HStack(spacing: 6) {
                 ForEach(unit.slots) { slot in
