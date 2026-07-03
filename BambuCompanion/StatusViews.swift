@@ -617,13 +617,19 @@ private final class ExternalVideoFrameSource: ObservableObject {
         process.arguments = [
             "-hide_banner",
             "-loglevel", "error",
+            "-fflags", "nobuffer",
+            "-flags", "low_delay",
+            "-analyzeduration", "0",
+            "-probesize", "32",
             "-rtsp_transport", "tcp",
+            "-reorder_queue_size", "0",
             "-i", url.absoluteString,
             "-an",
             "-vf", "fps=8,scale=960:-2",
             "-f", "image2pipe",
             "-vcodec", "mjpeg",
             "-q:v", "3",
+            "-flush_packets", "1",
             "pipe:1"
         ]
         process.standardOutput = stdoutPipe
