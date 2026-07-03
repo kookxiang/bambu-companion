@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuPanelView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -49,6 +50,12 @@ struct MenuPanelView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Button {
+                openSettingsWindow()
+            } label: {
+                Label("Open Settings", systemImage: "gearshape")
+            }
+            .buttonStyle(.borderedProminent)
         }
         .padding(12)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
@@ -65,8 +72,17 @@ struct MenuPanelView: View {
 
             Spacer()
 
-            SettingsLink {
+            Button {
+                openSettingsWindow()
+            } label: {
                 Label("Settings", systemImage: "gearshape")
+            }
+            .background {
+                SettingsLink {
+                    EmptyView()
+                }
+                .frame(width: 0, height: 0)
+                .hidden()
             }
 
             Button {
@@ -90,5 +106,10 @@ struct MenuPanelView: View {
         default:
             return .secondary
         }
+    }
+
+    private func openSettingsWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        openSettings()
     }
 }
