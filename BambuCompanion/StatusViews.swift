@@ -30,7 +30,7 @@ struct StatusSummaryView: View {
             }
 
             HStack(spacing: 10) {
-                MetricView(title: "Nozzle", value: nozzleTemperature)
+                nozzleMetric
                 MetricView(title: "Bed", value: temperature(status.bedTemperature))
                 MetricView(title: "Remaining", value: remainingTime)
             }
@@ -58,11 +58,16 @@ struct StatusSummaryView: View {
         return "\(minutes / 60)h \(minutes % 60)m"
     }
 
-    private var nozzleTemperature: String {
+    @ViewBuilder
+    private var nozzleMetric: some View {
         if status.leftNozzleTemperature != nil || status.rightNozzleTemperature != nil {
-            return "L \(temperature(status.leftNozzleTemperature))\nR \(temperature(status.rightNozzleTemperature))"
+            DualNozzleMetricView(
+                leftTemperature: temperature(status.leftNozzleTemperature),
+                rightTemperature: temperature(status.rightNozzleTemperature)
+            )
+        } else {
+            MetricView(title: "Nozzle", value: temperature(status.nozzleTemperature))
         }
-        return temperature(status.nozzleTemperature)
     }
 
     private func temperature(_ value: Double?) -> String {
@@ -198,6 +203,32 @@ private struct MetricView: View {
                 .font(.callout.monospacedDigit())
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct DualNozzleMetricView: View {
+    let leftTemperature: String
+    let rightTemperature: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Nozzle")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Text(leftTemperature)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(rightTemperature)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .font(.callout.monospacedDigit())
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
