@@ -201,16 +201,14 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     let onFrame: () -> Void
     let onError: (String?) -> Void
 
-    func makeNSView(context: Context) -> VideoLayerHostView {
-        let view = VideoLayerHostView()
-        context.coordinator.attach(to: view)
-        return view
+    func makeNSView(context: Context) -> VideoHostContainerView {
+        let containerView = VideoHostContainerView()
+        context.coordinator.attach(to: containerView.videoView)
+        return containerView
     }
 
-    func updateNSView(_ view: VideoLayerHostView, context: Context) {
-        if let superview = view.superview {
-            view.frame = superview.bounds
-        }
+    func updateNSView(_ view: VideoHostContainerView, context: Context) {
+        view.videoView.frame = view.bounds
         context.coordinator.start(url: url, onFrame: onFrame)
         context.coordinator.handlePictureInPictureRequest(pictureInPictureRequest)
     }
@@ -219,7 +217,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         Coordinator(onError: onError)
     }
 
-    static func dismantleNSView(_ nsView: VideoLayerHostView, coordinator: Coordinator) {
+    static func dismantleNSView(_ nsView: VideoHostContainerView, coordinator: Coordinator) {
         coordinator.detachFromInlineView()
     }
 
@@ -466,6 +464,26 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private func findPiPPanelWindow() -> NSWindow? {
             NSApplication.shared.windows.first(where: { String(describing: type(of: $0)).contains("PIPPanel") })
         }
+    }
+}
+
+private final class VideoHostContainerView: NSView {
+    let videoView = VideoLayerHostView()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        addSubview(videoView)
+        videoView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            videoView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            videoView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            videoView.topAnchor.constraint(equalTo: topAnchor),
+            videoView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 }
 
