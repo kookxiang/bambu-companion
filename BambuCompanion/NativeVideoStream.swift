@@ -194,7 +194,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard AVPictureInPictureController.isPictureInPictureSupported() else {
                 return
             }
-            let playbackDelegate = PictureInPicturePlaybackDelegate()
+            let playbackDelegate = PictureInPicturePlaybackDelegate(videoView: view)
             let source = AVPictureInPictureController.ContentSource(
                 sampleBufferDisplayLayer: view.displayLayer,
                 playbackDelegate: playbackDelegate
@@ -214,6 +214,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+            view?.restoreInlineLayout()
             if isDetachedFromInlineView {
                 currentURL = nil
                 stopStream()
@@ -229,6 +230,13 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 }
 
 private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictureSampleBufferPlaybackDelegate {
+    private weak var videoView: VideoLayerHostView?
+
+    init(videoView: VideoLayerHostView) {
+        self.videoView = videoView
+        super.init()
+    }
+
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {}
 
     func pictureInPictureControllerTimeRangeForPlayback(_ pictureInPictureController: AVPictureInPictureController) -> CMTimeRange {
@@ -239,7 +247,11 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
         false
     }
 
-    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {}
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
+        DispatchQueue.main.async { [weak self] in
+            self?.videoView?.applyPictureInPictureRenderSize(newRenderSize)
+        }
+    }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
         completionHandler()
@@ -248,11 +260,12 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
+    private var isUsingPictureInPictureLayout = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        displayLayer.videoGravity = .resizeAspectFill
+        displayLayer.videoGravity = .resizeAspect
         displayLayer.backgroundColor = NSColor.clear.cgColor
         var timebase: CMTimebase?
         CMTimebaseCreateWithSourceClock(
@@ -274,7 +287,34 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
+        guard !isUsingPictureInPictureLayout else {
+            return
+        }
         displayLayer.frame = bounds
+    }
+
+    func applyPictureInPictureRenderSize(_ renderSize: CMVideoDimensions) {
+        guard renderSize.width > 0, renderSize.height > 0 else {
+            return
+        }
+
+        isUsingPictureInPictureLayout = true
+        let size = CGSize(width: CGFloat(renderSize.width), height: CGFloat(renderSize.height))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.bounds = CGRect(origin: .zero, size: size)
+        displayLayer.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        displayLayer.videoGravity = .resizeAspect
+        CATransaction.commit()
+    }
+
+    func restoreInlineLayout() {
+        isUsingPictureInPictureLayout = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.frame = bounds
+        displayLayer.videoGravity = .resizeAspect
+        CATransaction.commit()
     }
 }
 
