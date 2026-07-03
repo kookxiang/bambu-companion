@@ -109,6 +109,8 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var lastHandledPictureInPictureRequest = 0
         private var isDetachedFromInlineView = false
         private var pipLayoutWorkItem: DispatchWorkItem?
+        private var pipLayoutPasses = 0
+        private weak var pipWindow: NSWindow?
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -186,6 +188,8 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             stopStream()
             pipLayoutWorkItem?.cancel()
             pipLayoutWorkItem = nil
+            pipLayoutPasses = 0
+            pipWindow = nil
             releaseFromPictureInPicture()
         }
 
@@ -224,6 +228,8 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             }
             pipLayoutWorkItem?.cancel()
             pipLayoutWorkItem = nil
+            pipLayoutPasses = 0
+            pipWindow = nil
             view?.restoreInlineLayout()
             releaseFromPictureInPicture()
         }
@@ -232,23 +238,65 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             onError("Picture in Picture failed: \(error.localizedDescription)")
             pipLayoutWorkItem?.cancel()
             pipLayoutWorkItem = nil
+            pipLayoutPasses = 0
+            pipWindow = nil
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
             let workItem = DispatchWorkItem { [weak self] in
-                self?.safeguardPictureInPictureWindow()
+                guard let self else { return }
+                self.pipWindow = NSApplication.shared.windows.first(where: { String(describing: type(of: $0)).contains("PIPPanel") })
+                self.applyCurrentPiPWindowLayout()
+                self.safeguardPictureInPictureWindow()
+                self.scheduleRepeatedPiPLayoutCorrection()
             }
             pipLayoutWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
         }
 
         private func safeguardPictureInPictureWindow() {
-            guard let window = NSApplication.shared.windows.first(where: { String(describing: type(of: $0)).contains("PIPPanel") }),
-                  let contentView = window.contentView else {
+            guard let contentView = pipWindow?.contentView else {
                 return
             }
             hideViews(named: "AVPictureInPictureCALayerHostView", in: contentView)
+            hideViews(named: "AVPictureInPictureSampleBufferDisplayLayerView", in: contentView)
+            hideViews(named: "AVPictureInPictureCALayerHostLayer", in: contentView)
+        }
+
+        private func scheduleRepeatedPiPLayoutCorrection() {
+            guard let view else { return }
+            guard pipLayoutPasses < 40 else {
+                return
+            }
+            pipLayoutPasses += 1
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.applyCurrentPiPWindowLayout()
+                self.safeguardPictureInPictureWindow()
+                self.scheduleRepeatedPiPLayoutCorrection()
+            }
+            pipLayoutWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
+        }
+
+        private func applyCurrentPiPWindowLayout() {
+            guard let contentView = pipWindow?.contentView else {
+                return
+            }
+            guard let view else {
+                return
+            }
+            let size = contentView.bounds.size
+            guard size.width > 0, size.height > 0 else {
+                return
+            }
+            let scale = contentView.window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+            let renderSize = CMVideoDimensions(
+                width: Int32(size.width * scale),
+                height: Int32(size.height * scale)
+            )
+            view.applyPictureInPictureRenderSize(renderSize)
         }
 
         private func hideViews(named targetType: String, in root: NSView) {
