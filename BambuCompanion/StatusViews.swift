@@ -6,22 +6,28 @@ struct StatusSummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            CoverImageView(state: coverImageState)
+            HStack(alignment: .top, spacing: 12) {
+                CoverImageView(state: coverImageState, size: CGSize(width: 108, height: 108))
 
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(status.activity.title)
-                        .font(.title3.bold())
-                    Text(status.jobName?.isEmpty == false ? status.jobName! : "No active job")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(status.activity.title)
+                                .font(.title3.bold())
+                            Text(status.jobName?.isEmpty == false ? status.jobName! : "No active job")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+
+                        Spacer(minLength: 8)
+                        progressBadge
+                    }
+
+                    ProgressView(value: Double(status.progress ?? 0), total: 100)
                 }
-                Spacer()
-                progressBadge
+                .padding(.top, 2)
             }
-
-            ProgressView(value: Double(status.progress ?? 0), total: 100)
 
             HStack(spacing: 10) {
                 MetricView(title: "Nozzle", value: temperature(status.nozzleTemperature))
@@ -39,8 +45,7 @@ struct StatusSummaryView: View {
         Text("\(status.progress ?? 0)%")
             .font(.system(.title3, design: .rounded, weight: .semibold))
             .monospacedDigit()
-            .frame(minWidth: 54, minHeight: 34)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            .frame(minWidth: 48, alignment: .trailing)
     }
 
     private var remainingTime: String {
@@ -134,6 +139,7 @@ private extension Color {
 
 private struct CoverImageView: View {
     let state: CoverImageState
+    var size = CGSize(width: 308, height: 150)
 
     var body: some View {
         switch state {
@@ -145,27 +151,29 @@ private struct CoverImageView: View {
             } placeholder: {
                 ProgressView()
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 150)
+            .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         case .loading:
             placeholder(icon: "photo", text: "Loading cover image")
         case .failed:
             placeholder(icon: "photo.badge.exclamationmark", text: "Cover image unavailable")
         case .unavailable:
-            EmptyView()
+            placeholder(icon: "photo", text: "")
         }
     }
 
     private func placeholder(icon: String, text: String) -> some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 6) {
             Image(systemName: icon)
-            Text(text)
+            if !text.isEmpty {
+                Text(text)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity)
-        .frame(height: 48)
+        .frame(width: size.width, height: size.height)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 }
