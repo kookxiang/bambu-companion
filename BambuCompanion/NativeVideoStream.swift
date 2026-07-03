@@ -19,12 +19,10 @@ private struct NativeVideoStreamSurface: View {
 
     @State private var errorMessage: String?
     @State private var hasVideo = false
-    @State private var pictureInPictureRequest = 0
-    @State private var shouldFallbackToWindow = false
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, pictureInPictureRequest: pictureInPictureRequest, onFrame: {
+            NativeVideoLayerView(url: url, pictureInPictureRequest: 0, onFrame: {
                 hasVideo = true
             }) { message in
                 errorMessage = message
@@ -50,8 +48,10 @@ private struct NativeVideoStreamSurface: View {
                     HStack {
                         Spacer()
                         Button {
-                            pictureInPictureRequest += 1
-                            shouldFallbackToWindow = true
+                            guard let url else {
+                                return
+                            }
+                            FloatingVideoWindowController.shared.toggle(url: url)
                         } label: {
                             Label("Picture in Picture", systemImage: "pip.enter")
                         }
@@ -70,15 +70,6 @@ private struct NativeVideoStreamSurface: View {
         .onChange(of: url) {
             hasVideo = false
             errorMessage = nil
-            pictureInPictureRequest = 0
-            shouldFallbackToWindow = false
-        }
-        .onChange(of: errorMessage) { message in
-            guard shouldFallbackToWindow, let url, let message, message.contains("Picture in Picture is unavailable") else {
-                return
-            }
-            shouldFallbackToWindow = false
-            FloatingVideoWindowController.shared.toggle(url: url)
         }
     }
 
@@ -210,6 +201,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     func updateNSView(_ view: VideoHostContainerView, context: Context) {
         view.videoView.frame = view.bounds
         context.coordinator.start(url: url, onFrame: onFrame)
+        view.layoutSubtreeIfNeeded()
         context.coordinator.handlePictureInPictureRequest(pictureInPictureRequest)
     }
 
@@ -232,10 +224,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var playbackDelegate: PictureInPicturePlaybackDelegate?
         private var lastHandledPictureInPictureRequest = 0
         private var isDetachedFromInlineView = false
-        private weak var sourceWindow: NSWindow?
-        private var sourceWindowFrame: NSRect?
-        private var sourceWindowAlpha: CGFloat?
-        private var pipFrameObserver: NSObjectProtocol?
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -245,7 +233,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         func attach(to view: VideoLayerHostView) {
             self.view = view
             isDetachedFromInlineView = false
-            sourceWindow = view.window
             configurePictureInPicture(for: view)
         }
 
@@ -312,7 +299,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             currentURL = nil
             pictureInPictureController?.stopPictureInPicture()
             stopStream()
-            restoreSourceWindowForPictureInPicture()
             releaseFromPictureInPicture()
         }
 
@@ -349,116 +335,39 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 currentURL = nil
                 stopStream()
             }
-            restoreSourceWindowForPictureInPicture()
             view?.restoreInlineLayout()
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
             onError("Picture in Picture failed: \(error.localizedDescription)")
-            restoreSourceWindowForPictureInPicture()
             releaseFromPictureInPicture()
         }
 
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            setupPiPSourceWindowResize()
-            schedulePiPHostFixPasses()
+            applyCurrentPiPRenderSize()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.syncSourceWindowToCurrentPiPSize()
-                self?.hideBrokenPiPHostView()
-            }
-            if let contentView = findPiPPanelWindow()?.contentView {
-                contentView.postsFrameChangedNotifications = true
-                pipFrameObserver = NotificationCenter.default.addObserver(
-                    forName: NSView.frameDidChangeNotification,
-                    object: contentView,
-                    queue: .main
-                ) { [weak self] _ in
-                    self?.syncSourceWindowToCurrentPiPSize()
-                }
+                self?.applyCurrentPiPRenderSize()
             }
         }
 
-        private func setupPiPSourceWindowResize() {
-            guard let sourceWindow else {
-                return
-            }
-            if sourceWindowFrame == nil {
-                sourceWindowFrame = sourceWindow.frame
-            }
-            if sourceWindowAlpha == nil {
-                sourceWindowAlpha = sourceWindow.alphaValue
-            }
-            sourceWindow.alphaValue = 0
-            syncSourceWindowToCurrentPiPSize()
-        }
-
-        private func syncSourceWindowToCurrentPiPSize() {
-            guard let sourceWindow else {
-                return
-            }
-            guard
-                let pipWindow = findPiPPanelWindow(),
-                let contentView = pipWindow.contentView,
-                let referenceFrame = sourceWindowFrame
-            else {
+        private func applyCurrentPiPRenderSize() {
+            guard let contentView = findPiPPanelWindow()?.contentView else {
                 return
             }
             let size = contentView.bounds.size
             guard size.width > 0, size.height > 0 else {
                 return
             }
-            sourceWindow.setFrame(NSRect(
-                x: referenceFrame.origin.x,
-                y: referenceFrame.origin.y + referenceFrame.height - size.height,
-                width: size.width,
-                height: size.height
-            ), display: true)
-            pipWindow.makeKeyAndOrderFront(nil)
-        }
 
-        private func schedulePiPHostFixPasses() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-                self?.hideBrokenPiPHostView()
-                if let isActive = self?.pictureInPictureController?.isPictureInPictureActive, isActive {
-                    self?.schedulePiPHostFixPasses()
-                }
-            }
-        }
-
-        private func restoreSourceWindowForPictureInPicture() {
-            if let observer = pipFrameObserver {
-                NotificationCenter.default.removeObserver(observer)
-                pipFrameObserver = nil
-            }
-            if let sourceWindowFrame {
-                sourceWindow?.setFrame(sourceWindowFrame, display: true)
-            }
-            if let sourceWindowAlpha {
-                sourceWindow?.alphaValue = sourceWindowAlpha
-            } else {
-                sourceWindow?.alphaValue = 1
-            }
-            sourceWindow = nil
-            sourceWindowFrame = nil
-            sourceWindowAlpha = nil
-        }
-
-        private func hideBrokenPiPHostView() {
-            guard let contentView = findPiPPanelWindow()?.contentView else {
-                return
-            }
-            hideViews(named: "AVPictureInPictureCALayerHostView", in: contentView)
-        }
-
-        private func hideViews(named targetType: String, in root: NSView) {
-            var queue: [NSView] = [root]
-            while let view = queue.popLast() {
-                if String(describing: type(of: view)).contains(targetType) {
-                    view.isHidden = true
-                }
-                queue.append(contentsOf: view.subviews)
-            }
+            let scale = contentView.window?.screen?.backingScaleFactor
+                ?? NSScreen.main?.backingScaleFactor
+                ?? 1
+            let renderSize = CMVideoDimensions(
+                width: Int32(size.width * scale),
+                height: Int32(size.height * scale)
+            )
+            view?.applyPictureInPictureRenderSize(renderSize)
         }
 
         private func findPiPPanelWindow() -> NSWindow? {
@@ -489,24 +398,35 @@ private final class VideoHostContainerView: NSView {
 
 private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictureSampleBufferPlaybackDelegate {
     private weak var videoView: VideoLayerHostView?
+    private var isPlaybackPaused = false
 
     init(videoView: VideoLayerHostView) {
         self.videoView = videoView
         super.init()
     }
 
-    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {}
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {
+        let paused = !playing
+        guard isPlaybackPaused != paused else { return }
+        isPlaybackPaused = paused
+        DispatchQueue.main.async { [weak self] in
+            self?.videoView?.applyPlaybackRate(isPaused: paused)
+        }
+        pictureInPictureController.invalidatePlaybackState()
+    }
 
     func pictureInPictureControllerTimeRangeForPlayback(_ pictureInPictureController: AVPictureInPictureController) -> CMTimeRange {
         CMTimeRange(start: .zero, duration: .positiveInfinity)
     }
 
     func pictureInPictureControllerIsPlaybackPaused(_ pictureInPictureController: AVPictureInPictureController) -> Bool {
-        false
+        isPlaybackPaused
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
-        // No-op to avoid fighting PiP layout.
+        DispatchQueue.main.async { [weak self] in
+            self?.videoView?.applyPictureInPictureRenderSize(newRenderSize)
+        }
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
@@ -516,6 +436,7 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
+    private var isUsingPictureInPictureLayout = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -543,19 +464,44 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
+        guard !isUsingPictureInPictureLayout else {
+            return
+        }
         displayLayer.frame = bounds
     }
 
     func applyPictureInPictureRenderSize(_ renderSize: CMVideoDimensions) {
-        _ = renderSize
+        guard renderSize.width > 0, renderSize.height > 0 else {
+            return
+        }
+        let scale = window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        let size = CGSize(
+            width: CGFloat(renderSize.width) / scale,
+            height: CGFloat(renderSize.height) / scale
+        )
+
+        isUsingPictureInPictureLayout = true
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.frame = CGRect(origin: .zero, size: size)
+        displayLayer.videoGravity = .resizeAspect
+        CATransaction.commit()
     }
 
     func restoreInlineLayout() {
+        isUsingPictureInPictureLayout = false
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayLayer.frame = bounds
         displayLayer.videoGravity = .resizeAspectFill
         CATransaction.commit()
+    }
+
+    func applyPlaybackRate(isPaused: Bool) {
+        guard let timebase = displayLayer.controlTimebase else {
+            return
+        }
+        CMTimebaseSetRate(timebase, rate: isPaused ? 0.0 : 1.0)
     }
 }
 
