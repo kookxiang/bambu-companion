@@ -29,6 +29,8 @@ private struct NativeVideoStreamSurface: View {
             }) { message in
                 errorMessage = message
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
 
             if let errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
@@ -61,7 +63,7 @@ private struct NativeVideoStreamSurface: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(height: showFloatingButton ? 191 : nil)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
@@ -98,6 +100,7 @@ private struct FloatingVideoStreamView: View {
 
     var body: some View {
         NativeVideoStreamSurface(url: url, showFloatingButton: false)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .frame(minWidth: 360, minHeight: 200)
             .onAppear {
                 if url == nil {
@@ -131,15 +134,21 @@ private final class FloatingVideoWindowController {
             if let host = panel.contentViewController as? NSHostingController<FloatingVideoStreamView> {
                 host.rootView = FloatingVideoStreamView(url: url)
             } else {
-                panel.contentViewController = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+                let controller = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+                controller.view.frame = panel.contentLayoutRect
+                controller.view.autoresizingMask = [.width, .height]
+                panel.contentViewController = controller
             }
+            panel.contentViewController?.view.frame = panel.contentLayoutRect
             panel.makeKeyAndOrderFront(nil)
             panel.deminiaturize(nil)
             return
         }
 
         let panel = makePanel()
-        panel.contentViewController = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+        let controller = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+        controller.view.autoresizingMask = [.width, .height]
+        panel.contentViewController = controller
         panel.center()
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
@@ -169,6 +178,7 @@ private final class FloatingVideoWindowController {
         }
         panel.delegate = panelDelegate
         delegate = panelDelegate
+        panel.contentView?.autoresizesSubviews = true
         return panel
     }
 }
@@ -198,6 +208,9 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: VideoLayerHostView, context: Context) {
+        if let superview = view.superview {
+            view.frame = superview.bounds
+        }
         context.coordinator.start(url: url, onFrame: onFrame)
         context.coordinator.handlePictureInPictureRequest(pictureInPictureRequest)
     }
@@ -488,6 +501,7 @@ private final class VideoLayerHostView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        autoresizingMask = [.width, .height]
         wantsLayer = true
         displayLayer.videoGravity = .resizeAspectFill
         displayLayer.backgroundColor = NSColor.clear.cgColor
