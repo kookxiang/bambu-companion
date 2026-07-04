@@ -31,13 +31,15 @@ private struct NativeVideoStreamSurface: View {
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: effectiveURL, reconnectID: floatingVideoWindowController.videoReconnectGeneration, onFrame: {
-                streamState.setHasVideo()
-            }) { message in
-                streamState.setErrorMessage(message)
+            if let effectiveURL {
+                NativeVideoLayerView(url: effectiveURL, reconnectID: floatingVideoWindowController.videoReconnectGeneration, onFrame: {
+                    streamState.setHasVideo()
+                }) { message in
+                    streamState.setErrorMessage(message)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
 
             if showFloatingButton && floatingVideoWindowController.isShowing {
                 floatingPlaceholder
@@ -52,6 +54,19 @@ private struct NativeVideoStreamSurface: View {
                 }
             } else if url == nil {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
+            }
+
+            if effectiveURL != nil {
+                VStack {
+                    HStack {
+                        videoReconnectButton
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(showFloatingButton ? 8 : 14)
+                .opacity(showFloatingButton || isHoveringFloatingWindow ? 1 : 0)
+                .animation(.easeOut(duration: 0.16), value: isHoveringFloatingWindow)
             }
 
             if streamState.hasVideo && showFloatingButton && !floatingVideoWindowController.isShowing {
@@ -78,7 +93,6 @@ private struct NativeVideoStreamSurface: View {
                 VStack {
                     HStack {
                         floatingCloseButton
-                        floatingReconnectButton
                         Spacer()
                     }
                     Spacer()
@@ -113,12 +127,6 @@ private struct NativeVideoStreamSurface: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button {
-                floatingVideoWindowController.reconnectVideo()
-            } label: {
-                Label("重新连接", systemImage: "arrow.clockwise")
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -149,10 +157,10 @@ private struct NativeVideoStreamSurface: View {
         }
     }
 
-    private var floatingReconnectButton: some View {
+    private var videoReconnectButton: some View {
         floatingControlButton(
             systemName: "arrow.clockwise",
-            accessibilityLabel: "Reconnect Floating Video"
+            accessibilityLabel: "Reconnect Video"
         ) {
             floatingVideoWindowController.reconnectVideo()
         }
