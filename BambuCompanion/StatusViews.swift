@@ -56,7 +56,7 @@ struct StatusSummaryView: View {
                     MetricView(title: "Chamber", value: temperature(status.chamberTemperature, target: status.targetChamberTemperature))
                 }
                 RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
-                if status.fans.hasAnyValue {
+                if status.fans.hasActiveValue {
                     FanMetricView(fans: status.fans)
                 }
             }
@@ -553,33 +553,42 @@ private struct FanMetricView: View {
     let fans: PrinterFanStatus
 
     var body: some View {
-        MetricView(title: "Fan", value: value)
+        MetricView(title: "Mode", value: value)
             .help(helpText)
     }
 
     private var value: String {
-        let activeFans = fanLines(showingZeroValues: false)
-        if !activeFans.isEmpty {
-            return activeFans.joined(separator: " / ")
-        }
-        return L10n.string("Off")
+        activeModes.joined(separator: " / ")
     }
 
     private var helpText: String {
-        fanLines(showingZeroValues: true).joined(separator: "\n")
+        fanLines.joined(separator: "\n")
     }
 
-    private func fanLines(showingZeroValues: Bool) -> [String] {
+    private var activeModes: [String] {
+        var modes: [String] = []
+        if (fans.partCoolingPercent ?? 0) > 0 ||
+            (fans.auxiliaryPercent ?? 0) > 0 ||
+            (fans.heatbreakPercent ?? 0) > 0 {
+            modes.append(L10n.string("Cooling"))
+        }
+        if (fans.chamberPercent ?? 0) > 0 {
+            modes.append(L10n.string("Chamber hold"))
+        }
+        return modes
+    }
+
+    private var fanLines: [String] {
         [
-            fanLine("Part", fans.partCoolingPercent, showingZeroValues: showingZeroValues),
-            fanLine("Aux", fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
-            fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues),
-            fanLine("Heatbreak", fans.heatbreakPercent, showingZeroValues: showingZeroValues)
+            fanLine("Part", fans.partCoolingPercent),
+            fanLine("Aux", fans.auxiliaryPercent),
+            fanLine("Chamber", fans.chamberPercent),
+            fanLine("Heatbreak", fans.heatbreakPercent)
         ].compactMap(\.self)
     }
 
-    private func fanLine(_ name: String, _ percent: Int?, showingZeroValues: Bool) -> String? {
-        guard let percent, showingZeroValues || percent > 0 else {
+    private func fanLine(_ name: String, _ percent: Int?) -> String? {
+        guard let percent else {
             return nil
         }
         return "\(L10n.string(name)) \(percent)%"

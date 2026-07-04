@@ -75,6 +75,14 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.fans.chamberPercent, 0)
         XCTAssertEqual(status.fans.heatbreakPercent, 100)
         XCTAssertTrue(status.fans.hasAnyValue)
+        XCTAssertTrue(status.fans.hasActiveValue)
+    }
+
+    func testInactiveFanStatusHasNoActiveValue() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"cooling_fan_speed":"0","chamber_fan_speed":"0"}}"#.utf8))
+
+        XCTAssertTrue(status.fans.hasAnyValue)
+        XCTAssertFalse(status.fans.hasActiveValue)
     }
 
     func testParsesDualNozzleTemperatures() throws {

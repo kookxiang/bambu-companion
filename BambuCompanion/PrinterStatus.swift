@@ -63,6 +63,13 @@ struct PrinterFanStatus: Equatable {
             chamberPercent != nil ||
             heatbreakPercent != nil
     }
+
+    var hasActiveValue: Bool {
+        (partCoolingPercent ?? 0) > 0 ||
+            (auxiliaryPercent ?? 0) > 0 ||
+            (chamberPercent ?? 0) > 0 ||
+            (heatbreakPercent ?? 0) > 0
+    }
 }
 
 struct PrinterAlert: Equatable {

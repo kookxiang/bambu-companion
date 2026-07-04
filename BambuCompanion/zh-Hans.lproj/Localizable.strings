@@ -4,9 +4,11 @@
 "Bed" = "热床";
 "Brand" = "品牌";
 "Chamber" = "腔体";
+"Chamber hold" = "腔温保持";
 "Close Floating Video" = "关闭画中画视频";
 "Close the floating window to watch here again." = "关闭浮窗后可重新在这里观看。";
 "Color" = "颜色";
+"Cooling" = "冷却模式";
 "Connected" = "已连接";
 "Connecting" = "连接中";
 "Connecting video..." = "正在连接视频...";
@@ -33,6 +35,7 @@
 "Layer %d/%d" = "第 %d/%d 层";
 "Loading cover image" = "正在加载封面图";
 "Material: %@" = "材料：%@";
+"Mode" = "模式";
 "Name" = "名称";
 "No active job" = "无活动任务";
 "Not configured" = "未配置";

@@ -4,9 +4,11 @@
 "Bed" = "Bed";
 "Brand" = "Brand";
 "Chamber" = "Chamber";
+"Chamber hold" = "Chamber hold";
 "Close Floating Video" = "Close Floating Video";
 "Close the floating window to watch here again." = "Close the floating window to watch here again.";
 "Color" = "Color";
+"Cooling" = "Cooling";
 "Connected" = "Connected";
 "Connecting" = "Connecting";
 "Connecting video..." = "Connecting video...";
@@ -33,6 +35,7 @@
 "Layer %d/%d" = "Layer %d/%d";
 "Loading cover image" = "Loading cover image";
 "Material: %@" = "Material: %@";
+"Mode" = "Mode";
 "Name" = "Name";
 "No active job" = "No active job";
 "Not configured" = "Not configured";
