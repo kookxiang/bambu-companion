@@ -405,7 +405,8 @@ private final class FloatingVideoWindowController: ObservableObject {
 
 private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
     private let snapMargin: CGFloat = 28
-    private let snapThreshold: CGFloat = 16
+    private let snapThreshold: CGFloat = 32
+    private let snapDelay: TimeInterval = 0.2
     private let onClose: () -> Void
     private var pendingSnapWorkItem: DispatchWorkItem?
     private var isSnapping = false
@@ -433,7 +434,7 @@ private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
             self.snapWindowIfNeeded(window)
         }
         pendingSnapWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + snapDelay, execute: workItem)
     }
 
     private func snapWindowIfNeeded(_ window: NSWindow) {
