@@ -256,15 +256,15 @@ private struct AMSUnitStatusLine: View {
     let unit: AMSUnitStatus
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             if unit.isDrying {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Image(systemName: "timer")
                     Text(dryingRemainingText(unit.dryingRemainingMinutes))
                 }
 
                 if let dryingTemperature = unit.dryingTemperature {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 4) {
                         Image(systemName: "sun.max")
                         Text(TemperatureText.string(dryingTemperature))
                     }
@@ -272,20 +272,20 @@ private struct AMSUnitStatusLine: View {
             }
 
             if let temperature = unit.temperature {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Image(systemName: "thermometer.medium")
                     Text(TemperatureText.string(temperature))
                 }
             }
 
             if let humidityText {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Image(systemName: "humidity")
                     Text(humidityText)
                 }
             }
         }
-        .font(.caption2.weight(.semibold))
+        .font(.caption.weight(.semibold))
         .foregroundStyle(unit.isDrying ? .orange : .secondary)
         .lineLimit(1)
         .minimumScaleFactor(0.75)
