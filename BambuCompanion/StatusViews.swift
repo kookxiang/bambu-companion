@@ -99,10 +99,20 @@ struct StatusSummaryView: View {
     }
 
     private var progressBadge: some View {
-        Text("\(status.progress ?? 0)%")
-            .font(.system(.title3, design: .rounded, weight: .semibold))
-            .monospacedDigit()
-            .frame(minWidth: 48, alignment: .trailing)
+        VStack(alignment: .trailing, spacing: 2) {
+            Text("\(status.progress ?? 0)%")
+                .font(.system(.title3, design: .rounded, weight: .semibold))
+
+            if let layerText {
+                Text(layerText)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+        }
+        .monospacedDigit()
+        .frame(minWidth: 58, alignment: .trailing)
     }
 
     private var remainingTime: String {
