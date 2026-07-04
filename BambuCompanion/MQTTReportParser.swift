@@ -36,6 +36,7 @@ enum MQTTReportParser {
         status.targetChamberTemperature = chamberTemperatures.target
         status.cameraStreamURL = cameraStreamURL(from: print)
         status.alert = alert(from: print)
+        status.airductMode = airductMode(from: print)
         status.fans = fanStatus(from: print)
         status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
@@ -157,6 +158,23 @@ enum MQTTReportParser {
             return Int((Double(rawValue) / 15 * 100).rounded())
         }
         return min(rawValue, 100)
+    }
+
+    private static func airductMode(from print: [String: Any]) -> String? {
+        let airduct = (print["device"] as? [String: Any])?["airduct"] as? [String: Any]
+        if let modeID = intValue(airduct?["modeCur"]) {
+            switch modeID {
+            case 0:
+                return "cooling"
+            case 1:
+                return "heating"
+            case 2:
+                return "laser"
+            default:
+                return String(modeID)
+            }
+        }
+        return normalizedMaterial(stringValue(print["airduct_mode"]))
     }
 
     private static func alert(from print: [String: Any]) -> PrinterAlert? {

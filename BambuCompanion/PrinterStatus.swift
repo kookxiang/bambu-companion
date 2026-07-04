@@ -44,6 +44,7 @@ struct PrinterStatus: Equatable {
     var targetChamberTemperature: Double?
     var cameraStreamURL: String?
     var alert: PrinterAlert?
+    var airductMode: String?
     var fans = PrinterFanStatus()
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
@@ -64,12 +65,6 @@ struct PrinterFanStatus: Equatable {
             heatbreakPercent != nil
     }
 
-    var hasActiveValue: Bool {
-        (partCoolingPercent ?? 0) > 0 ||
-            (auxiliaryPercent ?? 0) > 0 ||
-            (chamberPercent ?? 0) > 0 ||
-            (heatbreakPercent ?? 0) > 0
-    }
 }
 
 struct PrinterAlert: Equatable {

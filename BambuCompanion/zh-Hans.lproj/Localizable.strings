@@ -1,10 +1,11 @@
 "A print job has started." = "打印任务已开始。";
+"Airduct" = "风道";
 "Authentication failed" = "认证失败";
 "Aux" = "辅助";
 "Bed" = "热床";
 "Brand" = "品牌";
 "Chamber" = "腔体";
-"Chamber hold" = "腔温保持";
+"Chamber hold" = "腔温保持模式";
 "Close Floating Video" = "关闭画中画视频";
 "Close the floating window to watch here again." = "关闭浮窗后可重新在这里观看。";
 "Color" = "颜色";
@@ -33,6 +34,7 @@
 "LAN access code" = "局域网访问码";
 "Layer %d" = "第 %d 层";
 "Layer %d/%d" = "第 %d/%d 层";
+"Laser" = "激光";
 "Loading cover image" = "正在加载封面图";
 "Material: %@" = "材料：%@";
 "Mode" = "模式";

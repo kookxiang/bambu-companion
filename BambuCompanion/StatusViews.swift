@@ -56,8 +56,8 @@ struct StatusSummaryView: View {
                     MetricView(title: "Chamber", value: temperature(status.chamberTemperature, target: status.targetChamberTemperature))
                 }
                 RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
-                if status.fans.hasActiveValue {
-                    FanMetricView(fans: status.fans)
+                if let airductMode = status.airductMode {
+                    AirductModeMetricView(rawMode: airductMode)
                 }
             }
 
@@ -549,49 +549,32 @@ private struct RemainingMetricView: View {
     }()
 }
 
-private struct FanMetricView: View {
-    let fans: PrinterFanStatus
+private struct AirductModeMetricView: View {
+    let rawMode: String
 
     var body: some View {
-        MetricView(title: "Mode", value: value)
-            .help(helpText)
+        MetricView(title: "Airduct", value: value)
+            .help(rawMode)
     }
 
     private var value: String {
-        activeModes.joined(separator: " / ")
-    }
-
-    private var helpText: String {
-        fanLines.joined(separator: "\n")
-    }
-
-    private var activeModes: [String] {
-        var modes: [String] = []
-        if (fans.partCoolingPercent ?? 0) > 0 ||
-            (fans.auxiliaryPercent ?? 0) > 0 ||
-            (fans.heatbreakPercent ?? 0) > 0 {
-            modes.append(L10n.string("Cooling"))
+        switch normalizedMode {
+        case "0", "cooling":
+            return L10n.string("Cooling")
+        case "1", "heating":
+            return L10n.string("Chamber hold")
+        case "2", "laser":
+            return L10n.string("Laser")
+        default:
+            return rawMode
+                .replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: "-", with: " ")
+                .capitalized
         }
-        if (fans.chamberPercent ?? 0) > 0 {
-            modes.append(L10n.string("Chamber hold"))
-        }
-        return modes
     }
 
-    private var fanLines: [String] {
-        [
-            fanLine("Part", fans.partCoolingPercent),
-            fanLine("Aux", fans.auxiliaryPercent),
-            fanLine("Chamber", fans.chamberPercent),
-            fanLine("Heatbreak", fans.heatbreakPercent)
-        ].compactMap(\.self)
-    }
-
-    private func fanLine(_ name: String, _ percent: Int?) -> String? {
-        guard let percent else {
-            return nil
-        }
-        return "\(L10n.string(name)) \(percent)%"
+    private var normalizedMode: String {
+        rawMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
 
