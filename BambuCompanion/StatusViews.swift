@@ -81,11 +81,7 @@ struct StatusSummaryView: View {
     }
 
     private var statusDetail: String {
-        let job = status.jobName?.isEmpty == false ? status.jobName! : L10n.string("No active job")
-        guard let layerText else {
-            return job
-        }
-        return "\(job) - \(layerText)"
+        status.jobName?.isEmpty == false ? status.jobName! : L10n.string("No active job")
     }
 
     private var layerText: String? {
