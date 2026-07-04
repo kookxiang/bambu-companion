@@ -59,10 +59,10 @@ struct StatusSummaryView: View {
                         temperature(status.chamberTemperature, target: status.targetChamberTemperature)
                     }
                 )
-                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
                 if status.fans.hasAnyValue || status.airductMode != nil {
                     FanMetricView(fans: status.fans, airductMode: status.airductMode)
                 }
+                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
             }
 
             if !status.amsUnits.isEmpty {
@@ -323,7 +323,7 @@ private struct AMSSlotView: View {
                 .frame(width: 10, height: 10)
                 .overlay {
                     Circle()
-                        .stroke(.secondary.opacity(0.45), lineWidth: 0.5)
+                        .stroke(slotColorIsDark ? .white.opacity(0.45) : .secondary.opacity(0.45), lineWidth: 0.5)
                 }
 
             Text(slot.material ?? "--")
@@ -336,7 +336,7 @@ private struct AMSSlotView: View {
         .padding(.horizontal, 6)
         .background {
             AMSSlotProgressBackground(
-                color: slotProgressColor,
+                colorHex: slot.colorHex,
                 percent: slot.remainingPercent,
                 isActive: slot.isActive
             )
@@ -356,11 +356,11 @@ private struct AMSSlotView: View {
         return color
     }
 
-    private var slotProgressColor: Color? {
+    private var slotColorIsDark: Bool {
         guard let colorHex = slot.colorHex else {
-            return nil
+            return false
         }
-        return Color(hexRGB: colorHex)
+        return Color.isDark(hexRGB: colorHex)
     }
 
     private var helpText: String {
@@ -408,7 +408,7 @@ private struct AMSSlotView: View {
 }
 
 private struct AMSSlotProgressBackground: View {
-    let color: Color?
+    let colorHex: String?
     let percent: Int?
     let isActive: Bool
 
@@ -419,10 +419,17 @@ private struct AMSSlotProgressBackground: View {
 
             if let percent {
                 GeometryReader { proxy in
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(progressColor.opacity(isActive ? 0.34 : 0.24))
-                        .frame(width: proxy.size.width * CGFloat(percent) / 100)
-                        .frame(maxHeight: .infinity, alignment: .leading)
+                    let width = proxy.size.width * CGFloat(percent) / 100
+                    ZStack(alignment: .trailing) {
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(progressColor.opacity(progressOpacity))
+
+                        Rectangle()
+                            .fill(progressDividerColor)
+                            .frame(width: 1)
+                    }
+                    .frame(width: width)
+                    .frame(maxHeight: .infinity, alignment: .leading)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 7))
             }
@@ -430,7 +437,25 @@ private struct AMSSlotProgressBackground: View {
     }
 
     private var progressColor: Color {
-        color ?? .accentColor
+        guard let colorHex,
+              let color = Color(hexRGB: colorHex) else {
+            return .accentColor
+        }
+        return color
+    }
+
+    private var progressOpacity: Double {
+        if let colorHex, Color.isDark(hexRGB: colorHex) {
+            return isActive ? 0.72 : 0.58
+        }
+        return isActive ? 0.34 : 0.24
+    }
+
+    private var progressDividerColor: Color {
+        guard let colorHex, Color.isDark(hexRGB: colorHex) else {
+            return .white.opacity(0.12)
+        }
+        return .white.opacity(0.28)
     }
 }
 
@@ -467,6 +492,17 @@ private extension Color {
         let green = Double((value >> 8) & 0xFF) / 255
         let blue = Double(value & 0xFF) / 255
         self.init(red: red, green: green, blue: blue)
+    }
+
+    static func isDark(hexRGB: String) -> Bool {
+        guard hexRGB.count == 6,
+              let value = UInt32(hexRGB, radix: 16) else {
+            return false
+        }
+        let red = Double((value >> 16) & 0xFF)
+        let green = Double((value >> 8) & 0xFF)
+        let blue = Double(value & 0xFF)
+        return (0.299 * red + 0.587 * green + 0.114 * blue) < 80
     }
 }
 
