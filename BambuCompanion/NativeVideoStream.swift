@@ -400,6 +400,9 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> VideoHostContainerView {
         let containerView = VideoHostContainerView()
+        containerView.onWindowVisibilityChange = { isVisible in
+            context.coordinator.setWindowVisible(isVisible)
+        }
         context.coordinator.attach(to: containerView.videoView)
         return containerView
     }
@@ -424,6 +427,10 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var client: NativeRTSPVideoClient?
         private var currentURL: URL?
         private var currentReconnectID = 0
+        private var desiredURL: URL?
+        private var desiredReconnectID = 0
+        private var desiredOnFrame: (() -> Void)?
+        private var isWindowVisible = true
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -434,16 +441,42 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func start(url: URL?, reconnectID: Int, onFrame: @escaping () -> Void) {
-            guard let url else {
+            desiredURL = url
+            desiredReconnectID = reconnectID
+            desiredOnFrame = onFrame
+            startDesiredStreamIfNeeded()
+        }
+
+        func setWindowVisible(_ isVisible: Bool) {
+            guard isWindowVisible != isVisible else {
+                return
+            }
+            isWindowVisible = isVisible
+            if isVisible {
+                startDesiredStreamIfNeeded()
+            } else {
+                currentURL = nil
+                stopStream()
+            }
+        }
+
+        private func startDesiredStreamIfNeeded() {
+            guard isWindowVisible else {
+                currentURL = nil
+                stopStream()
+                return
+            }
+            guard let url = desiredURL, let onFrame = desiredOnFrame else {
                 stop()
                 return
             }
-            guard currentURL != url || currentReconnectID != reconnectID else {
+            guard currentURL != url || currentReconnectID != desiredReconnectID else {
                 return
             }
-            stop()
+            currentURL = nil
+            stopStream()
             currentURL = url
-            currentReconnectID = reconnectID
+            currentReconnectID = desiredReconnectID
             onError(nil)
             view?.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
 
@@ -464,6 +497,8 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func stop() {
+            desiredURL = nil
+            desiredOnFrame = nil
             currentURL = nil
             stopStream()
         }
@@ -477,6 +512,10 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
 private final class VideoHostContainerView: NSView {
     let videoView = VideoLayerHostView()
+    var onWindowVisibilityChange: ((Bool) -> Void)?
+
+    private weak var observedWindow: NSWindow?
+    private var windowObservers: [NSObjectProtocol] = []
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -492,6 +531,67 @@ private final class VideoHostContainerView: NSView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        removeWindowObservers()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        removeWindowObservers()
+        observedWindow = window
+
+        guard let window else {
+            onWindowVisibilityChange?(false)
+            return
+        }
+
+        notifyWindowVisibility(window)
+        let center = NotificationCenter.default
+        windowObservers = [
+            center.addObserver(
+                forName: NSWindow.didChangeOcclusionStateNotification,
+                object: window,
+                queue: .main
+            ) { [weak self, weak window] _ in
+                guard let self, let window else { return }
+                self.notifyWindowVisibility(window)
+            },
+            center.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.onWindowVisibilityChange?(false)
+            },
+            center.addObserver(
+                forName: NSWindow.didMiniaturizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.onWindowVisibilityChange?(false)
+            },
+            center.addObserver(
+                forName: NSWindow.didDeminiaturizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak self, weak window] _ in
+                guard let self, let window else { return }
+                self.notifyWindowVisibility(window)
+            }
+        ]
+    }
+
+    private func notifyWindowVisibility(_ window: NSWindow) {
+        onWindowVisibilityChange?(window.isVisible && window.occlusionState.contains(.visible))
+    }
+
+    private func removeWindowObservers() {
+        let center = NotificationCenter.default
+        windowObservers.forEach(center.removeObserver)
+        windowObservers.removeAll()
+        observedWindow = nil
     }
 }
 
