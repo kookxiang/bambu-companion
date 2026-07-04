@@ -17,6 +17,9 @@ private struct NativeVideoStreamSurface: View {
     let showFloatingButton: Bool
 
     @StateObject private var streamState = VideoStreamState()
+    private var cornerRadius: CGFloat {
+        showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
+    }
 
     var body: some View {
         ZStack {
@@ -63,8 +66,8 @@ private struct NativeVideoStreamSurface: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(height: showFloatingButton ? 191 : nil)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
-        .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onChange(of: url) {
             streamState.reset()
         }
@@ -123,6 +126,7 @@ private struct FloatingVideoStreamView: View {
 
 private final class FloatingVideoWindowController {
     static let shared = FloatingVideoWindowController()
+    static let cornerRadius: CGFloat = 28
 
     private var panel: NSPanel?
     private var delegate: FloatingVideoWindowDelegate?
@@ -146,11 +150,10 @@ private final class FloatingVideoWindowController {
                 host.rootView = FloatingVideoStreamView(url: url)
             } else {
                 let controller = NSHostingController(rootView: FloatingVideoStreamView(url: url))
-                controller.view.frame = panel.contentLayoutRect
                 controller.view.autoresizingMask = [.width, .height]
                 panel.contentViewController = controller
             }
-            panel.contentViewController?.view.frame = panel.contentLayoutRect
+            panel.contentViewController?.view.frame = panel.contentView?.bounds ?? .zero
             panel.makeKeyAndOrderFront(nil)
             panel.deminiaturize(nil)
             return
@@ -172,7 +175,7 @@ private final class FloatingVideoWindowController {
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: defaultSize),
-            styleMask: [.borderless, .resizable],
+            styleMask: [.titled, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -182,6 +185,18 @@ private final class FloatingVideoWindowController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.isMovableByWindowBackground = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.title = ""
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        panel.contentView?.wantsLayer = true
+        panel.contentView?.layer?.cornerRadius = Self.cornerRadius
+        panel.contentView?.layer?.masksToBounds = true
+        panel.contentView?.layer?.cornerCurve = .continuous
 
         let panelDelegate = FloatingVideoWindowDelegate { [weak self] in
             self?.panel = nil
