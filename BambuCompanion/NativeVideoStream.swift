@@ -22,6 +22,7 @@ private struct NativeVideoStreamSurface: View {
     @StateObject private var floatingVideoWindowController = FloatingVideoWindowController.shared
     @StateObject private var streamState = VideoStreamState()
     @State private var isHoveringFloatingWindow = false
+    private let staleFrameCheckTimer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
     private var cornerRadius: CGFloat {
         showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
     }
@@ -65,6 +66,14 @@ private struct NativeVideoStreamSurface: View {
                 placeholder(icon: "video.slash", text: L10n.string("Video preview is unavailable."))
             }
 
+            if streamState.isWaitingForFrame && effectiveURL != nil && streamState.errorMessage == nil {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+            }
+
             if effectiveURL != nil {
                 VStack {
                     HStack(spacing: 8) {
@@ -93,6 +102,9 @@ private struct NativeVideoStreamSurface: View {
         }
         .onChange(of: effectiveURL) {
             streamState.reset()
+        }
+        .onReceive(staleFrameCheckTimer) { now in
+            streamState.updateWaitingForFrame(now: now, isActive: effectiveURL != nil)
         }
     }
 
@@ -186,10 +198,16 @@ private struct NativeVideoStreamSurface: View {
 private final class VideoStreamState: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var hasVideo = false
+    @Published private(set) var isWaitingForFrame = false
+    private var lastFrameTime: Date?
 
     func setHasVideo() {
         if !hasVideo {
             hasVideo = true
+        }
+        lastFrameTime = Date()
+        if isWaitingForFrame {
+            isWaitingForFrame = false
         }
     }
 
@@ -201,7 +219,22 @@ private final class VideoStreamState: ObservableObject {
 
     func reset() {
         hasVideo = false
+        isWaitingForFrame = false
+        lastFrameTime = nil
         errorMessage = nil
+    }
+
+    func updateWaitingForFrame(now: Date, isActive: Bool) {
+        guard isActive, hasVideo, errorMessage == nil, let lastFrameTime else {
+            if isWaitingForFrame {
+                isWaitingForFrame = false
+            }
+            return
+        }
+        let shouldWait = now.timeIntervalSince(lastFrameTime) > 1
+        if isWaitingForFrame != shouldWait {
+            isWaitingForFrame = shouldWait
+        }
     }
 }
 
@@ -876,7 +909,6 @@ private final class NativeRTSPVideoClient {
 
     private func enqueue(_ sampleData: Data, timestamp: UInt32) {
         guard let formatDescription else { return }
-        lastFrameTime = Date()
 
         var blockBuffer: CMBlockBuffer?
         let status = sampleData.withUnsafeBytes { buffer in
@@ -960,9 +992,10 @@ private final class NativeRTSPVideoClient {
         }
         if renderer.isReadyForMoreMediaData {
             renderer.enqueue(sampleToRender)
+            lastFrameTime = Date()
+            onFrame()
             if !didDisplayFrame {
                 didDisplayFrame = true
-                onFrame()
             }
             enqueueQueue.async { [weak self] in
                 guard let self else { return }
@@ -1018,14 +1051,14 @@ private final class NativeRTSPVideoClient {
             return
         }
         isWatchdogScheduled = true
-        queue.asyncAfter(deadline: .now() + 5) { [weak self] in
+        queue.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self else { return }
             self.isWatchdogScheduled = false
             guard !self.isStopped else {
                 return
             }
 
-            if Date().timeIntervalSince(self.lastFrameTime) > self.staleFrameReconnectInterval {
+            if Date().timeIntervalSince(self.lastFrameTime) >= self.staleFrameReconnectInterval {
                 self.reconnect()
             }
             self.scheduleWatchdog()
