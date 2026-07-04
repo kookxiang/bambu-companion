@@ -245,9 +245,16 @@ private struct AMSUnitStatusLine: View {
     var body: some View {
         HStack(spacing: 8) {
             if unit.isDrying {
-                HStack(spacing: 4) {
-                    Image(systemName: "drop.degreesign")
-                    Text(dryingText)
+                if let dryingTemperature = unit.dryingTemperature {
+                    HStack(spacing: 3) {
+                        Image(systemName: "sun.max")
+                        Text(TemperatureText.string(dryingTemperature))
+                    }
+                }
+
+                HStack(spacing: 3) {
+                    Image(systemName: "timer")
+                    Text(dryingRemainingText(unit.dryingRemainingMinutes))
                 }
             }
 
@@ -270,11 +277,6 @@ private struct AMSUnitStatusLine: View {
         .lineLimit(1)
         .minimumScaleFactor(0.75)
         .monospacedDigit()
-    }
-
-    private var dryingText: String {
-        let temperatureText = unit.dryingTemperature.map(TemperatureText.string) ?? "--"
-        return "\(temperatureText) \(dryingRemainingText(unit.dryingRemainingMinutes))"
     }
 
     private var humidityText: String? {
