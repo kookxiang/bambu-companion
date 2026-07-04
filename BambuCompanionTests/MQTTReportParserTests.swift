@@ -195,6 +195,7 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[0].slots[0].trayInfoIndex, "GFG99")
         XCTAssertEqual(status.amsUnits[0].slots[0].diameter, 1.75)
         XCTAssertEqual(status.amsUnits[0].slots[0].weight, 1000)
+        XCTAssertEqual(status.amsUnits[0].slots[0].remainingWeight, 630)
         XCTAssertEqual(status.amsUnits[0].slots[0].nozzleTemperatureMin, 230)
         XCTAssertEqual(status.amsUnits[0].slots[0].nozzleTemperatureMax, 260)
         XCTAssertEqual(status.amsUnits[0].slots[1].colorHex, "00FF00")

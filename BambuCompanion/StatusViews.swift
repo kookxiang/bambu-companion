@@ -336,8 +336,8 @@ private struct AMSSlotView: View {
         if let diameter = slot.diameter {
             lines.append("Diameter: \(diameter.formatted(.number.precision(.fractionLength(2)))) mm")
         }
-        if let weight = slot.weight {
-            lines.append("Weight: \(weight.formatted(.number.precision(.fractionLength(0)))) g")
+        if let remainingWeight = slot.remainingWeight {
+            lines.append("Estimated remaining weight: \(remainingWeight.formatted(.number.precision(.fractionLength(0)))) g")
         }
         if slot.nozzleTemperatureMin != nil || slot.nozzleTemperatureMax != nil {
             lines.append("Nozzle range: \(temperatureRangeText)")

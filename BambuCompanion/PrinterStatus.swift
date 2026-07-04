@@ -89,6 +89,13 @@ struct AMSSlotStatus: Equatable, Identifiable {
     var nozzleTemperatureMin: Double?
     var nozzleTemperatureMax: Double?
     var isActive: Bool = false
+
+    var remainingWeight: Double? {
+        guard let weight, let remainingPercent else {
+            return nil
+        }
+        return weight * Double(remainingPercent) / 100
+    }
 }
 
 enum ConnectionState: Equatable {
