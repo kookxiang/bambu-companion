@@ -1,6 +1,7 @@
 import AVFoundation
 import CryptoKit
 import Network
+import OSLog
 import SwiftUI
 import AppKit
 
@@ -629,6 +630,8 @@ private final class VideoLayerHostView: NSView {
 }
 
 private final class NativeRTSPVideoClient {
+    private static let logger = Logger(subsystem: "com.kookxiang.bambuCompanion", category: "VideoStream")
+
     private let url: URL
     private weak var displayLayer: AVSampleBufferDisplayLayer?
     private let onError: (String) -> Void
@@ -666,6 +669,7 @@ private final class NativeRTSPVideoClient {
 
     func start() {
         queue.async {
+            Self.logger.warning("Starting video stream: \(self.streamIdentifier, privacy: .public)")
             self.isStopped = false
             self.connect()
         }
@@ -673,6 +677,7 @@ private final class NativeRTSPVideoClient {
 
     func stop() {
         queue.async {
+            Self.logger.warning("Stopping video stream: \(self.streamIdentifier, privacy: .public)")
             self.isStopped = true
             self.connection?.cancel()
             self.connection = nil
@@ -682,6 +687,12 @@ private final class NativeRTSPVideoClient {
             self.currentAccessUnitTimestamp = nil
             self.firstRTPTimestamp = nil
         }
+    }
+
+    private var streamIdentifier: String {
+        let host = url.host ?? "unknown-host"
+        let port = url.port.map(String.init) ?? "unknown-port"
+        return "\(host):\(port)\(url.path)"
     }
 
     private func connect() {
