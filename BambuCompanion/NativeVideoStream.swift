@@ -18,10 +18,12 @@ private struct NativeVideoStreamSurface: View {
     let showFloatingButton: Bool
 
     @StateObject private var streamState = VideoStreamState()
+    @State private var pictureInPictureRequest = 0
+    @State private var shouldFallbackToWindow = false
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, pictureInPictureRequest: 0, onFrame: {
+            NativeVideoLayerView(url: url, pictureInPictureRequest: pictureInPictureRequest, onFrame: {
                 streamState.setHasVideo()
             }) { message in
                 streamState.setErrorMessage(message)
@@ -47,10 +49,11 @@ private struct NativeVideoStreamSurface: View {
                     HStack {
                         Spacer()
                         Button {
-                            guard let url else {
+                            guard url != nil else {
                                 return
                             }
-                            FloatingVideoWindowController.shared.toggle(url: url)
+                            shouldFallbackToWindow = true
+                            pictureInPictureRequest += 1
                         } label: {
                             Label("Picture in Picture", systemImage: "pip.enter")
                         }
@@ -68,6 +71,19 @@ private struct NativeVideoStreamSurface: View {
         .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .onChange(of: url) {
             streamState.reset()
+            pictureInPictureRequest = 0
+            shouldFallbackToWindow = false
+        }
+        .onChange(of: streamState.errorMessage) { _, message in
+            guard shouldFallbackToWindow, let url, let message else {
+                return
+            }
+            guard message.contains("Picture in Picture") else {
+                return
+            }
+            shouldFallbackToWindow = false
+            streamState.setErrorMessage(nil)
+            FloatingVideoWindowController.shared.toggle(url: url)
         }
     }
 
@@ -358,7 +374,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 currentURL = nil
                 stopStream()
             }
-            view?.restoreInlineLayout()
             releaseFromPictureInPicture()
         }
 
@@ -368,33 +383,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            applyCurrentPiPRenderSize()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.applyCurrentPiPRenderSize()
-            }
-        }
-
-        private func applyCurrentPiPRenderSize() {
-            guard let contentView = findPiPPanelWindow()?.contentView else {
-                return
-            }
-            let size = contentView.bounds.size
-            guard size.width > 0, size.height > 0 else {
-                return
-            }
-
-            let scale = contentView.window?.screen?.backingScaleFactor
-                ?? NSScreen.main?.backingScaleFactor
-                ?? 1
-            let renderSize = CMVideoDimensions(
-                width: Int32(size.width * scale),
-                height: Int32(size.height * scale)
-            )
-            view?.applyPictureInPictureRenderSize(renderSize)
-        }
-
-        private func findPiPPanelWindow() -> NSWindow? {
-            NSApplication.shared.windows.first(where: { String(describing: type(of: $0)).contains("PIPPanel") })
+            pictureInPictureController.invalidatePlaybackState()
         }
     }
 }
@@ -450,9 +439,7 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
-        DispatchQueue.main.async { [weak self] in
-            self?.videoView?.applyPictureInPictureRenderSize(newRenderSize)
-        }
+        _ = newRenderSize
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
@@ -462,7 +449,6 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
-    private var isUsingPictureInPictureLayout = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -490,37 +476,7 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
-        guard !isUsingPictureInPictureLayout else {
-            return
-        }
         displayLayer.frame = bounds
-    }
-
-    func applyPictureInPictureRenderSize(_ renderSize: CMVideoDimensions) {
-        guard renderSize.width > 0, renderSize.height > 0 else {
-            return
-        }
-        let scale = window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        let size = CGSize(
-            width: CGFloat(renderSize.width) / scale,
-            height: CGFloat(renderSize.height) / scale
-        )
-
-        isUsingPictureInPictureLayout = true
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        displayLayer.frame = CGRect(origin: .zero, size: size)
-        displayLayer.videoGravity = .resizeAspect
-        CATransaction.commit()
-    }
-
-    func restoreInlineLayout() {
-        isUsingPictureInPictureLayout = false
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        displayLayer.frame = bounds
-        displayLayer.videoGravity = .resizeAspectFill
-        CATransaction.commit()
     }
 
     func applyPlaybackRate(isPaused: Bool) {
@@ -1049,7 +1005,7 @@ private final class NativeRTSPVideoClient {
             layer.flush()
         }
         if layer.isReadyForMoreMediaData {
-            layer.enqueueSampleBuffer(sampleToRender)
+            layer.enqueue(sampleToRender)
             if !didDisplayFrame {
                 didDisplayFrame = true
                 pictureInPictureController?.invalidatePlaybackState()
