@@ -8,10 +8,7 @@ struct MenuPanelView: View {
         VStack(alignment: .leading, spacing: 16) {
             if appState.configuration.isComplete {
                 StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
-                VideoPreviewView(
-                    url: appState.videoStreamURL,
-                    onReconnect: { appState.reconnectIfConfigured() }
-                )
+                VideoPreviewView(url: appState.videoStreamURL)
             } else {
                 setupPrompt
             }

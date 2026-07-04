@@ -6,21 +6,18 @@ import AppKit
 
 struct NativeVideoPreviewView: View {
     let url: URL?
-    let onReconnect: () -> Void
 
     var body: some View {
         NativeVideoStreamSurface(
             url: url,
-            showFloatingButton: true,
-            onReconnect: onReconnect
+            showFloatingButton: true
         )
     }
 }
 
-    private struct NativeVideoStreamSurface: View {
+private struct NativeVideoStreamSurface: View {
     let url: URL?
     let showFloatingButton: Bool
-    let onReconnect: () -> Void
 
     @StateObject private var floatingVideoWindowController = FloatingVideoWindowController.shared
     @StateObject private var streamState = VideoStreamState()
@@ -29,12 +26,12 @@ struct NativeVideoPreviewView: View {
         showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
     }
     private var effectiveURL: URL? {
-        floatingVideoWindowController.isShowing ? nil : url
+        showFloatingButton && floatingVideoWindowController.isShowing ? nil : url
     }
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: effectiveURL, onFrame: {
+            NativeVideoLayerView(url: effectiveURL, reconnectID: floatingVideoWindowController.videoReconnectGeneration, onFrame: {
                 streamState.setHasVideo()
             }) { message in
                 streamState.setErrorMessage(message)
@@ -42,7 +39,7 @@ struct NativeVideoPreviewView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
 
-            if floatingVideoWindowController.isShowing {
+            if showFloatingButton && floatingVideoWindowController.isShowing {
                 floatingPlaceholder
             } else if let errorMessage = streamState.errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
@@ -65,7 +62,7 @@ struct NativeVideoPreviewView: View {
                             guard url != nil else {
                                 return
                             }
-                            FloatingVideoWindowController.shared.toggle(url: url, onReconnect: onReconnect)
+                            FloatingVideoWindowController.shared.toggle(url: url)
                         } label: {
                             Label("Open Floating Video", systemImage: "rectangle.on.rectangle")
                         }
@@ -81,14 +78,7 @@ struct NativeVideoPreviewView: View {
                 VStack {
                     HStack {
                         floatingCloseButton
-                        Button {
-                            onReconnect()
-                        } label: {
-                            Label("重新连接", systemImage: "arrow.clockwise")
-                        }
-                        .font(.caption)
-                        .buttonStyle(.borderless)
-                        .padding(8)
+                        floatingReconnectButton
                         Spacer()
                     }
                     Spacer()
@@ -124,7 +114,7 @@ struct NativeVideoPreviewView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
-                onReconnect()
+                floatingVideoWindowController.reconnectVideo()
             } label: {
                 Label("重新连接", systemImage: "arrow.clockwise")
             }
@@ -142,7 +132,7 @@ struct NativeVideoPreviewView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
-                onReconnect()
+                floatingVideoWindowController.reconnectVideo()
             } label: {
                 Label("重新连接", systemImage: "arrow.clockwise")
             }
@@ -151,10 +141,32 @@ struct NativeVideoPreviewView: View {
     }
 
     private var floatingCloseButton: some View {
-        Button {
+        floatingControlButton(
+            systemName: "xmark",
+            accessibilityLabel: "Close Floating Video"
+        ) {
             FloatingVideoWindowController.shared.dismiss()
+        }
+    }
+
+    private var floatingReconnectButton: some View {
+        floatingControlButton(
+            systemName: "arrow.clockwise",
+            accessibilityLabel: "Reconnect Floating Video"
+        ) {
+            floatingVideoWindowController.reconnectVideo()
+        }
+    }
+
+    private func floatingControlButton(
+        systemName: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            action()
         } label: {
-            Image(systemName: "xmark")
+            Image(systemName: systemName)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 34, height: 34)
@@ -166,7 +178,7 @@ struct NativeVideoPreviewView: View {
                 .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Close Floating Video")
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
@@ -195,13 +207,11 @@ private final class VideoStreamState: ObservableObject {
 
 private struct FloatingVideoStreamView: View {
     let url: URL?
-    let onReconnect: () -> Void
 
     var body: some View {
         NativeVideoStreamSurface(
             url: url,
-            showFloatingButton: false,
-            onReconnect: onReconnect
+            showFloatingButton: false
         )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .frame(minWidth: 360, minHeight: 200)
@@ -219,14 +229,13 @@ private final class FloatingVideoWindowController: ObservableObject {
     static let cornerRadius: CGFloat = 28
 
     @Published private(set) var isShowing = false
+    @Published private(set) var videoReconnectGeneration = 0
 
     private var panel: NSPanel?
     private var delegate: FloatingVideoWindowDelegate?
-    private var onReconnect: (() -> Void)?
     private let defaultSize = NSSize(width: 640, height: 360)
 
-    @MainActor func toggle(url: URL?, onReconnect: @escaping () -> Void) {
-        self.onReconnect = onReconnect
+    @MainActor func toggle(url: URL?) {
         guard let url else {
             dismiss()
             return
@@ -242,16 +251,10 @@ private final class FloatingVideoWindowController: ObservableObject {
     @MainActor func show(url: URL) {
         if let panel {
             if let host = panel.contentViewController as? NSHostingController<FloatingVideoStreamView> {
-                host.rootView = FloatingVideoStreamView(
-                    url: url,
-                    onReconnect: onReconnect ?? {}
-                )
+                host.rootView = FloatingVideoStreamView(url: url)
             } else {
                 let controller = NSHostingController(
-                    rootView: FloatingVideoStreamView(
-                        url: url,
-                        onReconnect: onReconnect ?? {}
-                    )
+                    rootView: FloatingVideoStreamView(url: url)
                 )
                 controller.view.autoresizingMask = [.width, .height]
                 panel.contentViewController = controller
@@ -265,10 +268,7 @@ private final class FloatingVideoWindowController: ObservableObject {
 
         let panel = makePanel()
         let controller = NSHostingController(
-            rootView: FloatingVideoStreamView(
-                url: url,
-                onReconnect: onReconnect ?? {}
-            )
+            rootView: FloatingVideoStreamView(url: url)
         )
         controller.view.autoresizingMask = [.width, .height]
         panel.contentViewController = controller
@@ -280,8 +280,11 @@ private final class FloatingVideoWindowController: ObservableObject {
 
     @MainActor func dismiss() {
         isShowing = false
-        onReconnect = nil
         panel?.close()
+    }
+
+    @MainActor func reconnectVideo() {
+        videoReconnectGeneration += 1
     }
 
     private func makePanel() -> NSPanel {
@@ -336,6 +339,7 @@ private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
 
 private struct NativeVideoLayerView: NSViewRepresentable {
     let url: URL?
+    let reconnectID: Int
     let onFrame: () -> Void
     let onError: (String?) -> Void
 
@@ -347,7 +351,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
     func updateNSView(_ view: VideoHostContainerView, context: Context) {
         view.videoView.frame = view.bounds
-        context.coordinator.start(url: url, onFrame: onFrame)
+        context.coordinator.start(url: url, reconnectID: reconnectID, onFrame: onFrame)
         view.layoutSubtreeIfNeeded()
     }
 
@@ -364,6 +368,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private weak var view: VideoLayerHostView?
         private var client: NativeRTSPVideoClient?
         private var currentURL: URL?
+        private var currentReconnectID = 0
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -373,16 +378,17 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             self.view = view
         }
 
-        func start(url: URL?, onFrame: @escaping () -> Void) {
+        func start(url: URL?, reconnectID: Int, onFrame: @escaping () -> Void) {
             guard let url else {
                 stop()
                 return
             }
-            guard currentURL != url else {
+            guard currentURL != url || currentReconnectID != reconnectID else {
                 return
             }
             stop()
             currentURL = url
+            currentReconnectID = reconnectID
             onError(nil)
             view?.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
 

@@ -540,9 +540,8 @@ private struct DualNozzleMetricView: View {
 
 struct VideoPreviewView: View {
     let url: URL?
-    let onReconnect: () -> Void
 
     var body: some View {
-        NativeVideoPreviewView(url: url, onReconnect: onReconnect)
+        NativeVideoPreviewView(url: url)
     }
 }
