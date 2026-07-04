@@ -476,17 +476,34 @@ private struct PrinterPlaceholderArtwork: View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
             let line = max(2, side * 0.06)
-            let frame = CGRect(x: side * 0.08, y: side * 0.04, width: side * 0.84, height: side * 0.92)
-            let chamber = CGRect(x: side * 0.2, y: side * 0.24, width: side * 0.6, height: side * 0.5)
-            let gantryY = side * 0.36
-            let plate = CGRect(x: side * 0.28, y: side * 0.62, width: side * 0.44, height: side * 0.1)
-            let toolhead = CGRect(x: side * 0.43, y: side * 0.3, width: side * 0.14, height: side * 0.16)
+            let front = CGRect(x: side * 0.12, y: side * 0.28, width: side * 0.6, height: side * 0.58)
+            let depth = CGSize(width: side * 0.18, height: -side * 0.16)
+            let chamber = CGRect(x: side * 0.23, y: side * 0.42, width: side * 0.42, height: side * 0.26)
+            let gantryY = side * 0.48
+            let plate = CGRect(x: side * 0.28, y: side * 0.66, width: side * 0.34, height: side * 0.09)
+            let toolhead = CGRect(x: side * 0.43, y: side * 0.43, width: side * 0.13, height: side * 0.13)
 
             ZStack {
+                Path { path in
+                    path.move(to: CGPoint(x: front.minX, y: front.minY))
+                    path.addLine(to: CGPoint(x: front.minX + depth.width, y: front.minY + depth.height))
+                    path.addLine(to: CGPoint(x: front.maxX + depth.width, y: front.minY + depth.height))
+                    path.addLine(to: CGPoint(x: front.maxX, y: front.minY))
+                }
+                .stroke(.secondary.opacity(0.34), style: StrokeStyle(lineWidth: line * 0.72, lineJoin: .round))
+
+                Path { path in
+                    path.move(to: CGPoint(x: front.maxX, y: front.minY))
+                    path.addLine(to: CGPoint(x: front.maxX + depth.width, y: front.minY + depth.height))
+                    path.addLine(to: CGPoint(x: front.maxX + depth.width, y: front.maxY + depth.height))
+                    path.addLine(to: CGPoint(x: front.maxX, y: front.maxY))
+                }
+                .stroke(.secondary.opacity(0.28), style: StrokeStyle(lineWidth: line * 0.72, lineJoin: .round))
+
                 RoundedRectangle(cornerRadius: side * 0.12)
                     .stroke(.secondary.opacity(0.48), lineWidth: line)
-                    .frame(width: frame.width, height: frame.height)
-                    .position(x: frame.midX, y: frame.midY)
+                    .frame(width: front.width, height: front.height)
+                    .position(x: front.midX, y: front.midY)
 
                 RoundedRectangle(cornerRadius: side * 0.08)
                     .stroke(.secondary.opacity(0.38), lineWidth: line * 0.72)
@@ -509,10 +526,21 @@ private struct PrinterPlaceholderArtwork: View {
                     .position(x: plate.midX, y: plate.midY)
 
                 Path { path in
-                    path.move(to: CGPoint(x: frame.minX + side * 0.08, y: frame.maxY - side * 0.12))
-                    path.addLine(to: CGPoint(x: frame.maxX - side * 0.08, y: frame.maxY - side * 0.12))
+                    path.move(to: CGPoint(x: front.minX + side * 0.08, y: front.maxY - side * 0.1))
+                    path.addLine(to: CGPoint(x: front.maxX - side * 0.08, y: front.maxY - side * 0.1))
                 }
                 .stroke(.secondary.opacity(0.32), style: StrokeStyle(lineWidth: line, lineCap: .round))
+
+                Path { path in
+                    let sideWindow = CGRect(
+                        x: front.maxX + depth.width * 0.38,
+                        y: front.minY + depth.height * 0.42 + side * 0.2,
+                        width: side * 0.12,
+                        height: side * 0.28
+                    )
+                    path.addRoundedRect(in: sideWindow, cornerSize: CGSize(width: line, height: line))
+                }
+                .stroke(.secondary.opacity(0.22), lineWidth: line * 0.6)
             }
             .frame(width: side, height: side)
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
