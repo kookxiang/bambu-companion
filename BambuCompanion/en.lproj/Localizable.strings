@@ -1,5 +1,6 @@
 "A print job has started." = "A print job has started.";
 "Authentication failed" = "Authentication failed";
+"Aux" = "Aux";
 "Bed" = "Bed";
 "Brand" = "Brand";
 "Chamber" = "Chamber";
@@ -22,6 +23,8 @@
 "Estimated remaining weight: %@ g" = "Estimated remaining weight: %@ g";
 "Failed" = "Failed";
 "Finished" = "Finished";
+"Fan" = "Fan";
+"Heatbreak" = "Heatbreak";
 "Humidity index: %d" = "Humidity index: %d";
 "Humidity: %d%%" = "Humidity: %d%%";
 "Idle" = "Idle";
@@ -35,7 +38,9 @@
 "Not configured" = "Not configured";
 "Nozzle" = "Nozzle";
 "Nozzle range: %@" = "Nozzle range: %@";
+"Off" = "Off";
 "Open Floating Video" = "Open Floating Video";
+"Part" = "Part";
 "Open Settings" = "Open Settings";
 "Paused" = "Paused";
 "Print failed" = "Print failed";

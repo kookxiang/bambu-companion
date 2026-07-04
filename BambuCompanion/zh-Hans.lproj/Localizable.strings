@@ -1,5 +1,6 @@
 "A print job has started." = "打印任务已开始。";
 "Authentication failed" = "认证失败";
+"Aux" = "辅助";
 "Bed" = "热床";
 "Brand" = "品牌";
 "Chamber" = "腔体";
@@ -22,6 +23,8 @@
 "Estimated remaining weight: %@ g" = "预计剩余重量：%@ g";
 "Failed" = "失败";
 "Finished" = "已完成";
+"Fan" = "风扇";
+"Heatbreak" = "喉管";
 "Humidity index: %d" = "湿度指数：%d";
 "Humidity: %d%%" = "湿度：%d%%";
 "Idle" = "空闲";
@@ -35,7 +38,9 @@
 "Not configured" = "未配置";
 "Nozzle" = "喷嘴";
 "Nozzle range: %@" = "喷嘴范围：%@";
+"Off" = "关闭";
 "Open Floating Video" = "打开画中画视频";
+"Part" = "模型";
 "Open Settings" = "打开设置";
 "Paused" = "已暂停";
 "Print failed" = "打印失败";

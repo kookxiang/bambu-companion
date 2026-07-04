@@ -36,6 +36,7 @@ enum MQTTReportParser {
         status.targetChamberTemperature = chamberTemperatures.target
         status.cameraStreamURL = cameraStreamURL(from: print)
         status.alert = alert(from: print)
+        status.fans = fanStatus(from: print)
         status.amsUnits = amsUnits(from: print)
         status.updatedAt = Date()
         return status
@@ -126,6 +127,36 @@ enum MQTTReportParser {
             current: doubleValue(print["chamber_temper"]) ?? doubleValue(print["chamber_temperature"]),
             target: doubleValue(print["chamber_target_temper"]) ?? doubleValue(print["target_chamber_temperature"])
         )
+    }
+
+    private static func fanStatus(from print: [String: Any]) -> PrinterFanStatus {
+        PrinterFanStatus(
+            partCoolingPercent: fanPercent(
+                print["cooling_fan_speed"] ??
+                    print["print_fan_speed"] ??
+                    print["fan_gear"]
+            ),
+            auxiliaryPercent: fanPercent(
+                print["big_fan1_speed"] ??
+                    print["aux_part_fan_speed"] ??
+                    print["auxiliary_fan_speed"]
+            ),
+            chamberPercent: fanPercent(
+                print["chamber_fan_speed"] ??
+                    print["big_fan2_speed"]
+            ),
+            heatbreakPercent: fanPercent(print["heatbreak_fan_speed"])
+        )
+    }
+
+    private static func fanPercent(_ value: Any?) -> Int? {
+        guard let rawValue = intValue(value), rawValue >= 0 else {
+            return nil
+        }
+        if rawValue <= 15 {
+            return Int((Double(rawValue) / 15 * 100).rounded())
+        }
+        return min(rawValue, 100)
     }
 
     private static func alert(from print: [String: Any]) -> PrinterAlert? {

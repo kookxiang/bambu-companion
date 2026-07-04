@@ -56,6 +56,9 @@ struct StatusSummaryView: View {
                     MetricView(title: "Chamber", value: temperature(status.chamberTemperature, target: status.targetChamberTemperature))
                 }
                 RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
+                if status.fans.hasAnyValue {
+                    FanMetricView(fans: status.fans)
+                }
             }
 
             if !status.amsUnits.isEmpty {
@@ -544,6 +547,43 @@ private struct RemainingMetricView: View {
         formatter.timeStyle = .short
         return formatter
     }()
+}
+
+private struct FanMetricView: View {
+    let fans: PrinterFanStatus
+
+    var body: some View {
+        MetricView(title: "Fan", value: value)
+            .help(helpText)
+    }
+
+    private var value: String {
+        let activeFans = fanLines(showingZeroValues: false)
+        if !activeFans.isEmpty {
+            return activeFans.joined(separator: " / ")
+        }
+        return L10n.string("Off")
+    }
+
+    private var helpText: String {
+        fanLines(showingZeroValues: true).joined(separator: "\n")
+    }
+
+    private func fanLines(showingZeroValues: Bool) -> [String] {
+        [
+            fanLine("Part", fans.partCoolingPercent, showingZeroValues: showingZeroValues),
+            fanLine("Aux", fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
+            fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues),
+            fanLine("Heatbreak", fans.heatbreakPercent, showingZeroValues: showingZeroValues)
+        ].compactMap(\.self)
+    }
+
+    private func fanLine(_ name: String, _ percent: Int?, showingZeroValues: Bool) -> String? {
+        guard let percent, showingZeroValues || percent > 0 else {
+            return nil
+        }
+        return "\(L10n.string(name)) \(percent)%"
+    }
 }
 
 private struct DualNozzleMetricView: View {

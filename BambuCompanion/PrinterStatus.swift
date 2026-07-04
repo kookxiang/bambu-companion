@@ -44,10 +44,25 @@ struct PrinterStatus: Equatable {
     var targetChamberTemperature: Double?
     var cameraStreamURL: String?
     var alert: PrinterAlert?
+    var fans = PrinterFanStatus()
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
 
     static let empty = PrinterStatus()
+}
+
+struct PrinterFanStatus: Equatable {
+    var partCoolingPercent: Int?
+    var auxiliaryPercent: Int?
+    var chamberPercent: Int?
+    var heatbreakPercent: Int?
+
+    var hasAnyValue: Bool {
+        partCoolingPercent != nil ||
+            auxiliaryPercent != nil ||
+            chamberPercent != nil ||
+            heatbreakPercent != nil
+    }
 }
 
 struct PrinterAlert: Equatable {
