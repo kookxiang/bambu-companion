@@ -1,5 +1,4 @@
 import AVFoundation
-import AVKit
 import CryptoKit
 import Network
 import SwiftUI
@@ -18,12 +17,10 @@ private struct NativeVideoStreamSurface: View {
     let showFloatingButton: Bool
 
     @StateObject private var streamState = VideoStreamState()
-    @State private var pictureInPictureRequest = 0
-    @State private var shouldFallbackToWindow = false
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, pictureInPictureRequest: pictureInPictureRequest, onFrame: {
+            NativeVideoLayerView(url: url, onFrame: {
                 streamState.setHasVideo()
             }) { message in
                 streamState.setErrorMessage(message)
@@ -52,10 +49,9 @@ private struct NativeVideoStreamSurface: View {
                             guard url != nil else {
                                 return
                             }
-                            shouldFallbackToWindow = true
-                            pictureInPictureRequest += 1
+                            FloatingVideoWindowController.shared.toggle(url: url)
                         } label: {
-                            Label("Picture in Picture", systemImage: "pip.enter")
+                            Label("Open Floating Video", systemImage: "rectangle.on.rectangle")
                         }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
@@ -71,19 +67,6 @@ private struct NativeVideoStreamSurface: View {
         .clipShape(RoundedRectangle(cornerRadius: showFloatingButton ? 8 : 0))
         .onChange(of: url) {
             streamState.reset()
-            pictureInPictureRequest = 0
-            shouldFallbackToWindow = false
-        }
-        .onChange(of: streamState.errorMessage) { _, message in
-            guard shouldFallbackToWindow, let url, let message else {
-                return
-            }
-            guard message.contains("Picture in Picture") else {
-                return
-            }
-            shouldFallbackToWindow = false
-            streamState.setErrorMessage(nil)
-            FloatingVideoWindowController.shared.toggle(url: url)
         }
     }
 
@@ -196,6 +179,7 @@ private final class FloatingVideoWindowController {
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.hidesOnDeactivate = false
         panel.title = "Printer Camera"
         panel.isReleasedWhenClosed = false
         panel.titlebarAppearsTransparent = false
@@ -225,7 +209,6 @@ private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
 
 private struct NativeVideoLayerView: NSViewRepresentable {
     let url: URL?
-    let pictureInPictureRequest: Int
     let onFrame: () -> Void
     let onError: (String?) -> Void
 
@@ -239,7 +222,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         view.videoView.frame = view.bounds
         context.coordinator.start(url: url, onFrame: onFrame)
         view.layoutSubtreeIfNeeded()
-        context.coordinator.handlePictureInPictureRequest(pictureInPictureRequest)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -247,30 +229,21 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ nsView: VideoHostContainerView, coordinator: Coordinator) {
-        coordinator.detachFromInlineView()
+        coordinator.stop()
     }
 
-    final class Coordinator: NSObject, AVPictureInPictureControllerDelegate {
-        private static var retainedForPictureInPicture: [ObjectIdentifier: Coordinator] = [:]
-
+    final class Coordinator {
         private let onError: (String?) -> Void
         private weak var view: VideoLayerHostView?
         private var client: NativeRTSPVideoClient?
         private var currentURL: URL?
-        private var pictureInPictureController: AVPictureInPictureController?
-        private var playbackDelegate: PictureInPicturePlaybackDelegate?
-        private var lastHandledPictureInPictureRequest = 0
-        private var isDetachedFromInlineView = false
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
-            super.init()
         }
 
         func attach(to view: VideoLayerHostView) {
             self.view = view
-            isDetachedFromInlineView = false
-            configurePictureInPicture(for: view)
         }
 
         func start(url: URL?, onFrame: @escaping () -> Void) {
@@ -292,7 +265,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             let client = NativeRTSPVideoClient(
                 url: url,
                 displayLayer: view.displayLayer,
-                pictureInPictureController: pictureInPictureController,
                 onFrame: onFrame
             ) { [weak self] message in
                 DispatchQueue.main.async {
@@ -303,88 +275,14 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             client.start()
         }
 
-        func handlePictureInPictureRequest(_ request: Int) {
-            guard request != lastHandledPictureInPictureRequest else {
-                return
-            }
-            lastHandledPictureInPictureRequest = request
-
-            guard let pictureInPictureController else {
-                onError("Picture in Picture is unavailable.")
-                return
-            }
-            if pictureInPictureController.isPictureInPictureActive {
-                pictureInPictureController.stopPictureInPicture()
-            } else if pictureInPictureController.isPictureInPicturePossible {
-                retainForPictureInPicture()
-                pictureInPictureController.startPictureInPicture()
-            } else {
-                onError("Picture in Picture is not ready yet.")
-            }
-        }
-
-        func detachFromInlineView() {
-            isDetachedFromInlineView = true
-            if pictureInPictureController?.isPictureInPictureActive == true {
-                retainForPictureInPicture()
-            } else {
-                stop()
-            }
-        }
-
         func stop() {
             currentURL = nil
-            pictureInPictureController?.stopPictureInPicture()
             stopStream()
-            releaseFromPictureInPicture()
         }
 
         private func stopStream() {
             client?.stop()
             client = nil
-        }
-
-        private func configurePictureInPicture(for view: VideoLayerHostView) {
-            guard AVPictureInPictureController.isPictureInPictureSupported() else {
-                return
-            }
-            let playbackDelegate = PictureInPicturePlaybackDelegate(videoView: view) { [weak self] paused in
-                self?.client?.setPaused(paused)
-            }
-            let source = AVPictureInPictureController.ContentSource(
-                sampleBufferDisplayLayer: view.displayLayer,
-                playbackDelegate: playbackDelegate
-            )
-            let controller = AVPictureInPictureController(contentSource: source)
-            controller.delegate = self
-            self.playbackDelegate = playbackDelegate
-            self.pictureInPictureController = controller
-        }
-
-        private func retainForPictureInPicture() {
-            Self.retainedForPictureInPicture[ObjectIdentifier(self)] = self
-        }
-
-        private func releaseFromPictureInPicture() {
-            Self.retainedForPictureInPicture.removeValue(forKey: ObjectIdentifier(self))
-        }
-
-        func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            if isDetachedFromInlineView {
-                currentURL = nil
-                stopStream()
-            }
-            view?.restoreInlineLayout()
-            releaseFromPictureInPicture()
-        }
-
-        func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
-            onError("Picture in Picture failed: \(error.localizedDescription)")
-            releaseFromPictureInPicture()
-        }
-
-        func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            pictureInPictureController.invalidatePlaybackState()
         }
     }
 }
@@ -406,47 +304,6 @@ private final class VideoHostContainerView: NSView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-}
-
-private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictureSampleBufferPlaybackDelegate {
-    private weak var videoView: VideoLayerHostView?
-    private let onSetPaused: (Bool) -> Void
-    private var isPlaybackPaused = false
-
-    init(videoView: VideoLayerHostView, onSetPaused: @escaping (Bool) -> Void) {
-        self.videoView = videoView
-        self.onSetPaused = onSetPaused
-        super.init()
-    }
-
-    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {
-        let paused = !playing
-        guard isPlaybackPaused != paused else { return }
-        isPlaybackPaused = paused
-        onSetPaused(paused)
-        DispatchQueue.main.async { [weak self] in
-            self?.videoView?.applyPlaybackRate(isPaused: paused)
-        }
-        pictureInPictureController.invalidatePlaybackState()
-    }
-
-    func pictureInPictureControllerTimeRangeForPlayback(_ pictureInPictureController: AVPictureInPictureController) -> CMTimeRange {
-        CMTimeRange(start: .zero, duration: .positiveInfinity)
-    }
-
-    func pictureInPictureControllerIsPlaybackPaused(_ pictureInPictureController: AVPictureInPictureController) -> Bool {
-        isPlaybackPaused
-    }
-
-    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
-        DispatchQueue.main.async { [weak self] in
-            self?.videoView?.needsLayout = true
-        }
-    }
-
-    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
-        completionHandler()
     }
 }
 
@@ -481,29 +338,11 @@ private final class VideoLayerHostView: NSView {
         super.layout()
         displayLayer.frame = bounds
     }
-
-    func restoreInlineLayout() {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        displayLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        displayLayer.contentsScale = window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        displayLayer.frame = bounds
-        displayLayer.videoGravity = .resizeAspectFill
-        CATransaction.commit()
-    }
-
-    func applyPlaybackRate(isPaused: Bool) {
-        guard let timebase = displayLayer.controlTimebase else {
-            return
-        }
-        CMTimebaseSetRate(timebase, rate: isPaused ? 0.0 : 1.0)
-    }
 }
 
 private final class NativeRTSPVideoClient {
     private let url: URL
     private weak var displayLayer: AVSampleBufferDisplayLayer?
-    private weak var pictureInPictureController: AVPictureInPictureController?
     private let onError: (String) -> Void
     private let queue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient")
     private let enqueueQueue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient.enqueue")
@@ -523,7 +362,6 @@ private final class NativeRTSPVideoClient {
     private var pendingSampleBuffer: CMSampleBuffer?
     private var isDisplayFrameScheduled = false
     private var isStopped = false
-    private var isPaused = false
     private var isWatchdogScheduled = false
     private var lastFrameTime = Date()
     private let onFrame: () -> Void
@@ -532,13 +370,11 @@ private final class NativeRTSPVideoClient {
     init(
         url: URL,
         displayLayer: AVSampleBufferDisplayLayer,
-        pictureInPictureController: AVPictureInPictureController?,
         onFrame: @escaping () -> Void,
         onError: @escaping (String) -> Void
     ) {
         self.url = url
         self.displayLayer = displayLayer
-        self.pictureInPictureController = pictureInPictureController
         self.onFrame = onFrame
         self.onError = onError
     }
@@ -546,7 +382,6 @@ private final class NativeRTSPVideoClient {
     func start() {
         queue.async {
             self.isStopped = false
-            self.isPaused = false
             self.lastFrameTime = Date()
             self.scheduleWatchdog()
             self.connect()
@@ -556,7 +391,6 @@ private final class NativeRTSPVideoClient {
     func stop() {
         queue.async {
             self.isStopped = true
-            self.isPaused = false
             self.connection?.cancel()
             self.connection = nil
             self.receiveBuffer.removeAll(keepingCapacity: false)
@@ -564,21 +398,6 @@ private final class NativeRTSPVideoClient {
             self.currentAccessUnit.removeAll(keepingCapacity: false)
             self.currentAccessUnitTimestamp = nil
             self.firstRTPTimestamp = nil
-        }
-    }
-
-    func setPaused(_ paused: Bool) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard self.isPaused != paused else { return }
-            self.isPaused = paused
-            self.currentAccessUnit.removeAll(keepingCapacity: true)
-            self.currentAccessUnitTimestamp = nil
-            self.fuBuffer.removeAll(keepingCapacity: true)
-            self.lastFrameTime = Date()
-            DispatchQueue.main.async { [weak self] in
-                self?.displayLayer?.sampleBufferRenderer.flush()
-            }
         }
     }
 
@@ -795,9 +614,6 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleRTPPacket(_ packet: Data) {
-        guard !isPaused else {
-            return
-        }
         guard packet.count >= 12 else { return }
         let csrcCount = Int(packet[0] & 0x0F)
         let hasExtension = (packet[0] & 0x10) != 0
@@ -815,9 +631,6 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleH264Payload(_ payload: Data, timestamp: UInt32, marker: Bool) {
-        guard !isPaused else {
-            return
-        }
         guard let first = payload.first else { return }
         let type = first & 0x1F
         switch type {
@@ -833,9 +646,6 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleSTAPA(_ payload: Data.SubSequence, timestamp: UInt32, marker: Bool) {
-        guard !isPaused else {
-            return
-        }
         var offset = payload.startIndex
         while payload.distance(from: offset, to: payload.endIndex) >= 2 {
             let size = Int(payload[offset]) << 8 | Int(payload[payload.index(after: offset)])
@@ -851,9 +661,6 @@ private final class NativeRTSPVideoClient {
     }
 
     private func handleFUA(_ payload: Data, timestamp: UInt32, marker: Bool) {
-        guard !isPaused else {
-            return
-        }
         guard payload.count >= 2 else { return }
         let indicator = payload[0]
         let header = payload[1]
@@ -1022,7 +829,6 @@ private final class NativeRTSPVideoClient {
             renderer.enqueue(sampleToRender)
             if !didDisplayFrame {
                 didDisplayFrame = true
-                pictureInPictureController?.invalidatePlaybackState()
                 onFrame()
             }
             enqueueQueue.async { [weak self] in
