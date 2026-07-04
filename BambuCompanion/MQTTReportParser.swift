@@ -339,7 +339,7 @@ enum MQTTReportParser {
         if value.count == 8 {
             value = String(value.prefix(6))
         }
-        guard value.count == 6, value != "000000" else {
+        guard value.count == 6 else {
             return nil
         }
         return value.uppercased()

@@ -3,9 +3,12 @@
 "Authentication failed" = "认证失败";
 "Aux" = "辅助";
 "Bed" = "热床";
+"Bed / Chamber" = "热床 / 腔温";
+"Bed: %@" = "热床：%@";
 "Brand" = "品牌";
 "Chamber" = "腔体";
 "Chamber hold" = "腔温保持模式";
+"Chamber: %@" = "腔温：%@";
 "Close Floating Video" = "关闭画中画视频";
 "Close the floating window to watch here again." = "关闭浮窗后可重新在这里观看。";
 "Color" = "颜色";

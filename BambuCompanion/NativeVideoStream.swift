@@ -23,6 +23,7 @@ private struct NativeVideoStreamSurface: View {
     @StateObject private var floatingVideoWindowController = FloatingVideoWindowController.shared
     @StateObject private var streamState = VideoStreamState()
     @State private var isHoveringFloatingWindow = false
+    @Environment(\.dismiss) private var dismiss
     private let staleFrameCheckTimer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
     private var cornerRadius: CGFloat {
         showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
@@ -176,6 +177,7 @@ private struct NativeVideoStreamSurface: View {
             }
             let presentingWindow = NSApp.keyWindow
             FloatingVideoWindowController.shared.toggle(url: url)
+            dismiss()
             presentingWindow?.close()
         }
     }

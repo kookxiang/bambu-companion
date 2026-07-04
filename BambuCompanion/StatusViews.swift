@@ -51,16 +51,17 @@ struct StatusSummaryView: View {
 
             LazyVGrid(columns: metricColumns, spacing: 10) {
                 nozzleMetric
-                MetricView(title: "Bed", value: temperature(status.bedTemperature, target: status.targetBedTemperature))
-                if status.chamberTemperature != nil {
-                    MetricView(title: "Chamber", value: temperature(status.chamberTemperature, target: status.targetChamberTemperature))
-                }
+                BedChamberMetricView(
+                    bedTemperature: temperature(status.bedTemperature),
+                    bedDetail: temperature(status.bedTemperature, target: status.targetBedTemperature),
+                    chamberTemperature: status.chamberTemperature.map { temperature($0) },
+                    chamberDetail: status.chamberTemperature.map { _ in
+                        temperature(status.chamberTemperature, target: status.targetChamberTemperature)
+                    }
+                )
                 RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
-                if let airductMode = status.airductMode {
-                    AirductModeMetricView(rawMode: airductMode)
-                }
-                if status.fans.hasAnyValue {
-                    FanMetricView(fans: status.fans)
+                if status.fans.hasAnyValue || status.airductMode != nil {
+                    FanMetricView(fans: status.fans, airductMode: status.airductMode)
                 }
             }
 
@@ -528,6 +529,53 @@ private struct MetricView: View {
     }
 }
 
+private struct DynamicMetricView: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.callout.monospacedDigit())
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct BedChamberMetricView: View {
+    let bedTemperature: String
+    let bedDetail: String
+    let chamberTemperature: String?
+    let chamberDetail: String?
+
+    var body: some View {
+        MetricView(title: chamberTemperature == nil ? "Bed" : "Bed / Chamber", value: value)
+            .help(helpText)
+    }
+
+    private var value: String {
+        guard let chamberTemperature else {
+            return bedTemperature
+        }
+        return "\(bedTemperature) / \(chamberTemperature)"
+    }
+
+    private var helpText: String {
+        var lines = [L10n.format("Bed: %@", bedDetail)]
+        if let chamberDetail {
+            lines.append(L10n.format("Chamber: %@", chamberDetail))
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
 private struct RemainingMetricView: View {
     let value: String
     let completionDate: Date?
@@ -552,16 +600,9 @@ private struct RemainingMetricView: View {
     }()
 }
 
-private struct AirductModeMetricView: View {
-    let rawMode: String
-
-    var body: some View {
-        MetricView(title: "Airduct", value: value)
-            .help(rawMode)
-    }
-
-    private var value: String {
-        switch normalizedMode {
+private enum AirductModeText {
+    static func value(for rawMode: String) -> String {
+        switch normalizedMode(rawMode) {
         case "0", "cooling":
             return L10n.string("Cooling")
         case "1", "heating":
@@ -576,17 +617,25 @@ private struct AirductModeMetricView: View {
         }
     }
 
-    private var normalizedMode: String {
+    private static func normalizedMode(_ rawMode: String) -> String {
         rawMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
 
 private struct FanMetricView: View {
     let fans: PrinterFanStatus
+    let airductMode: String?
 
     var body: some View {
-        MetricView(title: "Fan", value: value)
+        DynamicMetricView(title: title, value: value)
             .help(helpText)
+    }
+
+    private var title: String {
+        guard let airductMode else {
+            return L10n.string("Fan")
+        }
+        return AirductModeText.value(for: airductMode)
     }
 
     private var value: String {

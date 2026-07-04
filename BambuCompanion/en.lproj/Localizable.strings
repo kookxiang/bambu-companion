@@ -3,9 +3,12 @@
 "Authentication failed" = "Authentication failed";
 "Aux" = "Aux";
 "Bed" = "Bed";
+"Bed / Chamber" = "Bed / Chamber";
+"Bed: %@" = "Bed: %@";
 "Brand" = "Brand";
 "Chamber" = "Chamber";
 "Chamber hold" = "Chamber hold";
+"Chamber: %@" = "Chamber: %@";
 "Close Floating Video" = "Close Floating Video";
 "Close the floating window to watch here again." = "Close the floating window to watch here again.";
 "Color" = "Color";

@@ -244,7 +244,7 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[0].slots[0].nozzleTemperatureMax, 260)
         XCTAssertEqual(status.amsUnits[0].slots[1].colorHex, "00FF00")
         XCTAssertNil(status.amsUnits[0].slots[1].remainingPercent)
-        XCTAssertNil(status.amsUnits[0].slots[3].colorHex)
+        XCTAssertEqual(status.amsUnits[0].slots[3].colorHex, "000000")
         XCTAssertEqual(status.amsUnits[0].slots[3].remainingPercent, 100)
         XCTAssertEqual(status.amsUnits[1].name, "AMS 2")
         XCTAssertEqual(status.amsUnits[1].slots.map(\.material), ["ABS", nil, nil, nil])
