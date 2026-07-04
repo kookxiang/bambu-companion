@@ -82,7 +82,6 @@ struct StatusSummaryView: View {
     private var metricColumns: [GridItem] {
         [
             GridItem(.flexible(), spacing: 10),
-            GridItem(.flexible(), spacing: 10),
             GridItem(.flexible(), spacing: 10)
         ]
     }
