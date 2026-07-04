@@ -80,7 +80,7 @@ private struct NativeVideoStreamSurface: View {
                     Spacer()
                 }
                 .padding(controlPadding)
-                .opacity(showFloatingButton || isHoveringFloatingWindow ? 1 : 0)
+                .opacity(isHoveringFloatingWindow ? 1 : 0)
                 .animation(.easeOut(duration: 0.16), value: isHoveringFloatingWindow)
             }
         }
@@ -89,9 +89,7 @@ private struct NativeVideoStreamSurface: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: cornerRadius))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onHover { hovering in
-            if !showFloatingButton {
-                isHoveringFloatingWindow = hovering
-            }
+            isHoveringFloatingWindow = hovering
         }
         .onChange(of: effectiveURL) {
             streamState.reset()
