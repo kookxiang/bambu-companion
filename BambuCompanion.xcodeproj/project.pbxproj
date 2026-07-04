@@ -28,6 +28,9 @@
 		1A0000010000000000000028 /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
 		2A0000010000000000000001 /* NativeVideoStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0000010000000000000002 /* NativeVideoStream.swift */; };
 		3A0000010000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3A0000010000000000000004 /* Localizable.strings */; };
+		4A0000010000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4A0000010000000000000002 /* Assets.xcassets */; };
+		F9C236202FF9039900116D15 /* MQTTReportParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000017 /* MQTTReportParser.swift */; };
+		F9C236212FF9039900116D15 /* PrinterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000016 /* PrinterStatus.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,11 +65,24 @@
 		2A0000010000000000000002 /* NativeVideoStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoStream.swift; sourceTree = "<group>"; };
 		3A0000010000000000000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3A0000010000000000000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		4A0000010000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		1A0000010000000000000030 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
-		1A0000010000000000000031 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
+		1A0000010000000000000030 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A0000010000000000000031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -97,6 +113,7 @@
 				1A0000010000000000000019 /* SettingsView.swift */,
 				1A000001000000000000001A /* StatusViews.swift */,
 				2A0000010000000000000002 /* NativeVideoStream.swift */,
+				4A0000010000000000000002 /* Assets.xcassets */,
 				3A0000010000000000000004 /* Localizable.strings */,
 				1A000001000000000000001C /* Info.plist */,
 			);
@@ -131,8 +148,10 @@
 				1A0000010000000000000030 /* Frameworks */,
 				1A0000010000000000000034 /* Resources */,
 			);
-			buildRules = ( );
-			dependencies = ( );
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = BambuCompanion;
 			productName = BambuCompanion;
 			productReference = 1A0000010000000000000010 /* BambuCompanion.app */;
@@ -146,7 +165,8 @@
 				1A0000010000000000000031 /* Frameworks */,
 				1A0000010000000000000035 /* Resources */,
 			);
-			buildRules = ( );
+			buildRules = (
+			);
 			dependencies = (
 				1A000001000000000000002B /* PBXTargetDependency */,
 			);
@@ -165,15 +185,24 @@
 				LastSwiftUpdateCheck = 1540;
 				LastUpgradeCheck = 1540;
 				TargetAttributes = {
-					1A0000010000000000000021 = {CreatedOnToolsVersion = 15.4;};
-					1A0000010000000000000022 = {CreatedOnToolsVersion = 15.4; TestTargetID = 1A0000010000000000000021;};
+					1A0000010000000000000021 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					1A0000010000000000000022 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = 1A0000010000000000000021;
+					};
 				};
 			};
 			buildConfigurationList = 1A0000010000000000000052 /* Build configuration list for PBXProject "BambuCompanion" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base, "zh-Hans");
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
 			mainGroup = 1A0000010000000000000040;
 			productRefGroup = 1A0000010000000000000043 /* Products */;
 			projectDirPath = "";
@@ -186,21 +215,23 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		1A0000010000000000000034 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (3A0000010000000000000001 /* Localizable.strings in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
-		1A0000010000000000000035 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXVariantGroup section */
-		3A0000010000000000000004 /* Localizable.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				3A0000010000000000000002 /* en */,
-				3A0000010000000000000003 /* zh-Hans */,
+		1A0000010000000000000034 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A0000010000000000000001 /* Localizable.strings in Resources */,
+				4A0000010000000000000001 /* Assets.xcassets in Resources */,
 			);
-			name = Localizable.strings;
-			sourceTree = "<group>";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXVariantGroup section */
+		1A0000010000000000000035 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1A0000010000000000000032 /* Sources */ = {
@@ -230,8 +261,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000001000000000000000B /* MQTTReportParserTests.swift in Sources */,
-				1A0000010000000000000007 /* MQTTReportParser.swift in Sources */,
-				1A0000010000000000000006 /* PrinterStatus.swift in Sources */,
+				F9C236202FF9039900116D15 /* MQTTReportParser.swift in Sources */,
+				F9C236212FF9039900116D15 /* PrinterStatus.swift in Sources */,
 				1A000001000000000000000F /* CoverImageService.swift in Sources */,
 				1A0000010000000000000028 /* FTPSDownloader.swift in Sources */,
 				1A0000010000000000000024 /* ZIPArchive.swift in Sources */,
@@ -242,8 +273,24 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		1A000001000000000000002B /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 1A0000010000000000000021; targetProxy = 1A000001000000000000002A /* PBXContainerItemProxy */; };
+		1A000001000000000000002B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A0000010000000000000021 /* BambuCompanion */;
+			targetProxy = 1A000001000000000000002A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		3A0000010000000000000004 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3A0000010000000000000002 /* en */,
+				3A0000010000000000000003 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		1A0000010000000000000060 /* Debug */ = {
@@ -287,7 +334,10 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)");
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -364,12 +414,17 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZTL9765VU4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BambuCompanion/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				INFOPLIST_KEY_CFBundleDisplayName = "Bambu Companion";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.BambuCompanion;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.bambuCompanion;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -383,12 +438,17 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZTL9765VU4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BambuCompanion/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				INFOPLIST_KEY_CFBundleDisplayName = "Bambu Companion";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.BambuCompanion;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.bambuCompanion;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -426,9 +486,33 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A0000010000000000000050 /* Build configuration list for PBXNativeTarget "BambuCompanion" */ = {isa = XCConfigurationList; buildConfigurations = (1A0000010000000000000062 /* Debug */, 1A0000010000000000000063 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		1A0000010000000000000051 /* Build configuration list for PBXNativeTarget "BambuCompanionTests" */ = {isa = XCConfigurationList; buildConfigurations = (1A0000010000000000000064 /* Debug */, 1A0000010000000000000065 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		1A0000010000000000000052 /* Build configuration list for PBXProject "BambuCompanion" */ = {isa = XCConfigurationList; buildConfigurations = (1A0000010000000000000060 /* Debug */, 1A0000010000000000000061 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		1A0000010000000000000050 /* Build configuration list for PBXNativeTarget "BambuCompanion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000010000000000000062 /* Debug */,
+				1A0000010000000000000063 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000010000000000000051 /* Build configuration list for PBXNativeTarget "BambuCompanionTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000010000000000000064 /* Debug */,
+				1A0000010000000000000065 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000010000000000000052 /* Build configuration list for PBXProject "BambuCompanion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000010000000000000060 /* Debug */,
+				1A0000010000000000000061 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 	};
 	rootObject = 1A0000010000000000000020 /* Project object */;
