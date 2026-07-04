@@ -296,6 +296,7 @@ private final class FloatingVideoWindowController: ObservableObject {
     private var panel: NSPanel?
     private var delegate: FloatingVideoWindowDelegate?
     private let defaultSize = NSSize(width: 640, height: 360)
+    private let defaultScreenMargin: CGFloat = 28
 
     @MainActor func toggle(url: URL?) {
         guard let url else {
@@ -334,7 +335,7 @@ private final class FloatingVideoWindowController: ObservableObject {
         )
         controller.view.autoresizingMask = [.width, .height]
         panel.contentViewController = controller
-        panel.center()
+        panel.setFrame(defaultPanelFrame(), display: false)
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
         isShowing = true
@@ -384,6 +385,18 @@ private final class FloatingVideoWindowController: ObservableObject {
         delegate = panelDelegate
         panel.contentView?.autoresizesSubviews = true
         return panel
+    }
+
+    private func defaultPanelFrame() -> NSRect {
+        let visibleFrame = defaultScreen().visibleFrame
+        let x = max(visibleFrame.minX + defaultScreenMargin, visibleFrame.maxX - defaultSize.width - defaultScreenMargin)
+        let y = visibleFrame.minY + defaultScreenMargin
+        return NSRect(origin: NSPoint(x: x, y: y), size: defaultSize)
+    }
+
+    private func defaultScreen() -> NSScreen {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
     }
 }
 
