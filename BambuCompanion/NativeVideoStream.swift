@@ -284,7 +284,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             stop()
             currentURL = url
             onError(nil)
-            view?.displayLayer.flushAndRemoveImage()
+            view?.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
 
             guard let view else {
                 return
@@ -441,7 +441,7 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
         DispatchQueue.main.async { [weak self] in
-            self?.videoView?.applyPictureInPictureRenderSize(newRenderSize)
+            self?.videoView?.needsLayout = true
         }
     }
 
@@ -452,7 +452,6 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
-    private var isUsingPictureInPictureLayout = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -480,31 +479,10 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
-        guard !isUsingPictureInPictureLayout else {
-            return
-        }
         displayLayer.frame = bounds
     }
 
-    func applyPictureInPictureRenderSize(_ renderSize: CMVideoDimensions) {
-        guard renderSize.width > 0, renderSize.height > 0 else {
-            return
-        }
-
-        isUsingPictureInPictureLayout = true
-        let size = CGSize(width: CGFloat(renderSize.width), height: CGFloat(renderSize.height))
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        displayLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        displayLayer.bounds = CGRect(origin: .zero, size: size)
-        displayLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
-        displayLayer.contentsScale = 1
-        displayLayer.videoGravity = .resizeAspectFill
-        CATransaction.commit()
-    }
-
     func restoreInlineLayout() {
-        isUsingPictureInPictureLayout = false
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -599,7 +577,7 @@ private final class NativeRTSPVideoClient {
             self.fuBuffer.removeAll(keepingCapacity: true)
             self.lastFrameTime = Date()
             DispatchQueue.main.async { [weak self] in
-                self?.displayLayer?.flush()
+                self?.displayLayer?.sampleBufferRenderer.flush()
             }
         }
     }
@@ -1036,11 +1014,12 @@ private final class NativeRTSPVideoClient {
             return
         }
 
-        if layer.status == .failed {
-            layer.flush()
+        let renderer = layer.sampleBufferRenderer
+        if renderer.status == .failed {
+            renderer.flush()
         }
-        if layer.isReadyForMoreMediaData {
-            layer.enqueue(sampleToRender)
+        if renderer.isReadyForMoreMediaData {
+            renderer.enqueue(sampleToRender)
             if !didDisplayFrame {
                 didDisplayFrame = true
                 pictureInPictureController?.invalidatePlaybackState()
@@ -1134,7 +1113,7 @@ private final class NativeRTSPVideoClient {
         }
 
         DispatchQueue.main.async { [weak self] in
-            self?.displayLayer?.flush()
+            self?.displayLayer?.sampleBufferRenderer.flush()
         }
         connect()
     }
