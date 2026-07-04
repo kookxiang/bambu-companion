@@ -183,7 +183,8 @@ private final class FloatingVideoWindowController {
         panel.title = ""
         panel.titleVisibility = .hidden
         panel.isReleasedWhenClosed = false
-        panel.titlebarAppearsTransparent = false
+        panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
 
         let panelDelegate = FloatingVideoWindowDelegate { [weak self] in
             self?.panel = nil
