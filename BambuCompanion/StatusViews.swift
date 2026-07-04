@@ -315,6 +315,7 @@ private struct AMSUnitStatusLine: View {
 
 private struct AMSSlotView: View {
     let slot: AMSSlotStatus
+    @State private var activePulse = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -343,7 +344,18 @@ private struct AMSSlotView: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 7)
-                .stroke(slot.isActive ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                .stroke(
+                    slot.isActive ? Color.accentColor.opacity(activePulse ? 1 : 0.62) : Color.clear,
+                    lineWidth: slot.isActive ? (activePulse ? 2.2 : 1.5) : 0
+                )
+        }
+        .shadow(
+            color: slot.isActive ? Color.accentColor.opacity(activePulse ? 0.44 : 0.18) : .clear,
+            radius: slot.isActive ? (activePulse ? 7 : 2) : 0
+        )
+        .animation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true), value: activePulse)
+        .onAppear {
+            activePulse = true
         }
         .help(helpText)
     }
