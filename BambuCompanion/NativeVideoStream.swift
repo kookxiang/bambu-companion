@@ -172,7 +172,7 @@ private final class FloatingVideoWindowController {
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: defaultSize),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -180,10 +180,7 @@ private final class FloatingVideoWindowController {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
-        panel.title = ""
-        panel.titleVisibility = .hidden
         panel.isReleasedWhenClosed = false
-        panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
 
         let panelDelegate = FloatingVideoWindowDelegate { [weak self] in
