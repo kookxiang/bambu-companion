@@ -205,7 +205,7 @@ private struct AMSUnitRowView: View {
     @State private var pulse = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 AMSUnitLabelView(unit: unit)
                     .help(helpText)
@@ -222,6 +222,7 @@ private struct AMSUnitRowView: View {
                 }
             }
         }
+        .padding(.vertical, 3)
         .background {
             Rectangle()
                 .fill(dryingHighlight)
@@ -357,7 +358,7 @@ private struct AMSSlotView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, minHeight: 28)
+        .frame(maxWidth: .infinity, minHeight: 34)
         .padding(.horizontal, 6)
         .background {
             AMSSlotProgressBackground(
