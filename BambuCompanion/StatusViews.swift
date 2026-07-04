@@ -202,7 +202,6 @@ private struct AMSUnitsView: View {
 private struct AMSUnitRowView: View {
     let unit: AMSUnitStatus
     let helpText: String
-    @State private var pulse = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -223,45 +222,6 @@ private struct AMSUnitRowView: View {
             }
         }
         .padding(.vertical, 3)
-        .background {
-            Rectangle()
-                .fill(dryingHighlight)
-                .padding(.horizontal, -16)
-                .padding(.vertical, -8)
-        }
-        .animation(.easeInOut(duration: 0.2), value: unit.isDrying)
-        .onAppear {
-            guard unit.isDrying else {
-                return
-            }
-            withAnimation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true)) {
-                pulse = true
-            }
-        }
-        .onChange(of: unit.isDrying) { _, isDrying in
-            if isDrying {
-                withAnimation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true)) {
-                    pulse = true
-                }
-            } else {
-                pulse = false
-            }
-        }
-    }
-
-    private var dryingHighlight: LinearGradient {
-        let centerOpacity = unit.isDrying ? (pulse ? 0.18 : 0.08) : 0
-        let edgeOpacity = unit.isDrying ? (pulse ? 0.04 : 0.015) : 0
-        return LinearGradient(
-            stops: [
-                .init(color: Color.orange.opacity(edgeOpacity), location: 0),
-                .init(color: Color.orange.opacity(centerOpacity), location: 0.35),
-                .init(color: Color.orange.opacity(centerOpacity), location: 0.65),
-                .init(color: Color.orange.opacity(edgeOpacity), location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
     }
 }
 
@@ -289,7 +249,6 @@ private struct AMSUnitStatusLine: View {
                     Image(systemName: "drop.degreesign")
                     Text(dryingText)
                 }
-                .foregroundStyle(.orange)
             }
 
             if let temperature = unit.temperature {
@@ -307,7 +266,7 @@ private struct AMSUnitStatusLine: View {
             }
         }
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(unit.isDrying ? .orange : .secondary)
         .lineLimit(1)
         .minimumScaleFactor(0.75)
         .monospacedDigit()
