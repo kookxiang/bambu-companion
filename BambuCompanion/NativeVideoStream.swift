@@ -272,6 +272,7 @@ private struct FloatingVideoStreamView: View {
             url: url,
             showFloatingButton: false
         )
+            .ignoresSafeArea()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .frame(minWidth: 360, minHeight: 200)
             .onAppear {
