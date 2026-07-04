@@ -56,7 +56,7 @@ struct SettingsView: View {
     private func saveAndReconnect() {
         do {
             try appState.save(configuration: draft)
-            message = "Saved. Reconnecting..."
+            message = L10n.string("Saved. Reconnecting...")
         } catch {
             message = error.localizedDescription
         }
@@ -66,7 +66,7 @@ struct SettingsView: View {
         do {
             try appState.save(configuration: draft)
             appState.reconnectIfConfigured()
-            message = "Connecting..."
+            message = L10n.string("Connecting...")
         } catch {
             message = error.localizedDescription
         }

@@ -81,7 +81,7 @@ struct StatusSummaryView: View {
     }
 
     private var statusDetail: String {
-        let job = status.jobName?.isEmpty == false ? status.jobName! : "No active job"
+        let job = status.jobName?.isEmpty == false ? status.jobName! : L10n.string("No active job")
         guard let layerText else {
             return job
         }
@@ -93,9 +93,9 @@ struct StatusSummaryView: View {
             return nil
         }
         if let totalLayers = status.totalLayers, totalLayers > 0 {
-            return "Layer \(currentLayer)/\(totalLayers)"
+            return L10n.format("Layer %d/%d", currentLayer, totalLayers)
         }
-        return "Layer \(currentLayer)"
+        return L10n.format("Layer %d", currentLayer)
     }
 
     private var progressBadge: some View {
@@ -169,20 +169,20 @@ private struct AMSUnitsView: View {
     private func amsHelpText(for unit: AMSUnitStatus) -> String {
         var lines: [String] = [unit.name]
         if let temperature = unit.temperature {
-            lines.append("Temperature: \(TemperatureText.string(temperature))")
+            lines.append(L10n.format("Temperature: %@", TemperatureText.string(temperature)))
         }
         if let humidityPercent = unit.humidityPercent {
-            lines.append("Humidity: \(humidityPercent)%")
+            lines.append(L10n.format("Humidity: %d%%", humidityPercent))
         } else if let humidityIndex = unit.humidityIndex {
-            lines.append("Humidity index: \(humidityIndex)")
+            lines.append(L10n.format("Humidity index: %d", humidityIndex))
         }
         if unit.isDrying {
-            lines.append("Drying: \(dryingRemainingText(unit.dryingRemainingMinutes)) remaining")
+            lines.append(L10n.format("Drying: %@ remaining", dryingRemainingText(unit.dryingRemainingMinutes)))
             if let dryingTemperature = unit.dryingTemperature {
-                lines.append("Drying temperature: \(TemperatureText.string(dryingTemperature))")
+                lines.append(L10n.format("Drying temperature: %@", TemperatureText.string(dryingTemperature)))
             }
             if let dryingFilament = unit.dryingFilament {
-                lines.append("Drying filament: \(dryingFilament)")
+                lines.append(L10n.format("Drying filament: %@", dryingFilament))
             }
         }
         return lines.joined(separator: "\n")
@@ -323,24 +323,24 @@ private struct AMSSlotView: View {
     }
 
     private var helpText: String {
-        var lines: [String] = ["Slot \(slot.index + 1)"]
-        lines.append("Material: \(slot.material ?? "Empty")")
-        append("Name", slot.name, to: &lines)
-        append("Brand", slot.subBrands, to: &lines)
-        append("Color", slot.colorHex.map { "#\($0)" }, to: &lines)
+        var lines: [String] = [L10n.format("Slot %d", slot.index + 1)]
+        lines.append(L10n.format("Material: %@", slot.material ?? L10n.string("Empty")))
+        append(L10n.string("Name"), slot.name, to: &lines)
+        append(L10n.string("Brand"), slot.subBrands, to: &lines)
+        append(L10n.string("Color"), slot.colorHex.map { "#\($0)" }, to: &lines)
         if let remainingPercent = slot.remainingPercent {
-            lines.append("Remaining: \(remainingPercent)%")
+            lines.append(L10n.format("Remaining: %d%%", remainingPercent))
         }
-        append("Spool ID", slot.trayInfoIndex, to: &lines)
-        append("Tag UID", slot.tagUID, to: &lines)
+        append(L10n.string("Spool ID"), slot.trayInfoIndex, to: &lines)
+        append(L10n.string("Tag UID"), slot.tagUID, to: &lines)
         if let diameter = slot.diameter {
-            lines.append("Diameter: \(diameter.formatted(.number.precision(.fractionLength(2)))) mm")
+            lines.append(L10n.format("Diameter: %@ mm", diameter.formatted(.number.precision(.fractionLength(2)))))
         }
         if let remainingWeight = slot.remainingWeight {
-            lines.append("Estimated remaining weight: \(remainingWeight.formatted(.number.precision(.fractionLength(0)))) g")
+            lines.append(L10n.format("Estimated remaining weight: %@ g", remainingWeight.formatted(.number.precision(.fractionLength(0)))))
         }
         if slot.nozzleTemperatureMin != nil || slot.nozzleTemperatureMax != nil {
-            lines.append("Nozzle range: \(temperatureRangeText)")
+            lines.append(L10n.format("Nozzle range: %@", temperatureRangeText))
         }
         return lines.joined(separator: "\n")
     }
@@ -446,7 +446,7 @@ private struct CoverImageView: View {
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         case .loading:
-            placeholder(icon: "photo", text: "Loading cover image")
+            placeholder(icon: "photo", text: L10n.string("Loading cover image"))
         case .failed, .unavailable:
             EmptyView()
         }
@@ -469,7 +469,7 @@ private struct CoverImageView: View {
 }
 
 private struct MetricView: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: String
 
     var body: some View {
@@ -499,9 +499,9 @@ private struct RemainingMetricView: View {
 
     private var helpText: String {
         guard let completionDate else {
-            return "Estimated completion unavailable"
+            return L10n.string("Estimated completion unavailable")
         }
-        return "Estimated completion: \(Self.completionFormatter.string(from: completionDate))"
+        return L10n.format("Estimated completion: %@", Self.completionFormatter.string(from: completionDate))
     }
 
     private static let completionFormatter: DateFormatter = {

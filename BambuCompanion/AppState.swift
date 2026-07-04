@@ -329,17 +329,17 @@ private struct PrintStatusNotification {
 
         switch activity {
         case .printing:
-            title = "\(printerName) started printing"
-            body = job ?? "A print job has started."
+            title = L10n.format("%@ started printing", printerName)
+            body = job ?? L10n.string("A print job has started.")
         case .paused:
-            title = "\(printerName) paused"
-            body = job ?? "The current print is paused."
+            title = L10n.format("%@ paused", printerName)
+            body = job ?? L10n.string("The current print is paused.")
         case .failed:
-            title = "\(printerName) print failed"
-            body = status.alert?.detail ?? job ?? "The current print failed."
+            title = L10n.format("%@ print failed", printerName)
+            body = status.alert?.detail ?? job ?? L10n.string("The current print failed.")
         case .finished:
-            title = "\(printerName) print finished"
-            body = job ?? "The current print completed successfully."
+            title = L10n.format("%@ print finished", printerName)
+            body = job ?? L10n.string("The current print completed successfully.")
         case .idle, .unknown:
             return nil
         }

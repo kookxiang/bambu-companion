@@ -1,6 +1,16 @@
 import CryptoKit
 import Foundation
 
+enum L10n {
+    static func string(_ key: String) -> String {
+        String(localized: String.LocalizationValue(key))
+    }
+
+    static func format(_ key: String, _ arguments: CVarArg...) -> String {
+        String(format: string(key), locale: Locale.current, arguments: arguments)
+    }
+}
+
 extension Array where Element: Hashable {
     func removingDuplicates() -> [Element] {
         var seen = Set<Element>()

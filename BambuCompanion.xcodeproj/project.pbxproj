@@ -27,6 +27,7 @@
 		1A0000010000000000000027 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
 		1A0000010000000000000028 /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
 		2A0000010000000000000001 /* NativeVideoStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0000010000000000000002 /* NativeVideoStream.swift */; };
+		3A0000010000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3A0000010000000000000004 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,8 @@
 		1A0000010000000000000023 /* ZIPArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZIPArchive.swift; sourceTree = "<group>"; };
 		1A0000010000000000000026 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
 		2A0000010000000000000002 /* NativeVideoStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoStream.swift; sourceTree = "<group>"; };
+		3A0000010000000000000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		3A0000010000000000000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +97,7 @@
 				1A0000010000000000000019 /* SettingsView.swift */,
 				1A000001000000000000001A /* StatusViews.swift */,
 				2A0000010000000000000002 /* NativeVideoStream.swift */,
+				3A0000010000000000000004 /* Localizable.strings */,
 				1A000001000000000000001C /* Info.plist */,
 			);
 			path = BambuCompanion;
@@ -169,7 +173,7 @@
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base);
+			knownRegions = (en, Base, "zh-Hans");
 			mainGroup = 1A0000010000000000000040;
 			productRefGroup = 1A0000010000000000000043 /* Products */;
 			projectDirPath = "";
@@ -182,9 +186,21 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		1A0000010000000000000034 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
+		1A0000010000000000000034 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (3A0000010000000000000001 /* Localizable.strings in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
 		1A0000010000000000000035 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		3A0000010000000000000004 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3A0000010000000000000002 /* en */,
+				3A0000010000000000000003 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1A0000010000000000000032 /* Sources */ = {

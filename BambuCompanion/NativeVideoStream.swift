@@ -62,7 +62,7 @@ private struct NativeVideoStreamSurface: View {
                         .foregroundStyle(.secondary)
                 }
             } else if url == nil {
-                placeholder(icon: "video.slash", text: "Video preview is unavailable.")
+                placeholder(icon: "video.slash", text: L10n.string("Video preview is unavailable."))
             }
 
             if effectiveURL != nil {
@@ -101,9 +101,9 @@ private struct NativeVideoStreamSurface: View {
             Image(systemName: "pip.enter")
                 .font(.title2)
                 .foregroundStyle(.secondary)
-            Text("已在画中画模式显示")
+            Text("Showing in Picture in Picture")
                 .font(.headline)
-            Text("关闭弹窗后可重新在这里观看。")
+            Text("Close the floating window to watch here again.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -122,7 +122,7 @@ private struct NativeVideoStreamSurface: View {
             Button {
                 floatingVideoWindowController.reconnectVideo()
             } label: {
-                Label("重新连接", systemImage: "arrow.clockwise")
+                Label("Reconnect", systemImage: "arrow.clockwise")
             }
             .buttonStyle(.bordered)
         }
@@ -131,7 +131,7 @@ private struct NativeVideoStreamSurface: View {
     private var floatingCloseButton: some View {
         floatingControlButton(
             systemName: "xmark",
-            accessibilityLabel: "Close Floating Video"
+            accessibilityLabel: L10n.string("Close Floating Video")
         ) {
             FloatingVideoWindowController.shared.dismiss()
         }
@@ -140,7 +140,7 @@ private struct NativeVideoStreamSurface: View {
     private var videoReconnectButton: some View {
         floatingControlButton(
             systemName: "arrow.clockwise",
-            accessibilityLabel: "Reconnect Video"
+            accessibilityLabel: L10n.string("Reconnect Video")
         ) {
             floatingVideoWindowController.reconnectVideo()
         }
@@ -149,7 +149,7 @@ private struct NativeVideoStreamSurface: View {
     private var openFloatingButton: some View {
         floatingControlButton(
             systemName: "rectangle.on.rectangle",
-            accessibilityLabel: "Open Floating Video"
+            accessibilityLabel: L10n.string("Open Floating Video")
         ) {
             guard url != nil else {
                 return

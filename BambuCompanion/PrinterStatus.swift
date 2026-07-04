@@ -10,12 +10,12 @@ enum PrinterActivity: String, Equatable {
 
     var title: String {
         switch self {
-        case .idle: return "Idle"
-        case .printing: return "Printing"
-        case .paused: return "Paused"
-        case .finished: return "Finished"
-        case .failed: return "Failed"
-        case .unknown: return "Unknown"
+        case .idle: return L10n.string("Idle")
+        case .printing: return L10n.string("Printing")
+        case .paused: return L10n.string("Paused")
+        case .finished: return L10n.string("Finished")
+        case .failed: return L10n.string("Failed")
+        case .unknown: return L10n.string("Unknown")
         }
     }
 }
@@ -108,11 +108,11 @@ enum ConnectionState: Equatable {
 
     var title: String {
         switch self {
-        case .notConfigured: return "Not configured"
-        case .disconnected: return "Disconnected"
-        case .connecting: return "Connecting"
-        case .connected: return "Connected"
-        case .authenticationFailed: return "Authentication failed"
+        case .notConfigured: return L10n.string("Not configured")
+        case .disconnected: return L10n.string("Disconnected")
+        case .connecting: return L10n.string("Connecting")
+        case .connected: return L10n.string("Connected")
+        case .authenticationFailed: return L10n.string("Authentication failed")
         case .failed(let message): return message
         }
     }
