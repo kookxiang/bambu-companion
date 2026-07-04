@@ -103,8 +103,14 @@ private struct NativeVideoStreamSurface: View {
         .onChange(of: effectiveURL) {
             streamState.reset()
         }
+        .onChange(of: floatingVideoWindowController.videoReconnectGeneration) {
+            streamState.reset()
+        }
         .onReceive(staleFrameCheckTimer) { now in
-            streamState.updateWaitingForFrame(now: now, isActive: effectiveURL != nil)
+            let shouldReconnect = streamState.updateWaitingForFrame(now: now, isActive: effectiveURL != nil)
+            if shouldReconnect {
+                floatingVideoWindowController.reconnectVideo()
+            }
         }
     }
 
@@ -200,12 +206,14 @@ private final class VideoStreamState: ObservableObject {
     @Published private(set) var hasVideo = false
     @Published private(set) var isWaitingForFrame = false
     private var lastFrameTime: Date?
+    private var didRequestAutomaticReconnect = false
 
     func setHasVideo() {
         if !hasVideo {
             hasVideo = true
         }
         lastFrameTime = Date()
+        didRequestAutomaticReconnect = false
         if isWaitingForFrame {
             isWaitingForFrame = false
         }
@@ -221,20 +229,34 @@ private final class VideoStreamState: ObservableObject {
         hasVideo = false
         isWaitingForFrame = false
         lastFrameTime = nil
+        didRequestAutomaticReconnect = false
         errorMessage = nil
     }
 
-    func updateWaitingForFrame(now: Date, isActive: Bool) {
-        guard isActive, hasVideo, errorMessage == nil, let lastFrameTime else {
+    func updateWaitingForFrame(now: Date, isActive: Bool) -> Bool {
+        guard isActive, errorMessage == nil else {
             if isWaitingForFrame {
                 isWaitingForFrame = false
             }
-            return
+            didRequestAutomaticReconnect = false
+            return false
         }
-        let shouldWait = now.timeIntervalSince(lastFrameTime) > 1
+
+        guard let lastFrameTime else {
+            self.lastFrameTime = now
+            return false
+        }
+
+        let elapsed = now.timeIntervalSince(lastFrameTime)
+        let shouldWait = hasVideo && elapsed > 1
         if isWaitingForFrame != shouldWait {
             isWaitingForFrame = shouldWait
         }
+        guard elapsed >= 15, !didRequestAutomaticReconnect else {
+            return false
+        }
+        didRequestAutomaticReconnect = true
+        return true
     }
 }
 
@@ -528,10 +550,7 @@ private final class NativeRTSPVideoClient {
     private var pendingSampleBuffer: CMSampleBuffer?
     private var isDisplayFrameScheduled = false
     private var isStopped = false
-    private var isWatchdogScheduled = false
-    private var lastFrameTime = Date()
     private let onFrame: () -> Void
-    private let staleFrameReconnectInterval: TimeInterval = 15
 
     init(
         url: URL,
@@ -548,8 +567,6 @@ private final class NativeRTSPVideoClient {
     func start() {
         queue.async {
             self.isStopped = false
-            self.lastFrameTime = Date()
-            self.scheduleWatchdog()
             self.connect()
         }
     }
@@ -992,7 +1009,6 @@ private final class NativeRTSPVideoClient {
         }
         if renderer.isReadyForMoreMediaData {
             renderer.enqueue(sampleToRender)
-            lastFrameTime = Date()
             onFrame()
             if !didDisplayFrame {
                 didDisplayFrame = true
@@ -1046,49 +1062,6 @@ private final class NativeRTSPVideoClient {
         connection = nil
     }
 
-    private func scheduleWatchdog() {
-        guard !isWatchdogScheduled else {
-            return
-        }
-        isWatchdogScheduled = true
-        queue.asyncAfter(deadline: .now() + 1) { [weak self] in
-            guard let self else { return }
-            self.isWatchdogScheduled = false
-            guard !self.isStopped else {
-                return
-            }
-
-            if Date().timeIntervalSince(self.lastFrameTime) >= self.staleFrameReconnectInterval {
-                self.reconnect()
-            }
-            self.scheduleWatchdog()
-        }
-    }
-
-    private func reconnect() {
-        connection?.cancel()
-        connection = nil
-        receiveBuffer.removeAll(keepingCapacity: false)
-        fuBuffer.removeAll(keepingCapacity: false)
-        currentAccessUnit.removeAll(keepingCapacity: false)
-        currentAccessUnitTimestamp = nil
-        firstRTPTimestamp = nil
-        session = nil
-        digestChallenge = nil
-        pendingResponses.removeAll()
-        cseq = 1
-        lastFrameTime = Date()
-
-        enqueueQueue.sync {
-            pendingSampleBuffer = nil
-            isDisplayFrameScheduled = false
-        }
-
-        DispatchQueue.main.async { [weak self] in
-            self?.displayLayer?.sampleBufferRenderer.flush()
-        }
-        connect()
-    }
 }
 
 private struct RTSPResponse {
