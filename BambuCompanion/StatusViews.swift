@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 private enum TemperatureText {
@@ -449,31 +448,12 @@ private struct CoverImageView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(.quaternary)
 
-            if let image = Self.placeholderImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .padding(10)
-                    .opacity(0.72)
-            } else {
-                Image(systemName: "photo")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
+            PrinterPlaceholderArtwork()
+                .padding(15)
         }
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
-
-    private static let placeholderImage: NSImage? = {
-        if let image = NSImage(named: "printer-placeholder") {
-            return image
-        }
-        guard let url = Bundle.main.url(forResource: "printer-placeholder", withExtension: "png") else {
-            return nil
-        }
-        return NSImage(contentsOf: url)
-    }()
 
     private func placeholder(icon: String, text: String) -> some View {
         VStack(spacing: 6) {
@@ -488,6 +468,56 @@ private struct CoverImageView: View {
         .foregroundStyle(.secondary)
         .frame(width: size.width, height: size.height)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct PrinterPlaceholderArtwork: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let line = max(2, side * 0.06)
+            let frame = CGRect(x: side * 0.08, y: side * 0.04, width: side * 0.84, height: side * 0.92)
+            let chamber = CGRect(x: side * 0.2, y: side * 0.24, width: side * 0.6, height: side * 0.5)
+            let gantryY = side * 0.36
+            let plate = CGRect(x: side * 0.28, y: side * 0.62, width: side * 0.44, height: side * 0.1)
+            let toolhead = CGRect(x: side * 0.43, y: side * 0.3, width: side * 0.14, height: side * 0.16)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: side * 0.12)
+                    .stroke(.secondary.opacity(0.48), lineWidth: line)
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+
+                RoundedRectangle(cornerRadius: side * 0.08)
+                    .stroke(.secondary.opacity(0.38), lineWidth: line * 0.72)
+                    .frame(width: chamber.width, height: chamber.height)
+                    .position(x: chamber.midX, y: chamber.midY)
+
+                Capsule()
+                    .fill(.secondary.opacity(0.4))
+                    .frame(width: side * 0.46, height: line * 1.15)
+                    .position(x: side * 0.5, y: gantryY)
+
+                RoundedRectangle(cornerRadius: line)
+                    .fill(.secondary.opacity(0.56))
+                    .frame(width: toolhead.width, height: toolhead.height)
+                    .position(x: toolhead.midX, y: toolhead.midY)
+
+                RoundedRectangle(cornerRadius: line)
+                    .stroke(.secondary.opacity(0.45), lineWidth: line * 0.72)
+                    .frame(width: plate.width, height: plate.height)
+                    .position(x: plate.midX, y: plate.midY)
+
+                Path { path in
+                    path.move(to: CGPoint(x: frame.minX + side * 0.08, y: frame.maxY - side * 0.12))
+                    path.addLine(to: CGPoint(x: frame.maxX - side * 0.08, y: frame.maxY - side * 0.12))
+                }
+                .stroke(.secondary.opacity(0.32), style: StrokeStyle(lineWidth: line, lineCap: .round))
+            }
+            .frame(width: side, height: side)
+            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+        }
+        .aspectRatio(1, contentMode: .fit)
     }
 }
 
