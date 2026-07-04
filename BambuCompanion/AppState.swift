@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 @MainActor
 final class AppState: NSObject, ObservableObject {
@@ -11,10 +12,12 @@ final class AppState: NSObject, ObservableObject {
 
     private let configurationStore: PrinterConfigurationStore
     private let coverImageService = CoverImageService()
+    private let notificationService = PrintNotificationService()
     private var mqttClient: BambuMQTTClient?
     private var coverImageTask: Task<Void, Never>?
     private var currentCoverJobKey: String?
     private var currentCoverAttemptKey: String?
+    private var lastObservedActivity: PrinterActivity?
 
     var menuBarSymbolName: String {
         switch connectionState {
@@ -64,6 +67,7 @@ final class AppState: NSObject, ObservableObject {
         coverImageService.reset()
         currentCoverJobKey = nil
         currentCoverAttemptKey = nil
+        lastObservedActivity = nil
         status = .empty
         coverImageState = .unavailable
 
@@ -84,7 +88,24 @@ final class AppState: NSObject, ObservableObject {
         mqttClient = nil
         coverImageTask?.cancel()
         coverImageTask = nil
+        lastObservedActivity = nil
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
+    }
+
+    private func apply(status newStatus: PrinterStatus) {
+        let previousActivity = lastObservedActivity
+        lastObservedActivity = newStatus.activity
+        status = newStatus
+
+        if let previousActivity, previousActivity != newStatus.activity {
+            notificationService.notifyIfNeeded(
+                activity: newStatus.activity,
+                status: newStatus,
+                printerName: configuration.resolvedDisplayName
+            )
+        }
+
+        updateCoverImageIfNeeded(for: newStatus)
     }
 
     private func updateCoverImageIfNeeded(for status: PrinterStatus) {
@@ -228,8 +249,7 @@ extension AppState: BambuMQTTClientDelegate {
         Task { @MainActor in
             do {
                 let status = try MQTTReportParser.parse(data)
-                self.status = status
-                self.updateCoverImageIfNeeded(for: status)
+                self.apply(status: status)
             } catch {
                 self.connectionState = .failed(error.localizedDescription)
             }
@@ -250,5 +270,77 @@ extension AppState: BambuMQTTClientDelegate {
         Task { @MainActor in
             self.connectionState = self.configuration.isComplete ? .disconnected : .notConfigured
         }
+    }
+}
+
+private final class PrintNotificationService: NSObject, UNUserNotificationCenterDelegate {
+    private let center = UNUserNotificationCenter.current()
+
+    override init() {
+        super.init()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    func notifyIfNeeded(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
+        guard let notification = PrintStatusNotification(activity: activity, status: status, printerName: printerName) else {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = notification.title
+        content.body = notification.body
+        content.sound = .default
+        content.threadIdentifier = "print-status"
+        content.userInfo = ["activity": activity.rawValue]
+
+        let identifier = "print-status-\(activity.rawValue)-\(Int(Date().timeIntervalSince1970))"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        center.add(request)
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+}
+
+private struct PrintStatusNotification {
+    let title: String
+    let body: String
+
+    init?(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
+        let job = Self.jobDescription(from: status)
+        switch activity {
+        case .printing:
+            title = "\(printerName) started printing"
+            body = job ?? "A print job has started."
+        case .paused:
+            title = "\(printerName) paused"
+            body = job ?? "The current print is paused."
+        case .failed:
+            title = "\(printerName) print failed"
+            body = status.alert?.detail ?? job ?? "The current print failed."
+        case .finished:
+            title = "\(printerName) print finished"
+            body = job ?? "The current print completed successfully."
+        case .idle, .unknown:
+            return nil
+        }
+    }
+
+    private static func jobDescription(from status: PrinterStatus) -> String? {
+        if let jobName = status.jobName?.trimmingCharacters(in: .whitespacesAndNewlines), !jobName.isEmpty {
+            return jobName
+        }
+        if let subtaskName = status.subtaskName?.trimmingCharacters(in: .whitespacesAndNewlines), !subtaskName.isEmpty {
+            return subtaskName
+        }
+        if let gcodeFile = status.gcodeFile?.trimmingCharacters(in: .whitespacesAndNewlines), !gcodeFile.isEmpty {
+            return gcodeFile
+        }
+        return nil
     }
 }
