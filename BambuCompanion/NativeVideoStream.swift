@@ -374,6 +374,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 currentURL = nil
                 stopStream()
             }
+            view?.restoreInlineLayout()
             releaseFromPictureInPicture()
         }
 
@@ -439,7 +440,9 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
-        _ = newRenderSize
+        DispatchQueue.main.async { [weak self] in
+            self?.videoView?.applyPictureInPictureRenderSize(newRenderSize)
+        }
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
@@ -449,6 +452,7 @@ private final class PictureInPicturePlaybackDelegate: NSObject, AVPictureInPictu
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
+    private var isUsingPictureInPictureLayout = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -476,7 +480,38 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
+        guard !isUsingPictureInPictureLayout else {
+            return
+        }
         displayLayer.frame = bounds
+    }
+
+    func applyPictureInPictureRenderSize(_ renderSize: CMVideoDimensions) {
+        guard renderSize.width > 0, renderSize.height > 0 else {
+            return
+        }
+
+        isUsingPictureInPictureLayout = true
+        let size = CGSize(width: CGFloat(renderSize.width), height: CGFloat(renderSize.height))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        displayLayer.bounds = CGRect(origin: .zero, size: size)
+        displayLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        displayLayer.contentsScale = 1
+        displayLayer.videoGravity = .resizeAspectFill
+        CATransaction.commit()
+    }
+
+    func restoreInlineLayout() {
+        isUsingPictureInPictureLayout = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        displayLayer.contentsScale = window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        displayLayer.frame = bounds
+        displayLayer.videoGravity = .resizeAspectFill
+        CATransaction.commit()
     }
 
     func applyPlaybackRate(isPaused: Bool) {
