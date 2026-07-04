@@ -337,7 +337,7 @@ private struct AMSSlotView: View {
         .background {
             AMSSlotProgressBackground(
                 colorHex: slot.colorHex,
-                percent: slot.remainingPercent,
+                percent: displayRemainingPercent,
                 isActive: slot.isActive
             )
         }
@@ -361,6 +361,16 @@ private struct AMSSlotView: View {
             return false
         }
         return Color.isDark(hexRGB: colorHex)
+    }
+
+    private var displayRemainingPercent: Int? {
+        if let remainingPercent = slot.remainingPercent {
+            return remainingPercent
+        }
+        if slot.material != nil || slot.colorHex != nil {
+            return 100
+        }
+        return nil
     }
 
     private var helpText: String {
