@@ -405,7 +405,7 @@ private final class FloatingVideoWindowController: ObservableObject {
 
 private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
     private let snapMargin: CGFloat = 28
-    private let snapThreshold: CGFloat = 72
+    private let snapThreshold: CGFloat = 16
     private let onClose: () -> Void
     private var pendingSnapWorkItem: DispatchWorkItem?
     private var isSnapping = false
