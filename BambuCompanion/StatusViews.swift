@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private enum TemperatureText {
@@ -448,15 +449,31 @@ private struct CoverImageView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(.quaternary)
 
-            Image("printer-placeholder")
-                .resizable()
-                .scaledToFit()
-                .padding(10)
-                .opacity(0.72)
+            if let image = Self.placeholderImage {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(10)
+                    .opacity(0.72)
+            } else {
+                Image(systemName: "photo")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
+
+    private static let placeholderImage: NSImage? = {
+        if let image = NSImage(named: "printer-placeholder") {
+            return image
+        }
+        guard let url = Bundle.main.url(forResource: "printer-placeholder", withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }()
 
     private func placeholder(icon: String, text: String) -> some View {
         VStack(spacing: 6) {
