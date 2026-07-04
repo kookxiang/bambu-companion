@@ -28,6 +28,15 @@ private struct NativeVideoStreamSurface: View {
     private var effectiveURL: URL? {
         showFloatingButton && floatingVideoWindowController.isShowing ? nil : url
     }
+    private var controlButtonSize: CGFloat {
+        showFloatingButton ? 28 : 34
+    }
+    private var controlIconSize: CGFloat {
+        showFloatingButton ? 12 : 13
+    }
+    private var controlPadding: CGFloat {
+        showFloatingButton ? 8 : 14
+    }
 
     var body: some View {
         ZStack {
@@ -58,47 +67,20 @@ private struct NativeVideoStreamSurface: View {
 
             if effectiveURL != nil {
                 VStack {
-                    HStack {
-                        videoReconnectButton
-                        Spacer()
-                    }
-                    Spacer()
-                }
-                .padding(showFloatingButton ? 8 : 14)
-                .opacity(showFloatingButton || isHoveringFloatingWindow ? 1 : 0)
-                .animation(.easeOut(duration: 0.16), value: isHoveringFloatingWindow)
-            }
-
-            if streamState.hasVideo && showFloatingButton && !floatingVideoWindowController.isShowing {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button {
-                            guard url != nil else {
-                                return
-                            }
-                            FloatingVideoWindowController.shared.toggle(url: url)
-                        } label: {
-                            Label("Open Floating Video", systemImage: "rectangle.on.rectangle")
+                    HStack(spacing: 8) {
+                        if !showFloatingButton {
+                            floatingCloseButton
                         }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .padding(8)
-                    }
-                    Spacer()
-                }
-            }
-
-            if !showFloatingButton {
-                VStack {
-                    HStack {
-                        floatingCloseButton
+                        videoReconnectButton
+                        if streamState.hasVideo && showFloatingButton && !floatingVideoWindowController.isShowing {
+                            openFloatingButton
+                        }
                         Spacer()
                     }
                     Spacer()
                 }
-                .padding(14)
-                .opacity(isHoveringFloatingWindow ? 1 : 0)
+                .padding(controlPadding)
+                .opacity(showFloatingButton || isHoveringFloatingWindow ? 1 : 0)
                 .animation(.easeOut(duration: 0.16), value: isHoveringFloatingWindow)
             }
         }
@@ -166,6 +148,18 @@ private struct NativeVideoStreamSurface: View {
         }
     }
 
+    private var openFloatingButton: some View {
+        floatingControlButton(
+            systemName: "rectangle.on.rectangle",
+            accessibilityLabel: "Open Floating Video"
+        ) {
+            guard url != nil else {
+                return
+            }
+            FloatingVideoWindowController.shared.toggle(url: url)
+        }
+    }
+
     private func floatingControlButton(
         systemName: String,
         accessibilityLabel: String,
@@ -175,9 +169,9 @@ private struct NativeVideoStreamSurface: View {
             action()
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: controlIconSize, weight: .semibold))
                 .foregroundStyle(.primary)
-                .frame(width: 34, height: 34)
+                .frame(width: controlButtonSize, height: controlButtonSize)
                 .background(.ultraThinMaterial, in: Circle())
                 .overlay {
                     Circle()
