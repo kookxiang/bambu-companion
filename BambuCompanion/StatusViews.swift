@@ -245,16 +245,16 @@ private struct AMSUnitStatusLine: View {
     var body: some View {
         HStack(spacing: 8) {
             if unit.isDrying {
+                HStack(spacing: 3) {
+                    Image(systemName: "timer")
+                    Text(dryingRemainingText(unit.dryingRemainingMinutes))
+                }
+
                 if let dryingTemperature = unit.dryingTemperature {
                     HStack(spacing: 3) {
                         Image(systemName: "sun.max")
                         Text(TemperatureText.string(dryingTemperature))
                     }
-                }
-
-                HStack(spacing: 3) {
-                    Image(systemName: "timer")
-                    Text(dryingRemainingText(unit.dryingRemainingMinutes))
                 }
             }
 
