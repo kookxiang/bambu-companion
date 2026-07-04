@@ -411,4 +411,26 @@ final class MQTTReportParserTests: XCTestCase {
 
         XCTAssertEqual(packet.publishPayload, json)
     }
+
+    func testPrintNotificationGateOnlyNotifiesOnActivityChangesAfterFirstStatus() {
+        var gate = PrintNotificationGate()
+
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertTrue(gate.observe(activity: .paused))
+        XCTAssertFalse(gate.observe(activity: .paused))
+        XCTAssertTrue(gate.observe(activity: .printing))
+    }
+
+    func testPrintNotificationGateResetRequiresNewBaseline() {
+        var gate = PrintNotificationGate()
+
+        XCTAssertFalse(gate.observe(activity: .idle))
+        XCTAssertTrue(gate.observe(activity: .printing))
+
+        gate.reset()
+
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertFalse(gate.observe(activity: .printing))
+    }
 }

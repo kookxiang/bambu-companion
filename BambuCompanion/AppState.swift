@@ -17,8 +17,7 @@ final class AppState: NSObject, ObservableObject {
     private var coverImageTask: Task<Void, Never>?
     private var currentCoverJobKey: String?
     private var currentCoverAttemptKey: String?
-    private var hasObservedPrintEvent = false
-    private var lastObservedPrintEventKey: String?
+    private var notificationGate = PrintNotificationGate()
 
     var menuBarSymbolName: String {
         switch connectionState {
@@ -68,8 +67,7 @@ final class AppState: NSObject, ObservableObject {
         coverImageService.reset()
         currentCoverJobKey = nil
         currentCoverAttemptKey = nil
-        hasObservedPrintEvent = false
-        lastObservedPrintEventKey = nil
+        notificationGate.reset()
         status = .empty
         coverImageState = .unavailable
 
@@ -90,17 +88,12 @@ final class AppState: NSObject, ObservableObject {
         mqttClient = nil
         coverImageTask?.cancel()
         coverImageTask = nil
-        hasObservedPrintEvent = false
-        lastObservedPrintEventKey = nil
+        notificationGate.reset()
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
     }
 
     private func apply(status newStatus: PrinterStatus) {
-        let previousPrintEventKey = lastObservedPrintEventKey
-        let newPrintEventKey = PrintStatusNotification.key(activity: newStatus.activity, status: newStatus)
-        let shouldNotify = hasObservedPrintEvent && previousPrintEventKey != newPrintEventKey
-        hasObservedPrintEvent = true
-        lastObservedPrintEventKey = newPrintEventKey
+        let shouldNotify = notificationGate.observe(activity: newStatus.activity)
         status = newStatus
 
         if shouldNotify {
@@ -168,6 +161,22 @@ final class AppState: NSObject, ObservableObject {
                 }
             }
         }
+    }
+}
+
+struct PrintNotificationGate {
+    private var lastActivity: PrinterActivity?
+
+    mutating func observe(activity: PrinterActivity) -> Bool {
+        defer { lastActivity = activity }
+        guard let lastActivity else {
+            return false
+        }
+        return lastActivity != activity
+    }
+
+    mutating func reset() {
+        lastActivity = nil
     }
 }
 
@@ -281,7 +290,6 @@ extension AppState: BambuMQTTClientDelegate {
 
 private final class PrintNotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
-    private var lastNotificationKey: String?
 
     override init() {
         super.init()
@@ -293,10 +301,6 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
         guard let notification = PrintStatusNotification(activity: activity, status: status, printerName: printerName) else {
             return
         }
-        guard notification.key != lastNotificationKey else {
-            return
-        }
-        lastNotificationKey = notification.key
 
         let content = UNMutableNotificationContent()
         content.title = notification.title
@@ -319,13 +323,11 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
 }
 
 private struct PrintStatusNotification {
-    let key: String
     let title: String
     let body: String
 
     init?(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
         let job = Self.jobDescription(from: status)
-        key = Self.key(activity: activity, status: status) ?? ""
 
         switch activity {
         case .printing:
@@ -340,21 +342,6 @@ private struct PrintStatusNotification {
         case .finished:
             title = L10n.format("%@ print finished", printerName)
             body = job ?? L10n.string("The current print completed successfully.")
-        case .idle, .unknown:
-            return nil
-        }
-    }
-
-    static func key(activity: PrinterActivity, status: PrinterStatus) -> String? {
-        switch activity {
-        case .printing, .paused, .failed, .finished:
-            let job = jobDescription(from: status) ?? ""
-            let alertDetail = status.alert?.detail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return [
-                activity.rawValue,
-                job,
-                alertDetail
-            ].joined(separator: "|")
         case .idle, .unknown:
             return nil
         }
