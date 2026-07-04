@@ -17,7 +17,8 @@ final class AppState: NSObject, ObservableObject {
     private var coverImageTask: Task<Void, Never>?
     private var currentCoverJobKey: String?
     private var currentCoverAttemptKey: String?
-    private var lastObservedActivity: PrinterActivity?
+    private var hasObservedPrintEvent = false
+    private var lastObservedPrintEventKey: String?
 
     var menuBarSymbolName: String {
         switch connectionState {
@@ -67,7 +68,8 @@ final class AppState: NSObject, ObservableObject {
         coverImageService.reset()
         currentCoverJobKey = nil
         currentCoverAttemptKey = nil
-        lastObservedActivity = nil
+        hasObservedPrintEvent = false
+        lastObservedPrintEventKey = nil
         status = .empty
         coverImageState = .unavailable
 
@@ -88,16 +90,20 @@ final class AppState: NSObject, ObservableObject {
         mqttClient = nil
         coverImageTask?.cancel()
         coverImageTask = nil
-        lastObservedActivity = nil
+        hasObservedPrintEvent = false
+        lastObservedPrintEventKey = nil
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
     }
 
     private func apply(status newStatus: PrinterStatus) {
-        let previousActivity = lastObservedActivity
-        lastObservedActivity = newStatus.activity
+        let previousPrintEventKey = lastObservedPrintEventKey
+        let newPrintEventKey = PrintStatusNotification.key(activity: newStatus.activity, status: newStatus)
+        let shouldNotify = hasObservedPrintEvent && previousPrintEventKey != newPrintEventKey
+        hasObservedPrintEvent = true
+        lastObservedPrintEventKey = newPrintEventKey
         status = newStatus
 
-        if let previousActivity, previousActivity != newStatus.activity {
+        if shouldNotify {
             notificationService.notifyIfNeeded(
                 activity: newStatus.activity,
                 status: newStatus,
@@ -275,6 +281,7 @@ extension AppState: BambuMQTTClientDelegate {
 
 private final class PrintNotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
+    private var lastNotificationKey: String?
 
     override init() {
         super.init()
@@ -286,6 +293,10 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
         guard let notification = PrintStatusNotification(activity: activity, status: status, printerName: printerName) else {
             return
         }
+        guard notification.key != lastNotificationKey else {
+            return
+        }
+        lastNotificationKey = notification.key
 
         let content = UNMutableNotificationContent()
         content.title = notification.title
@@ -308,11 +319,14 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
 }
 
 private struct PrintStatusNotification {
+    let key: String
     let title: String
     let body: String
 
     init?(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
         let job = Self.jobDescription(from: status)
+        key = Self.key(activity: activity, status: status) ?? ""
+
         switch activity {
         case .printing:
             title = "\(printerName) started printing"
@@ -326,6 +340,21 @@ private struct PrintStatusNotification {
         case .finished:
             title = "\(printerName) print finished"
             body = job ?? "The current print completed successfully."
+        case .idle, .unknown:
+            return nil
+        }
+    }
+
+    static func key(activity: PrinterActivity, status: PrinterStatus) -> String? {
+        switch activity {
+        case .printing, .paused, .failed, .finished:
+            let job = jobDescription(from: status) ?? ""
+            let alertDetail = status.alert?.detail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return [
+                activity.rawValue,
+                job,
+                alertDetail
+            ].joined(separator: "|")
         case .idle, .unknown:
             return nil
         }
