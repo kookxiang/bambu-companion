@@ -313,6 +313,7 @@ private final class FloatingVideoWindowController: ObservableObject {
         let panelDelegate = FloatingVideoWindowDelegate { [weak self] in
             self?.panel = nil
             self?.delegate = nil
+            self?.isShowing = false
         }
         panel.delegate = panelDelegate
         delegate = panelDelegate
@@ -329,9 +330,6 @@ private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        Task { @MainActor in
-            FloatingVideoWindowController.shared.isShowing = false
-        }
         onClose()
     }
 }
