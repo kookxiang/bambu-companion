@@ -17,6 +17,7 @@ private struct NativeVideoStreamSurface: View {
     let showFloatingButton: Bool
 
     @StateObject private var streamState = VideoStreamState()
+    @State private var isHoveringFloatingWindow = false
     private var cornerRadius: CGFloat {
         showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
     }
@@ -63,11 +64,29 @@ private struct NativeVideoStreamSurface: View {
                     Spacer()
                 }
             }
+
+            if !showFloatingButton {
+                VStack {
+                    HStack {
+                        floatingCloseButton
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .opacity(isHoveringFloatingWindow ? 1 : 0)
+                .animation(.easeOut(duration: 0.16), value: isHoveringFloatingWindow)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(height: showFloatingButton ? 191 : nil)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: cornerRadius))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .onHover { hovering in
+            if !showFloatingButton {
+                isHoveringFloatingWindow = hovering
+            }
+        }
         .onChange(of: url) {
             streamState.reset()
         }
@@ -83,6 +102,25 @@ private struct NativeVideoStreamSurface: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+    }
+
+    private var floatingCloseButton: some View {
+        Button {
+            FloatingVideoWindowController.shared.dismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+                .frame(width: 34, height: 34)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(.white.opacity(0.28), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close Floating Video")
     }
 }
 
