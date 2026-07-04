@@ -389,7 +389,10 @@ private final class FloatingVideoWindowController: ObservableObject {
 
     private func defaultPanelFrame() -> NSRect {
         let visibleFrame = defaultScreen().visibleFrame
-        let x = max(visibleFrame.minX + defaultScreenMargin, visibleFrame.maxX - defaultSize.width - defaultScreenMargin)
+        let x = max(
+            visibleFrame.minX + defaultScreenMargin,
+            visibleFrame.maxX - defaultSize.width - defaultScreenMargin
+        )
         let y = visibleFrame.minY + defaultScreenMargin
         return NSRect(origin: NSPoint(x: x, y: y), size: defaultSize)
     }
@@ -401,14 +404,88 @@ private final class FloatingVideoWindowController: ObservableObject {
 }
 
 private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
+    private let snapMargin: CGFloat = 28
+    private let snapThreshold: CGFloat = 72
     private let onClose: () -> Void
+    private var pendingSnapWorkItem: DispatchWorkItem?
+    private var isSnapping = false
 
     init(onClose: @escaping () -> Void) {
         self.onClose = onClose
     }
 
     func windowWillClose(_ notification: Notification) {
+        pendingSnapWorkItem?.cancel()
         onClose()
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        guard !isSnapping,
+              let window = notification.object as? NSWindow else {
+            return
+        }
+        pendingSnapWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self, weak window] in
+            guard let self,
+                  let window else {
+                return
+            }
+            self.snapWindowIfNeeded(window)
+        }
+        pendingSnapWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
+    }
+
+    private func snapWindowIfNeeded(_ window: NSWindow) {
+        guard let snappedFrame = snappedFrame(for: window) else {
+            return
+        }
+        isSnapping = true
+        window.setFrame(snappedFrame, display: true, animate: true)
+        isSnapping = false
+    }
+
+    private func snappedFrame(for window: NSWindow) -> NSRect? {
+        let frame = window.frame
+        let visibleFrame = (window.screen ?? screen(containing: frame) ?? NSScreen.main)?.visibleFrame
+        guard let visibleFrame else {
+            return nil
+        }
+
+        let leftX = visibleFrame.minX + snapMargin
+        let rightX = visibleFrame.maxX - frame.width - snapMargin
+        let bottomY = visibleFrame.minY + snapMargin
+        let topY = visibleFrame.maxY - frame.height - snapMargin
+
+        let horizontalSnap: CGFloat?
+        if abs(frame.minX - leftX) <= snapThreshold {
+            horizontalSnap = leftX
+        } else if abs(frame.minX - rightX) <= snapThreshold {
+            horizontalSnap = rightX
+        } else {
+            horizontalSnap = nil
+        }
+
+        let verticalSnap: CGFloat?
+        if abs(frame.minY - bottomY) <= snapThreshold {
+            verticalSnap = bottomY
+        } else if abs(frame.minY - topY) <= snapThreshold {
+            verticalSnap = topY
+        } else {
+            verticalSnap = nil
+        }
+
+        guard let x = horizontalSnap,
+              let y = verticalSnap else {
+            return nil
+        }
+        let snappedFrame = NSRect(origin: NSPoint(x: x, y: y), size: frame.size)
+        return snappedFrame == frame ? nil : snappedFrame
+    }
+
+    private func screen(containing frame: NSRect) -> NSScreen? {
+        let center = NSPoint(x: frame.midX, y: frame.midY)
+        return NSScreen.screens.first { $0.frame.contains(center) }
     }
 }
 
