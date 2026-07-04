@@ -6,25 +6,35 @@ import AppKit
 
 struct NativeVideoPreviewView: View {
     let url: URL?
+    let onReconnect: () -> Void
 
     var body: some View {
-        NativeVideoStreamSurface(url: url, showFloatingButton: true)
+        NativeVideoStreamSurface(
+            url: url,
+            showFloatingButton: true,
+            onReconnect: onReconnect
+        )
     }
 }
 
-private struct NativeVideoStreamSurface: View {
+    private struct NativeVideoStreamSurface: View {
     let url: URL?
     let showFloatingButton: Bool
+    let onReconnect: () -> Void
 
+    @StateObject private var floatingVideoWindowController = FloatingVideoWindowController.shared
     @StateObject private var streamState = VideoStreamState()
     @State private var isHoveringFloatingWindow = false
     private var cornerRadius: CGFloat {
         showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
     }
+    private var effectiveURL: URL? {
+        floatingVideoWindowController.isShowing ? nil : url
+    }
 
     var body: some View {
         ZStack {
-            NativeVideoLayerView(url: url, onFrame: {
+            NativeVideoLayerView(url: effectiveURL, onFrame: {
                 streamState.setHasVideo()
             }) { message in
                 streamState.setErrorMessage(message)
@@ -32,9 +42,11 @@ private struct NativeVideoStreamSurface: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
 
-            if let errorMessage = streamState.errorMessage {
+            if floatingVideoWindowController.isShowing {
+                floatingPlaceholder
+            } else if let errorMessage = streamState.errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
-            } else if url != nil, !streamState.hasVideo {
+            } else if effectiveURL != nil, !streamState.hasVideo {
                 VStack(spacing: 8) {
                     ProgressView()
                     Text("Connecting video...")
@@ -45,7 +57,7 @@ private struct NativeVideoStreamSurface: View {
                 placeholder(icon: "video.slash", text: "Video preview is unavailable.")
             }
 
-            if streamState.hasVideo && showFloatingButton {
+            if streamState.hasVideo && showFloatingButton && !floatingVideoWindowController.isShowing {
                 VStack {
                     HStack {
                         Spacer()
@@ -53,7 +65,7 @@ private struct NativeVideoStreamSurface: View {
                             guard url != nil else {
                                 return
                             }
-                            FloatingVideoWindowController.shared.toggle(url: url)
+                            FloatingVideoWindowController.shared.toggle(url: url, onReconnect: onReconnect)
                         } label: {
                             Label("Open Floating Video", systemImage: "rectangle.on.rectangle")
                         }
@@ -69,6 +81,14 @@ private struct NativeVideoStreamSurface: View {
                 VStack {
                     HStack {
                         floatingCloseButton
+                        Button {
+                            onReconnect()
+                        } label: {
+                            Label("重新连接", systemImage: "arrow.clockwise")
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                        .padding(8)
                         Spacer()
                     }
                     Spacer()
@@ -87,8 +107,28 @@ private struct NativeVideoStreamSurface: View {
                 isHoveringFloatingWindow = hovering
             }
         }
-        .onChange(of: url) {
+        .onChange(of: effectiveURL) {
             streamState.reset()
+        }
+    }
+
+    private var floatingPlaceholder: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "pip.enter")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text("已在画中画模式显示")
+                .font(.headline)
+            Text("关闭弹窗后可重新在这里观看。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                onReconnect()
+            } label: {
+                Label("重新连接", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -101,6 +141,12 @@ private struct NativeVideoStreamSurface: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            Button {
+                onReconnect()
+            } label: {
+                Label("重新连接", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
         }
     }
 
@@ -149,9 +195,14 @@ private final class VideoStreamState: ObservableObject {
 
 private struct FloatingVideoStreamView: View {
     let url: URL?
+    let onReconnect: () -> Void
 
     var body: some View {
-        NativeVideoStreamSurface(url: url, showFloatingButton: false)
+        NativeVideoStreamSurface(
+            url: url,
+            showFloatingButton: false,
+            onReconnect: onReconnect
+        )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .frame(minWidth: 360, minHeight: 200)
             .onAppear {
@@ -162,21 +213,27 @@ private struct FloatingVideoStreamView: View {
     }
 }
 
-private final class FloatingVideoWindowController {
+@MainActor
+private final class FloatingVideoWindowController: ObservableObject {
     static let shared = FloatingVideoWindowController()
     static let cornerRadius: CGFloat = 28
 
+    @Published private(set) var isShowing = false
+
     private var panel: NSPanel?
     private var delegate: FloatingVideoWindowDelegate?
+    private var onReconnect: (() -> Void)?
     private let defaultSize = NSSize(width: 640, height: 360)
 
-    @MainActor func toggle(url: URL?) {
+    @MainActor func toggle(url: URL?, onReconnect: @escaping () -> Void) {
+        self.onReconnect = onReconnect
         guard let url else {
             dismiss()
             return
         }
         if let panel, panel.isVisible {
             panel.close()
+            isShowing = false
             return
         }
         show(url: url)
@@ -185,28 +242,45 @@ private final class FloatingVideoWindowController {
     @MainActor func show(url: URL) {
         if let panel {
             if let host = panel.contentViewController as? NSHostingController<FloatingVideoStreamView> {
-                host.rootView = FloatingVideoStreamView(url: url)
+                host.rootView = FloatingVideoStreamView(
+                    url: url,
+                    onReconnect: onReconnect ?? {}
+                )
             } else {
-                let controller = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+                let controller = NSHostingController(
+                    rootView: FloatingVideoStreamView(
+                        url: url,
+                        onReconnect: onReconnect ?? {}
+                    )
+                )
                 controller.view.autoresizingMask = [.width, .height]
                 panel.contentViewController = controller
             }
             panel.contentViewController?.view.frame = panel.contentView?.bounds ?? .zero
             panel.makeKeyAndOrderFront(nil)
             panel.deminiaturize(nil)
+            isShowing = true
             return
         }
 
         let panel = makePanel()
-        let controller = NSHostingController(rootView: FloatingVideoStreamView(url: url))
+        let controller = NSHostingController(
+            rootView: FloatingVideoStreamView(
+                url: url,
+                onReconnect: onReconnect ?? {}
+            )
+        )
         controller.view.autoresizingMask = [.width, .height]
         panel.contentViewController = controller
         panel.center()
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
+        isShowing = true
     }
 
     @MainActor func dismiss() {
+        isShowing = false
+        onReconnect = nil
         panel?.close()
     }
 
@@ -255,6 +329,9 @@ private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        Task { @MainActor in
+            FloatingVideoWindowController.shared.isShowing = false
+        }
         onClose()
     }
 }
