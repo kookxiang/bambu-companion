@@ -285,7 +285,8 @@ private struct AMSUnitStatusLine: View {
                 }
             }
         }
-        .font(.caption.weight(.semibold))
+        .font(.system(size: 13, weight: .bold, design: .rounded))
+        .imageScale(.medium)
         .foregroundStyle(unit.isDrying ? .orange : .secondary)
         .lineLimit(1)
         .minimumScaleFactor(0.75)
