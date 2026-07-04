@@ -431,8 +431,13 @@ private struct AMSSlotProgressBackground: View {
     }
 
     private var progressColor: Color {
-        guard let colorHex,
-              let color = Color(hexRGB: colorHex) else {
+        guard let colorHex else {
+            return .accentColor
+        }
+        if Color.isNeutralGray(hexRGB: colorHex) {
+            return .white
+        }
+        guard let color = Color(hexRGB: colorHex) else {
             return .accentColor
         }
         return color
