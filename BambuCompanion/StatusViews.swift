@@ -420,14 +420,8 @@ private struct AMSSlotProgressBackground: View {
             if let percent {
                 GeometryReader { proxy in
                     let width = proxy.size.width * CGFloat(percent) / 100
-                    ZStack(alignment: .trailing) {
-                        RoundedRectangle(cornerRadius: 7)
-                            .fill(progressColor.opacity(progressOpacity))
-
-                        Rectangle()
-                            .fill(progressDividerColor)
-                            .frame(width: 1)
-                    }
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(progressColor.opacity(progressOpacity))
                     .frame(width: width)
                     .frame(maxHeight: .infinity, alignment: .leading)
                 }
@@ -445,17 +439,11 @@ private struct AMSSlotProgressBackground: View {
     }
 
     private var progressOpacity: Double {
-        if let colorHex, Color.isDark(hexRGB: colorHex) {
+        if let colorHex,
+           Color.isDark(hexRGB: colorHex) || Color.isNeutralGray(hexRGB: colorHex) {
             return isActive ? 0.72 : 0.58
         }
         return isActive ? 0.34 : 0.24
-    }
-
-    private var progressDividerColor: Color {
-        guard let colorHex, Color.isDark(hexRGB: colorHex) else {
-            return .white.opacity(0.12)
-        }
-        return .white.opacity(0.28)
     }
 }
 
@@ -503,6 +491,20 @@ private extension Color {
         let green = Double((value >> 8) & 0xFF)
         let blue = Double(value & 0xFF)
         return (0.299 * red + 0.587 * green + 0.114 * blue) < 80
+    }
+
+    static func isNeutralGray(hexRGB: String) -> Bool {
+        guard hexRGB.count == 6,
+              let value = UInt32(hexRGB, radix: 16) else {
+            return false
+        }
+        let red = Double((value >> 16) & 0xFF)
+        let green = Double((value >> 8) & 0xFF)
+        let blue = Double(value & 0xFF)
+        let maxChannel = max(red, green, blue)
+        let minChannel = min(red, green, blue)
+        let brightness = (0.299 * red + 0.587 * green + 0.114 * blue)
+        return maxChannel - minChannel < 18 && brightness > 80 && brightness < 190
     }
 }
 
