@@ -435,7 +435,7 @@ private struct AMSSlotProgressBackground: View {
             return .accentColor
         }
         if Color.isNeutralGray(hexRGB: colorHex) {
-            return .white
+            return Color(white: 0.82)
         }
         guard let color = Color(hexRGB: colorHex) else {
             return .accentColor
@@ -445,9 +445,13 @@ private struct AMSSlotProgressBackground: View {
 
     private var progressOpacity: Double {
         if let colorHex, Color.isDark(hexRGB: colorHex) {
-            return isActive ? 0.72 : 0.58
+            return isActive ? 0.64 : 0.52
         }
-        return isActive ? 0.34 : 0.24
+        if let colorHex,
+           Color.isLight(hexRGB: colorHex) || Color.isNeutralGray(hexRGB: colorHex) {
+            return isActive ? 0.36 : 0.26
+        }
+        return isActive ? 0.42 : 0.30
     }
 }
 
@@ -509,6 +513,17 @@ private extension Color {
         let minChannel = min(red, green, blue)
         let brightness = (0.299 * red + 0.587 * green + 0.114 * blue)
         return maxChannel - minChannel < 18 && brightness > 80 && brightness < 190
+    }
+
+    static func isLight(hexRGB: String) -> Bool {
+        guard hexRGB.count == 6,
+              let value = UInt32(hexRGB, radix: 16) else {
+            return false
+        }
+        let red = Double((value >> 16) & 0xFF)
+        let green = Double((value >> 8) & 0xFF)
+        let blue = Double(value & 0xFF)
+        return (0.299 * red + 0.587 * green + 0.114 * blue) > 210
     }
 }
 
