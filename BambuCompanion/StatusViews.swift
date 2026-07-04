@@ -205,16 +205,22 @@ private struct AMSUnitRowView: View {
     @State private var pulse = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            AMSUnitLabelView(unit: unit)
-                .help(helpText)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                AMSUnitLabelView(unit: unit)
+                    .help(helpText)
+
+                Spacer(minLength: 8)
+
+                AMSUnitStatusLine(unit: unit)
+                    .help(helpText)
+            }
 
             HStack(spacing: 6) {
                 ForEach(unit.slots) { slot in
                     AMSSlotView(slot: slot)
                 }
             }
-            .frame(maxWidth: .infinity)
         }
         .background {
             Rectangle()
@@ -269,6 +275,66 @@ private struct AMSUnitLabelView: View {
         .font(.caption2.weight(.semibold))
         .foregroundStyle(unit.isDrying ? .orange : .secondary)
         .frame(width: 58, alignment: .leading)
+    }
+}
+
+private struct AMSUnitStatusLine: View {
+    let unit: AMSUnitStatus
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if unit.isDrying {
+                HStack(spacing: 4) {
+                    Image(systemName: "drop.degreesign")
+                    Text(dryingText)
+                }
+                .foregroundStyle(.orange)
+            }
+
+            if let temperature = unit.temperature {
+                HStack(spacing: 3) {
+                    Image(systemName: "thermometer.medium")
+                    Text(TemperatureText.string(temperature))
+                }
+            }
+
+            if let humidityText {
+                HStack(spacing: 3) {
+                    Image(systemName: "humidity")
+                    Text(humidityText)
+                }
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+        .monospacedDigit()
+    }
+
+    private var dryingText: String {
+        let temperatureText = unit.dryingTemperature.map(TemperatureText.string) ?? "--"
+        return "\(temperatureText) \(dryingRemainingText(unit.dryingRemainingMinutes))"
+    }
+
+    private var humidityText: String? {
+        if let humidityPercent = unit.humidityPercent {
+            return "\(humidityPercent)%"
+        }
+        if let humidityIndex = unit.humidityIndex {
+            return "\(humidityIndex)"
+        }
+        return nil
+    }
+
+    private func dryingRemainingText(_ minutes: Int?) -> String {
+        guard let minutes else {
+            return "--"
+        }
+        if minutes < 60 {
+            return "\(minutes)m"
+        }
+        return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
