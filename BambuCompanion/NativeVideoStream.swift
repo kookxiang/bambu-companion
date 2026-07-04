@@ -180,7 +180,8 @@ private final class FloatingVideoWindowController {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
-        panel.title = "Printer Camera"
+        panel.title = ""
+        panel.titleVisibility = .hidden
         panel.isReleasedWhenClosed = false
         panel.titlebarAppearsTransparent = false
 
