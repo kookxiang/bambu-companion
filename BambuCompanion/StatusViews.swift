@@ -437,10 +437,25 @@ private struct CoverImageView: View {
         case .loading:
             placeholder(icon: "photo", text: "Loading cover image")
         case .failed:
-            placeholder(icon: "photo.badge.exclamationmark", text: "Cover image unavailable")
+            artworkPlaceholder
         case .unavailable:
-            placeholder(icon: "photo", text: "")
+            artworkPlaceholder
         }
+    }
+
+    private var artworkPlaceholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.quaternary)
+
+            Image("printer-placeholder")
+                .resizable()
+                .scaledToFit()
+                .padding(10)
+                .opacity(0.72)
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func placeholder(icon: String, text: String) -> some View {
