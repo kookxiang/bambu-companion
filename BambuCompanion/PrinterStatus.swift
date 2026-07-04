@@ -64,7 +64,6 @@ struct PrinterFanStatus: Equatable {
             chamberPercent != nil ||
             heatbreakPercent != nil
     }
-
 }
 
 struct PrinterAlert: Equatable {

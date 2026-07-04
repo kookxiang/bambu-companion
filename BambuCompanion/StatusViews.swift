@@ -59,6 +59,9 @@ struct StatusSummaryView: View {
                 if let airductMode = status.airductMode {
                     AirductModeMetricView(rawMode: airductMode)
                 }
+                if status.fans.hasAnyValue {
+                    FanMetricView(fans: status.fans)
+                }
             }
 
             if !status.amsUnits.isEmpty {
@@ -78,6 +81,7 @@ struct StatusSummaryView: View {
 
     private var metricColumns: [GridItem] {
         [
+            GridItem(.flexible(), spacing: 10),
             GridItem(.flexible(), spacing: 10),
             GridItem(.flexible(), spacing: 10)
         ]
@@ -575,6 +579,43 @@ private struct AirductModeMetricView: View {
 
     private var normalizedMode: String {
         rawMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+}
+
+private struct FanMetricView: View {
+    let fans: PrinterFanStatus
+
+    var body: some View {
+        MetricView(title: "Fan", value: value)
+            .help(helpText)
+    }
+
+    private var value: String {
+        let activeLines = fanLines(showingZeroValues: false)
+        if activeLines.isEmpty {
+            return L10n.string("Off")
+        }
+        return activeLines.joined(separator: " / ")
+    }
+
+    private var helpText: String {
+        fanLines(showingZeroValues: true).joined(separator: "\n")
+    }
+
+    private func fanLines(showingZeroValues: Bool) -> [String] {
+        [
+            fanLine("Part", fans.partCoolingPercent, showingZeroValues: showingZeroValues),
+            fanLine("Aux", fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
+            fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues),
+            fanLine("Heatbreak", fans.heatbreakPercent, showingZeroValues: showingZeroValues)
+        ].compactMap(\.self)
+    }
+
+    private func fanLine(_ name: String, _ percent: Int?, showingZeroValues: Bool) -> String? {
+        guard let percent, showingZeroValues || percent > 0 else {
+            return nil
+        }
+        return "\(L10n.string(name)) \(percent)%"
     }
 }
 
