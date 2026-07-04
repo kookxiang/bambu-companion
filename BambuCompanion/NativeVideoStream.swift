@@ -122,10 +122,11 @@ private struct NativeVideoStreamSurface: View {
                 .foregroundStyle(.secondary)
             Text("Showing in Picture in Picture")
                 .font(.headline)
-            Text("Close the floating window to watch here again.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            FloatingVideoWindowController.shared.dismiss()
         }
     }
 
@@ -173,7 +174,9 @@ private struct NativeVideoStreamSurface: View {
             guard url != nil else {
                 return
             }
+            let presentingWindow = NSApp.keyWindow
             FloatingVideoWindowController.shared.toggle(url: url)
+            presentingWindow?.close()
         }
     }
 
