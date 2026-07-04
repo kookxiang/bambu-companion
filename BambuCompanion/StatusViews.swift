@@ -444,8 +444,7 @@ private struct AMSSlotProgressBackground: View {
     }
 
     private var progressOpacity: Double {
-        if let colorHex,
-           Color.isDark(hexRGB: colorHex) || Color.isNeutralGray(hexRGB: colorHex) {
+        if let colorHex, Color.isDark(hexRGB: colorHex) {
             return isActive ? 0.72 : 0.58
         }
         return isActive ? 0.34 : 0.24
