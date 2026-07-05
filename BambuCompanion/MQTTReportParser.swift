@@ -315,6 +315,9 @@ enum MQTTReportParser {
         guard let numericID = Int(rawID) else {
             return "AMS \(fallbackIndex + 1)"
         }
+        if numericID >= 128, numericID < 153 {
+            return "AMS HT \(numericID - 127)"
+        }
         return "AMS \(numericID + 1)"
     }
 

@@ -257,6 +257,29 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
     }
 
+    func testParsesAMSHTDisplayName() throws {
+        let json = """
+        {
+          "print": {
+            "ams": {
+              "ams": [
+                {
+                  "id": "128",
+                  "tray": [
+                    {"id": "0", "tray_type": "PETG", "tray_color": "FFFFFFFF"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.amsUnits.first?.name, "AMS HT 1")
+    }
+
     func testParsesEncodedChamberTemperatureAndPrintError() throws {
         let json = """
         {
