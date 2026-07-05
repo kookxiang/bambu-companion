@@ -177,7 +177,7 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(url?.absoluteString, "rtsps://bblp:12345678@192.168.1.20:322/streaming/live/1")
     }
 
-    func testParsesAMSUnitsIntoFourSlotRows() throws {
+    func testParsesAMSUnitsFromReportedTrays() throws {
         let json = """
         {
           "print": {
@@ -235,8 +235,9 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[0].dryingTemperature, 55)
         XCTAssertEqual(status.amsUnits[0].dryingFilament, "PETG")
         XCTAssertTrue(status.amsUnits[0].isDrying)
-        XCTAssertEqual(status.amsUnits[0].slots.count, 4)
-        XCTAssertEqual(status.amsUnits[0].slots.map(\.material), ["PETG", "PLA", nil, "ASA"])
+        XCTAssertEqual(status.amsUnits[0].slots.count, 3)
+        XCTAssertEqual(status.amsUnits[0].slots.map(\.index), [0, 1, 3])
+        XCTAssertEqual(status.amsUnits[0].slots.map(\.material), ["PETG", "PLA", "ASA"])
         XCTAssertEqual(status.amsUnits[0].slots[0].colorHex, "FFFFFF")
         XCTAssertEqual(status.amsUnits[0].slots[0].remainingPercent, 63)
         XCTAssertEqual(status.amsUnits[0].slots[0].name, "Bambu PETG HF")
@@ -250,10 +251,10 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[0].slots[0].nozzleTemperatureMax, 260)
         XCTAssertEqual(status.amsUnits[0].slots[1].colorHex, "00FF00")
         XCTAssertNil(status.amsUnits[0].slots[1].remainingPercent)
-        XCTAssertEqual(status.amsUnits[0].slots[3].colorHex, "000000")
-        XCTAssertEqual(status.amsUnits[0].slots[3].remainingPercent, 100)
+        XCTAssertEqual(status.amsUnits[0].slots[2].colorHex, "000000")
+        XCTAssertEqual(status.amsUnits[0].slots[2].remainingPercent, 100)
         XCTAssertEqual(status.amsUnits[1].name, "AMS 2")
-        XCTAssertEqual(status.amsUnits[1].slots.map(\.material), ["ABS", nil, nil, nil])
+        XCTAssertEqual(status.amsUnits[1].slots.map(\.material), ["ABS"])
         XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
     }
 
@@ -278,6 +279,8 @@ final class MQTTReportParserTests: XCTestCase {
         let status = try MQTTReportParser.parse(Data(json.utf8))
 
         XCTAssertEqual(status.amsUnits.first?.name, "AMS HT 1")
+        XCTAssertEqual(status.amsUnits.first?.slots.count, 1)
+        XCTAssertEqual(status.amsUnits.first?.slots.first?.material, "PETG")
     }
 
     func testParsesEncodedChamberTemperatureAndPrintError() throws {

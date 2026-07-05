@@ -211,33 +211,32 @@ enum MQTTReportParser {
             }
 
             let rawID = stringValue(ams["id"]) ?? "\(amsIndex)"
-            var trayByIndex: [Int: [String: Any]] = [:]
-            for tray in trays {
-                let trayIndex = intValue(tray["id"]) ?? 0
-                trayByIndex[trayIndex] = tray
-            }
-            let slots = (0..<4).map { slotIndex in
-                let tray = trayByIndex[slotIndex]
-                let material = normalizedMaterial(stringValue(tray?["tray_type"]))
-                let colorHex = normalizedColorHex(stringValue(tray?["tray_color"]))
-                let remainingPercent = normalizedPercent(intValue(tray?["remain"]))
-                return AMSSlotStatus(
-                    id: "\(rawID)-\(slotIndex)",
-                    index: slotIndex,
-                    material: material,
-                    colorHex: colorHex,
-                    remainingPercent: remainingPercent,
-                    name: normalizedMaterial(stringValue(tray?["tray_id_name"])),
-                    subBrands: normalizedMaterial(stringValue(tray?["tray_sub_brands"])),
-                    tagUID: normalizedMaterial(stringValue(tray?["tag_uid"])),
-                    trayInfoIndex: normalizedMaterial(stringValue(tray?["tray_info_idx"])),
-                    diameter: normalizedPositive(doubleValue(tray?["tray_diameter"])),
-                    weight: normalizedPositive(doubleValue(tray?["tray_weight"])),
-                    nozzleTemperatureMin: normalizedPositive(doubleValue(tray?["nozzle_temp_min"])),
-                    nozzleTemperatureMax: normalizedPositive(doubleValue(tray?["nozzle_temp_max"])),
-                    isActive: activeSlot?.amsID == rawID && activeSlot?.slotIndex == slotIndex
-                )
-            }
+            let slots = trays.enumerated()
+                .map { trayPosition, tray -> (slotIndex: Int, slot: AMSSlotStatus) in
+                    let slotIndex = intValue(tray["id"]) ?? trayPosition
+                    let material = normalizedMaterial(stringValue(tray["tray_type"]))
+                    let colorHex = normalizedColorHex(stringValue(tray["tray_color"]))
+                    let remainingPercent = normalizedPercent(intValue(tray["remain"]))
+                    let slot = AMSSlotStatus(
+                        id: "\(rawID)-\(slotIndex)",
+                        index: slotIndex,
+                        material: material,
+                        colorHex: colorHex,
+                        remainingPercent: remainingPercent,
+                        name: normalizedMaterial(stringValue(tray["tray_id_name"])),
+                        subBrands: normalizedMaterial(stringValue(tray["tray_sub_brands"])),
+                        tagUID: normalizedMaterial(stringValue(tray["tag_uid"])),
+                        trayInfoIndex: normalizedMaterial(stringValue(tray["tray_info_idx"])),
+                        diameter: normalizedPositive(doubleValue(tray["tray_diameter"])),
+                        weight: normalizedPositive(doubleValue(tray["tray_weight"])),
+                        nozzleTemperatureMin: normalizedPositive(doubleValue(tray["nozzle_temp_min"])),
+                        nozzleTemperatureMax: normalizedPositive(doubleValue(tray["nozzle_temp_max"])),
+                        isActive: activeSlot?.amsID == rawID && activeSlot?.slotIndex == slotIndex
+                    )
+                    return (slotIndex, slot)
+                }
+                .sorted { $0.slotIndex < $1.slotIndex }
+                .map(\.slot)
             let name = amsDisplayName(rawID: rawID, fallbackIndex: amsIndex)
             let drying = dryingStatus(from: ams)
             return AMSUnitStatus(
