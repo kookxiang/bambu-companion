@@ -332,8 +332,19 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.targetBedTemperature, 70)
         XCTAssertEqual(status.chamberTemperature, 43)
         XCTAssertEqual(status.targetChamberTemperature, 50)
-        XCTAssertEqual(status.alert?.title, "Print error")
-        XCTAssertEqual(status.alert?.detail, "0700_8006")
+        XCTAssertNotEqual(status.alert?.title, "Print error")
+        XCTAssertNil(status.alert?.detail)
+    }
+
+    func testParsesCancelledPrintErrorMessageAsAlertTitle() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"print_error":50348044}}"#.utf8))
+
+        XCTAssertNotEqual(status.alert?.title, "Print error")
+        XCTAssertNil(status.alert?.detail)
+        XCTAssertTrue(
+            status.alert?.title.localizedCaseInsensitiveContains("canceled") == true ||
+                status.alert?.title.contains("取消") == true
+        )
     }
 
     func testParsesHMSWarningMessageAsAlertTitle() throws {
@@ -371,6 +382,10 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(
             catalog.text(forRawCode: "1800_9700_0003_0001", preferredLanguages: ["en"]),
             "AMS-HT A chamber temperature is too high; auxiliary feeding or RFID reading is currently not allowed."
+        )
+        XCTAssertEqual(
+            catalog.text(forRawCode: "0300_400C", preferredLanguages: ["en"]),
+            "The task was canceled."
         )
     }
 

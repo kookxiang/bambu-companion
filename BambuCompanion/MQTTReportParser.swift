@@ -181,12 +181,20 @@ enum MQTTReportParser {
 
     private static func alert(from print: [String: Any]) -> PrinterAlert? {
         if let printError = intValue(print["print_error"]), printError != 0 {
-            return PrinterAlert(title: "Print error", detail: formattedErrorCode(printError))
+            return printErrorAlert(from: printError)
         }
         if let hms = print["hms"] as? [[String: Any]], !hms.isEmpty {
             return hms.compactMap(hmsAlert(from:)).first
         }
         return nil
+    }
+
+    private static func printErrorAlert(from printError: Int) -> PrinterAlert {
+        let rawCode = rawErrorCode(printError)
+        if let errorText = HMSErrorCatalog.shared.text(forRawCode: rawCode) {
+            return PrinterAlert(title: errorText)
+        }
+        return PrinterAlert(title: "Print error", detail: formattedErrorCode(rawCode))
     }
 
     private static func hmsAlert(from hms: [String: Any]) -> PrinterAlert? {
@@ -405,8 +413,15 @@ enum MQTTReportParser {
         return value
     }
 
-    private static func formattedErrorCode(_ value: Int) -> String {
-        let hex = String(format: "%08X", value)
+    private static func rawErrorCode(_ value: Int) -> String {
+        String(format: "%08X", value)
+    }
+
+    private static func formattedErrorCode(_ rawCode: String) -> String {
+        let hex = rawCode.uppercased()
+        guard hex.count == 8 else {
+            return hex
+        }
         let separator = hex.index(hex.startIndex, offsetBy: 4)
         return "\(hex[..<separator])_\(hex[separator...])"
     }
