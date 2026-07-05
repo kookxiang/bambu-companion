@@ -31,6 +31,7 @@
 "Finished" = "已完成";
 "Fan" = "风扇";
 "Heatbreak" = "喉管";
+"HMS Alert" = "HMS 异常";
 "Humidity index: %d" = "湿度指数：%d";
 "Humidity: %d%%" = "湿度：%d%%";
 "Idle" = "空闲";

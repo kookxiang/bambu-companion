@@ -31,6 +31,7 @@
 "Finished" = "Finished";
 "Fan" = "Fan";
 "Heatbreak" = "Heatbreak";
+"HMS Alert" = "HMS Alert";
 "Humidity index: %d" = "Humidity index: %d";
 "Humidity: %d%%" = "Humidity: %d%%";
 "Idle" = "Idle";

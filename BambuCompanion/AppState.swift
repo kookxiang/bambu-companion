@@ -386,7 +386,7 @@ private struct PrintStatusNotification {
             self.init(activity: activity, status: status, printerName: printerName)
         case let .hmsAlert(alert):
             self.init(
-                title: L10n.string("HMS 异常"),
+                title: L10n.string("HMS Alert"),
                 body: alert.detail ?? alert.title,
                 identifierPrefix: "hms-alert",
                 userInfo: ["alert": alert.title]

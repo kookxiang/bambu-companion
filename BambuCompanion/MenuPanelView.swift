@@ -6,17 +6,23 @@ struct MenuPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if appState.configuration.isComplete {
-                StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
-                VideoPreviewView(url: appState.videoStreamURL)
-            } else {
-                setupPrompt
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if appState.configuration.isComplete {
+                        StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
+                        VideoPreviewView(url: appState.videoStreamURL)
+                    } else {
+                        setupPrompt
+                    }
+                }
             }
+            .scrollIndicators(.hidden)
 
             Divider()
             footer
         }
         .frame(width: 340)
+        .frame(maxHeight: 760)
         .padding(16)
     }
 
