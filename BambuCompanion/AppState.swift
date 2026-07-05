@@ -166,17 +166,38 @@ final class AppState: NSObject, ObservableObject {
 
 struct PrintNotificationGate {
     private var lastActivity: PrinterActivity?
+    private var lastNotifiedActivity: PrinterActivity?
 
     mutating func observe(activity: PrinterActivity) -> Bool {
-        defer { lastActivity = activity }
+        defer {
+            lastActivity = activity
+        }
         guard let lastActivity else {
             return false
         }
-        return lastActivity != activity
+        guard lastActivity != activity,
+              activity.isNotifiable,
+              lastNotifiedActivity != activity else {
+            return false
+        }
+        lastNotifiedActivity = activity
+        return true
     }
 
     mutating func reset() {
         lastActivity = nil
+        lastNotifiedActivity = nil
+    }
+}
+
+private extension PrinterActivity {
+    var isNotifiable: Bool {
+        switch self {
+        case .printing, .paused, .finished, .failed:
+            return true
+        case .idle, .unknown:
+            return false
+        }
     }
 }
 

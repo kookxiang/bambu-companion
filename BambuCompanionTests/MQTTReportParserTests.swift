@@ -477,4 +477,16 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertFalse(gate.observe(activity: .printing))
         XCTAssertFalse(gate.observe(activity: .printing))
     }
+
+    func testPrintNotificationGateDoesNotRepeatSameNotificationAfterNonNotifiableStatus() {
+        var gate = PrintNotificationGate()
+
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertTrue(gate.observe(activity: .finished))
+        XCTAssertFalse(gate.observe(activity: .idle))
+        XCTAssertFalse(gate.observe(activity: .finished))
+        XCTAssertFalse(gate.observe(activity: .unknown))
+        XCTAssertFalse(gate.observe(activity: .finished))
+        XCTAssertTrue(gate.observe(activity: .paused))
+    }
 }
