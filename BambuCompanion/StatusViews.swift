@@ -489,19 +489,25 @@ private struct AMSSlotProgressBackground: View {
 private struct AlertBannerView: View {
     let alert: PrinterAlert
     @Environment(\.openURL) private var openURL
+    @State private var titleHeight: CGFloat = 0
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: isSingleLine ? .center : .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.orange)
                 .frame(width: 18, height: 18)
-                .padding(.top, 1)
+                .padding(.top, iconTopPadding)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(alert.title)
                     .font(.caption.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: AlertTitleHeightPreferenceKey.self, value: proxy.size.height)
+                        }
+                    }
 
                 if let detail = alert.detail {
                     Text(detail)
@@ -518,7 +524,7 @@ private struct AlertBannerView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
                     .frame(width: 18, height: 18)
-                    .padding(.top, 1)
+                    .padding(.top, iconTopPadding)
                     .accessibilityLabel("Open troubleshooting guide")
             }
         }
@@ -532,6 +538,23 @@ private struct AlertBannerView: View {
             }
         }
         .help(alert.wikiURL?.absoluteString ?? alert.title)
+        .onPreferenceChange(AlertTitleHeightPreferenceKey.self) { titleHeight = $0 }
+    }
+
+    private var isSingleLine: Bool {
+        titleHeight == 0 || titleHeight <= 18
+    }
+
+    private var iconTopPadding: CGFloat {
+        isSingleLine ? 0 : 1
+    }
+}
+
+private struct AlertTitleHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
