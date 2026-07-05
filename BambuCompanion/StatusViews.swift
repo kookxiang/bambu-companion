@@ -254,7 +254,7 @@ private struct AMSUnitLabelView: View {
             Text(unit.name)
                 .lineLimit(1)
         }
-        .font(.system(size: 13, weight: .semibold))
+        .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(unit.isDrying ? .orange : .secondary)
         .frame(width: 70, alignment: .leading)
     }
@@ -293,7 +293,7 @@ private struct AMSUnitStatusLine: View {
                 }
             }
         }
-        .font(.system(size: 12, weight: .regular, design: .rounded))
+        .font(.system(size: 11, weight: .regular, design: .rounded))
         .imageScale(.medium)
         .foregroundStyle(unit.isDrying ? .orange : .secondary)
         .lineLimit(1)
