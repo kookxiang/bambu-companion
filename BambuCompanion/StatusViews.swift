@@ -232,9 +232,17 @@ private struct AMSUnitRowView: View {
                 ForEach(unit.slots) { slot in
                     AMSSlotView(slot: slot)
                 }
+                ForEach(0..<placeholderSlotCount, id: \.self) { _ in
+                    Color.clear
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                }
             }
         }
         .padding(.vertical, 3)
+    }
+
+    private var placeholderSlotCount: Int {
+        max(0, 4 - unit.slots.count)
     }
 }
 
