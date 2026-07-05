@@ -197,9 +197,10 @@ enum MQTTReportParser {
             return PrinterAlert(title: "Printer warning", detail: String(code))
         }
 
-        let hmsCode = formattedHMSCode(attr: attr, code: code)
-        let knownError = knownHMSErrorText[hmsCode]
-        let detail = [hmsCode, knownError].compactMap { $0 }.joined(separator: "\n")
+        let rawHMSCode = rawHMSCode(attr: attr, code: code)
+        let hmsCode = formattedHMSCode(rawHMSCode)
+        let errorText = HMSErrorCatalog.shared.text(forRawCode: rawHMSCode)
+        let detail = [hmsCode, errorText].compactMap { $0 }.joined(separator: "\n")
         return PrinterAlert(
             title: "Printer warning",
             detail: detail,
@@ -207,20 +208,19 @@ enum MQTTReportParser {
         )
     }
 
-    private static func formattedHMSCode(attr: Int, code: Int) -> String {
-        let rawCode = String(
+    private static func rawHMSCode(attr: Int, code: Int) -> String {
+        String(
             format: "%04X_%04X_%04X_%04X",
             attr / 0x10000,
             attr & 0xFFFF,
             code / 0x10000,
             code & 0xFFFF
         )
-        return "HMS_\(rawCode)"
     }
 
-    private static let knownHMSErrorText = [
-        "HMS_1800_9700_0003_0001": "AMS-HT A chamber temperature is too high; auxiliary feeding or RFID reading is currently not allowed."
-    ]
+    private static func formattedHMSCode(_ rawCode: String) -> String {
+        "HMS_\(rawCode)"
+    }
 
     private static let knownHMSWikiURL = [
         "HMS_1800_9700_0003_0001": URL(string: "https://wiki.bambulab.com/en/h2d/troubleshooting/hmscode/0700_9700_0003_0001")!

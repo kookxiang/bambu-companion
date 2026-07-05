@@ -29,6 +29,10 @@
 		2A0000010000000000000001 /* NativeVideoStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0000010000000000000002 /* NativeVideoStream.swift */; };
 		3A0000010000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3A0000010000000000000004 /* Localizable.strings */; };
 		4A0000010000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4A0000010000000000000002 /* Assets.xcassets */; };
+		5A0000010000000000000001 /* HMSErrorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000003 /* HMSErrorCatalog.swift */; };
+		5A0000010000000000000002 /* HMSErrorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000003 /* HMSErrorCatalog.swift */; };
+		5A0000010000000000000005 /* HMSResources in Resources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000004 /* HMSResources */; };
+		5A0000010000000000000006 /* HMSResources in Resources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000004 /* HMSResources */; };
 		F9C236202FF9039900116D15 /* MQTTReportParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000017 /* MQTTReportParser.swift */; };
 		F9C236212FF9039900116D15 /* PrinterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000016 /* PrinterStatus.swift */; };
 /* End PBXBuildFile section */
@@ -66,6 +70,8 @@
 		3A0000010000000000000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3A0000010000000000000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		4A0000010000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5A0000010000000000000003 /* HMSErrorCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HMSErrorCatalog.swift; sourceTree = "<group>"; };
+		5A0000010000000000000004 /* HMSResources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = HMSResources; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +111,7 @@
 				1A0000010000000000000015 /* PrinterConfiguration.swift */,
 				1A0000010000000000000016 /* PrinterStatus.swift */,
 				1A0000010000000000000017 /* MQTTReportParser.swift */,
+				5A0000010000000000000003 /* HMSErrorCatalog.swift */,
 				1A000001000000000000001E /* CoverImageService.swift */,
 				1A000001000000000000001F /* FTPSDownloader.swift */,
 				1A0000010000000000000023 /* ZIPArchive.swift */,
@@ -114,6 +121,7 @@
 				1A000001000000000000001A /* StatusViews.swift */,
 				2A0000010000000000000002 /* NativeVideoStream.swift */,
 				4A0000010000000000000002 /* Assets.xcassets */,
+				5A0000010000000000000004 /* HMSResources */,
 				3A0000010000000000000004 /* Localizable.strings */,
 				1A000001000000000000001C /* Info.plist */,
 			);
@@ -221,6 +229,7 @@
 			files = (
 				3A0000010000000000000001 /* Localizable.strings in Resources */,
 				4A0000010000000000000001 /* Assets.xcassets in Resources */,
+				5A0000010000000000000005 /* HMSResources in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +237,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5A0000010000000000000006 /* HMSResources in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +255,7 @@
 				1A0000010000000000000005 /* PrinterConfiguration.swift in Sources */,
 				1A0000010000000000000006 /* PrinterStatus.swift in Sources */,
 				1A0000010000000000000007 /* MQTTReportParser.swift in Sources */,
+				5A0000010000000000000001 /* HMSErrorCatalog.swift in Sources */,
 				1A000001000000000000000C /* CoverImageService.swift in Sources */,
 				1A000001000000000000000D /* FTPSDownloader.swift in Sources */,
 				1A000001000000000000000E /* ZIPArchive.swift in Sources */,
@@ -263,6 +274,7 @@
 				1A000001000000000000000B /* MQTTReportParserTests.swift in Sources */,
 				F9C236202FF9039900116D15 /* MQTTReportParser.swift in Sources */,
 				F9C236212FF9039900116D15 /* PrinterStatus.swift in Sources */,
+				5A0000010000000000000002 /* HMSErrorCatalog.swift in Sources */,
 				1A000001000000000000000F /* CoverImageService.swift in Sources */,
 				1A0000010000000000000028 /* FTPSDownloader.swift in Sources */,
 				1A0000010000000000000024 /* ZIPArchive.swift in Sources */,

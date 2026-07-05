@@ -1,0 +1,9 @@
+BambuStudio HMS resources
+
+The HMS JSON files in this directory are copied from the official BambuStudio
+repository:
+
+https://github.com/bambulab/BambuStudio/tree/master/resources/hms
+
+BambuStudio is licensed under the GNU Affero General Public License v3.0.
+The copied license text is included in LICENSE-BambuStudio-AGPL-3.0.txt.
