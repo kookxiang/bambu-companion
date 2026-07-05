@@ -491,9 +491,10 @@ private struct AlertBannerView: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
+                .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(alert.title)
@@ -514,6 +515,7 @@ private struct AlertBannerView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
+                    .padding(.top, 1)
                     .accessibilityLabel("Open troubleshooting guide")
             }
         }
