@@ -314,7 +314,7 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.alert?.detail, "0700_8006")
     }
 
-    func testParsesHMSWarningDetails() throws {
+    func testParsesHMSWarningMessageAsAlertTitle() throws {
         let json = """
         {
           "print": {
@@ -330,8 +330,8 @@ final class MQTTReportParserTests: XCTestCase {
 
         let status = try MQTTReportParser.parse(Data(json.utf8))
 
-        XCTAssertEqual(status.alert?.title, "Printer warning")
-        XCTAssertTrue(status.alert?.detail?.contains("HMS_1800_9700_0003_0001") == true)
+        XCTAssertTrue(status.alert?.title.contains("AMS-HT") == true)
+        XCTAssertNil(status.alert?.detail)
         XCTAssertEqual(
             status.alert?.wikiURL?.absoluteString,
             "https://wiki.bambulab.com/en/h2d/troubleshooting/hmscode/0700_9700_0003_0001"

@@ -194,16 +194,14 @@ enum MQTTReportParser {
             return nil
         }
         guard let attr = intValue(hms["attr"]), attr > 0 else {
-            return PrinterAlert(title: "Printer warning", detail: String(code))
+            return PrinterAlert(title: String(code))
         }
 
         let rawHMSCode = rawHMSCode(attr: attr, code: code)
         let hmsCode = formattedHMSCode(rawHMSCode)
         let errorText = HMSErrorCatalog.shared.text(forRawCode: rawHMSCode)
-        let detail = [hmsCode, errorText].compactMap { $0 }.joined(separator: "\n")
         return PrinterAlert(
-            title: "Printer warning",
-            detail: detail,
+            title: errorText ?? hmsCode,
             wikiURL: knownHMSWikiURL[hmsCode]
         )
     }

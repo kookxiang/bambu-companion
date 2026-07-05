@@ -488,15 +488,17 @@ private struct AMSSlotProgressBackground: View {
 
 private struct AlertBannerView: View {
     let alert: PrinterAlert
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .center, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(alert.title)
                     .font(.caption.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let detail = alert.detail {
                     Text(detail)
@@ -504,19 +506,27 @@ private struct AlertBannerView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-
-                if let wikiURL = alert.wikiURL {
-                    Link(wikiURL.absoluteString, destination: wikiURL)
-                        .font(.caption2)
-                        .lineLimit(1)
-                }
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+
+            if alert.wikiURL != nil {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Open troubleshooting guide")
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture {
+            if let wikiURL = alert.wikiURL {
+                openURL(wikiURL)
+            }
+        }
+        .help(alert.wikiURL?.absoluteString ?? alert.title)
     }
 }
 
