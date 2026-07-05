@@ -52,6 +52,44 @@ struct PrinterStatus: Equatable {
     var updatedAt: Date?
 
     static let empty = PrinterStatus()
+
+    func mergingIncrementalUpdate(_ update: PrinterStatus) -> PrinterStatus {
+        var merged = self
+        if update.activity != .unknown {
+            merged.activity = update.activity
+        }
+        merged.progress = update.progress ?? progress
+        merged.rawFile = update.rawFile ?? rawFile
+        merged.gcodeFile = update.gcodeFile ?? gcodeFile
+        merged.gcodeFileDownloaded = update.gcodeFileDownloaded ?? gcodeFileDownloaded
+        merged.subtaskName = update.subtaskName ?? subtaskName
+        merged.gcodeFilePreparePercent = update.gcodeFilePreparePercent ?? gcodeFilePreparePercent
+        merged.jobName = update.jobName ?? jobName
+        merged.remainingMinutes = update.remainingMinutes ?? remainingMinutes
+        merged.currentLayer = update.currentLayer ?? currentLayer
+        merged.totalLayers = update.totalLayers ?? totalLayers
+        merged.nozzleTemperature = update.nozzleTemperature ?? nozzleTemperature
+        merged.targetNozzleTemperature = update.targetNozzleTemperature ?? targetNozzleTemperature
+        merged.leftNozzleTemperature = update.leftNozzleTemperature ?? leftNozzleTemperature
+        merged.targetLeftNozzleTemperature = update.targetLeftNozzleTemperature ?? targetLeftNozzleTemperature
+        merged.rightNozzleTemperature = update.rightNozzleTemperature ?? rightNozzleTemperature
+        merged.targetRightNozzleTemperature = update.targetRightNozzleTemperature ?? targetRightNozzleTemperature
+        merged.bedTemperature = update.bedTemperature ?? bedTemperature
+        merged.targetBedTemperature = update.targetBedTemperature ?? targetBedTemperature
+        merged.chamberTemperature = update.chamberTemperature ?? chamberTemperature
+        merged.targetChamberTemperature = update.targetChamberTemperature ?? targetChamberTemperature
+        merged.cameraStreamURL = update.cameraStreamURL ?? cameraStreamURL
+        merged.alert = update.alert ?? alert
+        merged.airductMode = update.airductMode ?? airductMode
+        if update.fans.hasAnyValue {
+            merged.fans = update.fans
+        }
+        if !update.amsUnits.isEmpty {
+            merged.amsUnits = update.amsUnits
+        }
+        merged.updatedAt = update.updatedAt ?? updatedAt
+        return merged
+    }
 }
 
 struct PrinterFanStatus: Equatable {

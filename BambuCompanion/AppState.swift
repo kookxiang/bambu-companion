@@ -93,18 +93,19 @@ final class AppState: NSObject, ObservableObject {
     }
 
     private func apply(status newStatus: PrinterStatus) {
-        let notificationEvents = notificationGate.observe(status: newStatus)
-        status = newStatus
+        let mergedStatus = status.mergingIncrementalUpdate(newStatus)
+        let notificationEvents = notificationGate.observe(status: mergedStatus)
+        status = mergedStatus
 
         for event in notificationEvents {
             notificationService.notifyIfNeeded(
                 event: event,
-                status: newStatus,
+                status: mergedStatus,
                 printerName: configuration.resolvedDisplayName
             )
         }
 
-        updateCoverImageIfNeeded(for: newStatus)
+        updateCoverImageIfNeeded(for: mergedStatus)
     }
 
     private func updateCoverImageIfNeeded(for status: PrinterStatus) {

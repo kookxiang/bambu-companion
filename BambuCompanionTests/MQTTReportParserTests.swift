@@ -56,6 +56,28 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
 
+    func testIncrementalUpdatePreservesMissingFields() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"IDLE","mc_percent":0,"nozzle_temper":29}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"bed_temper":31}}"#.utf8))
+
+        let merged = base.mergingIncrementalUpdate(update)
+
+        XCTAssertEqual(merged.activity, .idle)
+        XCTAssertEqual(merged.progress, 0)
+        XCTAssertEqual(merged.nozzleTemperature, 29)
+        XCTAssertEqual(merged.bedTemperature, 31)
+    }
+
+    func testIncrementalUpdateIgnoresUnknownActivity() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"RUNNING","mc_percent":12}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"MOVING","mc_percent":13}}"#.utf8))
+
+        let merged = base.mergingIncrementalUpdate(update)
+
+        XCTAssertEqual(merged.activity, .printing)
+        XCTAssertEqual(merged.progress, 13)
+    }
+
     func testParsesCancelledActivity() throws {
         let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"CANCELLED"}}"#.utf8))
 
