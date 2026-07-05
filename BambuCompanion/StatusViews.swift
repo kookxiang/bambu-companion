@@ -494,12 +494,13 @@ private struct AlertBannerView: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-                .padding(.top, 1)
+                .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(alert.title)
                     .font(.caption.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 24, alignment: .center)
 
                 if let detail = alert.detail {
                     Text(detail)
@@ -515,7 +516,7 @@ private struct AlertBannerView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
-                    .padding(.top, 1)
+                    .frame(width: 24, height: 24)
                     .accessibilityLabel("Open troubleshooting guide")
             }
         }
