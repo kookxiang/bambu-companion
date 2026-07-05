@@ -3,40 +3,22 @@ import SwiftUI
 struct MenuPanelView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
-    @State private var contentHeight: CGFloat = 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if appState.configuration.isComplete {
-                        StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
-                        VideoPreviewView(url: appState.videoStreamURL)
-                    } else {
-                        setupPrompt
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear.preference(key: MenuPanelContentHeightPreferenceKey.self, value: proxy.size.height)
-                    }
-                }
+            if appState.configuration.isComplete {
+                StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
+                VideoPreviewView(url: appState.videoStreamURL)
+            } else {
+                setupPrompt
             }
-            .frame(height: scrollHeight)
-            .scrollIndicators(.hidden)
-            .onPreferenceChange(MenuPanelContentHeightPreferenceKey.self) { contentHeight = $0 }
 
             Divider()
             footer
         }
         .frame(width: 340)
-        .frame(maxHeight: 760)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(16)
-    }
-
-    private var scrollHeight: CGFloat {
-        min(max(contentHeight, 1), 680)
     }
 
     private var setupPrompt: some View {
@@ -132,13 +114,5 @@ struct MenuPanelView: View {
     private func openSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
         openSettings()
-    }
-}
-
-private struct MenuPanelContentHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 1
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
