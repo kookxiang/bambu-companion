@@ -493,14 +493,15 @@ private struct AlertBannerView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.orange)
-                .frame(width: 24, height: 24)
+                .frame(width: 18, height: 18)
+                .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(alert.title)
                     .font(.caption.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 24, alignment: .center)
 
                 if let detail = alert.detail {
                     Text(detail)
@@ -516,12 +517,13 @@ private struct AlertBannerView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.orange)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 18, height: 18)
+                    .padding(.top, 1)
                     .accessibilityLabel("Open troubleshooting guide")
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 10)
         .background(.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
         .contentShape(RoundedRectangle(cornerRadius: 8))
         .onTapGesture {
