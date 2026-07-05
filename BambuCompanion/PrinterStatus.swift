@@ -72,6 +72,12 @@ struct PrinterAlert: Equatable {
     var title: String
     var detail: String?
     var wikiURL: URL?
+    var source: PrinterAlertSource = .printer
+}
+
+enum PrinterAlertSource: Equatable {
+    case printer
+    case hms
 }
 
 struct AMSUnitStatus: Equatable, Identifiable {

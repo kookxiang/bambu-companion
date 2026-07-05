@@ -93,12 +93,12 @@ final class AppState: NSObject, ObservableObject {
     }
 
     private func apply(status newStatus: PrinterStatus) {
-        let shouldNotify = notificationGate.observe(activity: newStatus.activity)
+        let notificationEvents = notificationGate.observe(status: newStatus)
         status = newStatus
 
-        if shouldNotify {
+        for event in notificationEvents {
             notificationService.notifyIfNeeded(
-                activity: newStatus.activity,
+                event: event,
                 status: newStatus,
                 printerName: configuration.resolvedDisplayName
             )
@@ -166,23 +166,59 @@ final class AppState: NSObject, ObservableObject {
 
 struct PrintNotificationGate {
     private var lastEffectiveActivity: PrinterActivity?
+    private var lastHMSAlert: PrinterAlert?
+
+    mutating func observe(status: PrinterStatus) -> [PrintNotificationEvent] {
+        var events: [PrintNotificationEvent] = []
+        if let activity = observeActivity(status.activity) {
+            events.append(.activity(activity))
+        }
+        if let alert = observeHMSAlert(status.alert) {
+            events.append(.hmsAlert(alert))
+        }
+        return events
+    }
 
     mutating func observe(activity: PrinterActivity) -> Bool {
+        observeActivity(activity) != nil
+    }
+
+    private mutating func observeActivity(_ activity: PrinterActivity) -> PrinterActivity? {
         guard activity.isEffectivePrintEvent else {
-            return false
+            return nil
         }
         defer {
             lastEffectiveActivity = activity
         }
         guard let lastEffectiveActivity else {
-            return false
+            return nil
         }
-        return lastEffectiveActivity != activity
+        return lastEffectiveActivity != activity ? activity : nil
+    }
+
+    private mutating func observeHMSAlert(_ alert: PrinterAlert?) -> PrinterAlert? {
+        guard let alert, alert.source == .hms else {
+            lastHMSAlert = nil
+            return nil
+        }
+        defer {
+            lastHMSAlert = alert
+        }
+        guard lastHMSAlert != alert else {
+            return nil
+        }
+        return alert
     }
 
     mutating func reset() {
         lastEffectiveActivity = nil
+        lastHMSAlert = nil
     }
+}
+
+enum PrintNotificationEvent: Equatable {
+    case activity(PrinterActivity)
+    case hmsAlert(PrinterAlert)
 }
 
 private extension PrinterActivity {
@@ -313,8 +349,8 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    func notifyIfNeeded(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
-        guard let notification = PrintStatusNotification(activity: activity, status: status, printerName: printerName) else {
+    func notifyIfNeeded(event: PrintNotificationEvent, status: PrinterStatus, printerName: String) {
+        guard let notification = PrintStatusNotification(event: event, status: status, printerName: printerName) else {
             return
         }
 
@@ -323,9 +359,9 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
         content.body = notification.body
         content.sound = .default
         content.threadIdentifier = "print-status"
-        content.userInfo = ["activity": activity.rawValue]
+        content.userInfo = notification.userInfo
 
-        let identifier = "print-status-\(activity.rawValue)-\(Int(Date().timeIntervalSince1970))"
+        let identifier = "\(notification.identifierPrefix)-\(Int(Date().timeIntervalSince1970))"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         center.add(request)
     }
@@ -341,9 +377,27 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
 private struct PrintStatusNotification {
     let title: String
     let body: String
+    let identifierPrefix: String
+    let userInfo: [AnyHashable: Any]
 
-    init?(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
+    init?(event: PrintNotificationEvent, status: PrinterStatus, printerName: String) {
+        switch event {
+        case let .activity(activity):
+            self.init(activity: activity, status: status, printerName: printerName)
+        case let .hmsAlert(alert):
+            self.init(
+                title: alert.title,
+                body: alert.detail ?? printerName,
+                identifierPrefix: "hms-alert",
+                userInfo: ["alert": alert.title]
+            )
+        }
+    }
+
+    private init?(activity: PrinterActivity, status: PrinterStatus, printerName: String) {
         let job = Self.jobDescription(from: status)
+        let title: String
+        let body: String
 
         switch activity {
         case .printing:
@@ -364,6 +418,19 @@ private struct PrintStatusNotification {
         case .idle, .unknown:
             return nil
         }
+        self.init(
+            title: title,
+            body: body,
+            identifierPrefix: "print-status-\(activity.rawValue)",
+            userInfo: ["activity": activity.rawValue]
+        )
+    }
+
+    private init(title: String, body: String, identifierPrefix: String, userInfo: [AnyHashable: Any]) {
+        self.title = title
+        self.body = body
+        self.identifierPrefix = identifierPrefix
+        self.userInfo = userInfo
     }
 
     private static func jobDescription(from status: PrinterStatus) -> String? {

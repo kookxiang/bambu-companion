@@ -202,7 +202,8 @@ enum MQTTReportParser {
         let errorText = HMSErrorCatalog.shared.text(forRawCode: rawHMSCode)
         return PrinterAlert(
             title: errorText ?? hmsCode,
-            wikiURL: knownHMSWikiURL[hmsCode]
+            wikiURL: knownHMSWikiURL[hmsCode],
+            source: .hms
         )
     }
 

@@ -332,6 +332,7 @@ final class MQTTReportParserTests: XCTestCase {
 
         XCTAssertTrue(status.alert?.title.contains("AMS-HT") == true)
         XCTAssertNil(status.alert?.detail)
+        XCTAssertEqual(status.alert?.source, .hms)
         XCTAssertEqual(
             status.alert?.wikiURL?.absoluteString,
             "https://wiki.bambulab.com/en/h2d/troubleshooting/hmscode/0700_9700_0003_0001"
@@ -577,5 +578,35 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertFalse(gate.observe(activity: .unknown))
         XCTAssertFalse(gate.observe(activity: .finished))
         XCTAssertTrue(gate.observe(activity: .paused))
+    }
+
+    func testPrintNotificationGateNotifiesWhenHMSAlertAppears() {
+        var gate = PrintNotificationGate()
+        let alert = PrinterAlert(title: "AMS warning", source: .hms)
+
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing)), [])
+        XCTAssertEqual(
+            gate.observe(status: PrinterStatus(activity: .printing, alert: alert)),
+            [.hmsAlert(alert)]
+        )
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing, alert: alert)), [])
+    }
+
+    func testPrintNotificationGateNotifiesWhenHMSAlertChangesOrReappears() {
+        var gate = PrintNotificationGate()
+        let firstAlert = PrinterAlert(title: "First HMS warning", source: .hms)
+        let secondAlert = PrinterAlert(title: "Second HMS warning", source: .hms)
+
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing, alert: firstAlert)), [.hmsAlert(firstAlert)])
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing, alert: secondAlert)), [.hmsAlert(secondAlert)])
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing)), [])
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing, alert: secondAlert)), [.hmsAlert(secondAlert)])
+    }
+
+    func testPrintNotificationGateIgnoresNonHMSAlerts() {
+        var gate = PrintNotificationGate()
+        let alert = PrinterAlert(title: "Print error", detail: "0700_8006")
+
+        XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing, alert: alert)), [])
     }
 }
