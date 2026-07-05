@@ -314,6 +314,36 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.alert?.detail, "0700_8006")
     }
 
+    func testParsesHMSWarningDetails() throws {
+        let json = """
+        {
+          "print": {
+            "hms": [
+              {
+                "attr": 402691840,
+                "code": 196609
+              }
+            ]
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.alert?.title, "Printer warning")
+        XCTAssertEqual(
+            status.alert?.detail,
+            """
+            HMS_1800_9700_0003_0001
+            AMS-HT A chamber temperature is too high; auxiliary feeding or RFID reading is currently not allowed.
+            """
+        )
+        XCTAssertEqual(
+            status.alert?.wikiURL?.absoluteString,
+            "https://wiki.bambulab.com/en/h2d/troubleshooting/hmscode/0700_9700_0003_0001"
+        )
+    }
+
     func testParsesActiveAMSSlotFromTrayNow() throws {
         let json = """
         {

@@ -71,6 +71,7 @@ struct PrinterFanStatus: Equatable {
 struct PrinterAlert: Equatable {
     var title: String
     var detail: String?
+    var wikiURL: URL?
 }
 
 struct AMSUnitStatus: Equatable, Identifiable {

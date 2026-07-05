@@ -490,17 +490,28 @@ private struct AlertBannerView: View {
     let alert: PrinterAlert
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-            Text(alert.title)
-                .font(.caption.weight(.semibold))
-            if let detail = alert.detail {
-                Text(detail)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(alert.title)
+                    .font(.caption.weight(.semibold))
+
+                if let detail = alert.detail {
+                    Text(detail)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let wikiURL = alert.wikiURL {
+                    Link(wikiURL.absoluteString, destination: wikiURL)
+                        .font(.caption2)
+                        .lineLimit(1)
+                }
             }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
