@@ -56,6 +56,12 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
 
+    func testParsesCancelledActivity() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"CANCELLED"}}"#.utf8))
+
+        XCTAssertEqual(status.activity, .cancelled)
+    }
+
     func testParsesFanStatus() throws {
         let json = """
         {
@@ -466,16 +472,36 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertTrue(gate.observe(activity: .printing))
     }
 
-    func testPrintNotificationGateResetRequiresNewBaseline() {
+    func testPrintNotificationGateSupportsCancelledActivity() {
+        var gate = PrintNotificationGate()
+
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertTrue(gate.observe(activity: .cancelled))
+        XCTAssertFalse(gate.observe(activity: .cancelled))
+    }
+
+    func testPrintNotificationGateIgnoresNonEffectiveStatuses() {
         var gate = PrintNotificationGate()
 
         XCTAssertFalse(gate.observe(activity: .idle))
-        XCTAssertTrue(gate.observe(activity: .printing))
+        XCTAssertFalse(gate.observe(activity: .unknown))
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertFalse(gate.observe(activity: .idle))
+        XCTAssertFalse(gate.observe(activity: .unknown))
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertTrue(gate.observe(activity: .paused))
+    }
+
+    func testPrintNotificationGateResetRequiresNewBaseline() {
+        var gate = PrintNotificationGate()
+
+        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertTrue(gate.observe(activity: .paused))
 
         gate.reset()
 
-        XCTAssertFalse(gate.observe(activity: .printing))
-        XCTAssertFalse(gate.observe(activity: .printing))
+        XCTAssertFalse(gate.observe(activity: .paused))
+        XCTAssertFalse(gate.observe(activity: .paused))
     }
 
     func testPrintNotificationGateDoesNotRepeatSameNotificationAfterNonNotifiableStatus() {

@@ -165,35 +165,30 @@ final class AppState: NSObject, ObservableObject {
 }
 
 struct PrintNotificationGate {
-    private var lastActivity: PrinterActivity?
-    private var lastNotifiedActivity: PrinterActivity?
+    private var lastEffectiveActivity: PrinterActivity?
 
     mutating func observe(activity: PrinterActivity) -> Bool {
+        guard activity.isEffectivePrintEvent else {
+            return false
+        }
         defer {
-            lastActivity = activity
+            lastEffectiveActivity = activity
         }
-        guard let lastActivity else {
+        guard let lastEffectiveActivity else {
             return false
         }
-        guard lastActivity != activity,
-              activity.isNotifiable,
-              lastNotifiedActivity != activity else {
-            return false
-        }
-        lastNotifiedActivity = activity
-        return true
+        return lastEffectiveActivity != activity
     }
 
     mutating func reset() {
-        lastActivity = nil
-        lastNotifiedActivity = nil
+        lastEffectiveActivity = nil
     }
 }
 
 private extension PrinterActivity {
-    var isNotifiable: Bool {
+    var isEffectivePrintEvent: Bool {
         switch self {
-        case .printing, .paused, .finished, .failed:
+        case .printing, .cancelled, .paused, .finished, .failed:
             return true
         case .idle, .unknown:
             return false
@@ -354,6 +349,9 @@ private struct PrintStatusNotification {
         case .printing:
             title = L10n.format("%@ started printing", printerName)
             body = job ?? L10n.string("A print job has started.")
+        case .cancelled:
+            title = L10n.format("%@ print cancelled", printerName)
+            body = job ?? L10n.string("The current print was cancelled.")
         case .paused:
             title = L10n.format("%@ paused", printerName)
             body = job ?? L10n.string("The current print is paused.")

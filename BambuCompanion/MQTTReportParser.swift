@@ -52,6 +52,8 @@ enum MQTTReportParser {
             return .idle
         case "RUNNING", "PRINTING":
             return .printing
+        case "CANCEL", "CANCELLED", "CANCELED", "ABORT", "ABORTED":
+            return .cancelled
         case "PAUSE", "PAUSED":
             return .paused
         case "FINISH", "FINISHED", "COMPLETED":

@@ -3,6 +3,7 @@ import Foundation
 enum PrinterActivity: String, Equatable {
     case idle
     case printing
+    case cancelled
     case paused
     case finished
     case failed
@@ -12,6 +13,7 @@ enum PrinterActivity: String, Equatable {
         switch self {
         case .idle: return L10n.string("Idle")
         case .printing: return L10n.string("Printing")
+        case .cancelled: return L10n.string("Cancelled")
         case .paused: return L10n.string("Paused")
         case .finished: return L10n.string("Finished")
         case .failed: return L10n.string("Failed")

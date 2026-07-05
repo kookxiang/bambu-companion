@@ -50,6 +50,7 @@
 "Open Floating Video" = "Open Floating Video";
 "Part" = "Part";
 "Open Settings" = "Open Settings";
+"Cancelled" = "Cancelled";
 "Paused" = "Paused";
 "Print failed" = "Print failed";
 "Printer" = "Printer";
@@ -76,9 +77,11 @@
 "The current print completed successfully." = "The current print completed successfully.";
 "The current print failed." = "The current print failed.";
 "The current print is paused." = "The current print is paused.";
+"The current print was cancelled." = "The current print was cancelled.";
 "Unknown" = "Unknown";
 "Video preview is unavailable." = "Video preview is unavailable.";
 "%@ paused" = "%@ paused";
+"%@ print cancelled" = "%@ print cancelled";
 "%@ print failed" = "%@ print failed";
 "%@ print finished" = "%@ print finished";
 "%@ started printing" = "%@ started printing";

@@ -50,6 +50,7 @@
 "Open Floating Video" = "打开画中画视频";
 "Part" = "模型";
 "Open Settings" = "打开设置";
+"Cancelled" = "已取消";
 "Paused" = "已暂停";
 "Print failed" = "打印失败";
 "Printer" = "打印机";
@@ -76,9 +77,11 @@
 "The current print completed successfully." = "当前打印已成功完成。";
 "The current print failed." = "当前打印失败。";
 "The current print is paused." = "当前打印已暂停。";
+"The current print was cancelled." = "当前打印已取消。";
 "Unknown" = "未知";
 "Video preview is unavailable." = "视频预览不可用。";
 "%@ paused" = "%@ 已暂停";
+"%@ print cancelled" = "%@ 打印已取消";
 "%@ print failed" = "%@ 打印失败";
 "%@ print finished" = "%@ 打印完成";
 "%@ started printing" = "%@ 开始打印";
