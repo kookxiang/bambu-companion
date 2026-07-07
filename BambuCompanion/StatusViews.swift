@@ -436,16 +436,11 @@ private struct AMSSlotView: View {
     private var helpText: String {
         var lines: [String] = [L10n.format("Slot %d", slot.index + 1)]
         lines.append(L10n.format("Material: %@", slot.material ?? L10n.string("Empty")))
-        append(L10n.string("Name"), slot.name, to: &lines)
         append(L10n.string("Brand"), slot.subBrands, to: &lines)
+        append(L10n.string("Name"), slot.name, to: &lines)
         append(L10n.string("Color"), slot.colorHex.map { "#\($0)" }, to: &lines)
         if let remainingPercent = slot.remainingPercent {
             lines.append(L10n.format("Remaining: %d%%", remainingPercent))
-        }
-        append(L10n.string("Spool ID"), slot.trayInfoIndex, to: &lines)
-        append(L10n.string("Tag UID"), slot.tagUID, to: &lines)
-        if let diameter = slot.diameter {
-            lines.append(L10n.format("Diameter: %@ mm", diameter.formatted(.number.precision(.fractionLength(2)))))
         }
         if let remainingWeight = slot.remainingWeight {
             lines.append(L10n.format("Estimated remaining weight: %@ g", remainingWeight.formatted(.number.precision(.fractionLength(0)))))

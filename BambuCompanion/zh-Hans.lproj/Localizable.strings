@@ -18,7 +18,6 @@
 "Connecting video..." = "正在连接视频...";
 "Connecting..." = "正在连接...";
 "Current: %@" = "当前：%@";
-"Diameter: %@ mm" = "直径：%@ mm";
 "Disconnected" = "已断开";
 "Drying filament: %@" = "烘干耗材：%@";
 "Drying temperature: %@" = "烘干温度：%@";
@@ -75,8 +74,6 @@
 "Settings" = "设置";
 "Showing in Picture in Picture" = "已在画中画模式显示";
 "Slot %d" = "槽位 %d";
-"Spool ID" = "料盘 ID";
-"Tag UID" = "标签 UID";
 "Target: %@" = "目标：%@";
 "Temperature: %@" = "温度：%@";
 "Test Connection" = "测试连接";
