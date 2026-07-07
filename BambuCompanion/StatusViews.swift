@@ -437,7 +437,6 @@ private struct AMSSlotView: View {
         var lines: [String] = [L10n.format("Slot %d", slot.index + 1)]
         lines.append(L10n.format("Material: %@", slot.material ?? L10n.string("Empty")))
         append(L10n.string("Brand"), slot.subBrands, to: &lines)
-        append(L10n.string("Name"), slot.name, to: &lines)
         append(L10n.string("Color"), slot.colorHex.map { "#\($0)" }, to: &lines)
         if let remainingPercent = slot.remainingPercent {
             lines.append(L10n.format("Remaining: %d%%", remainingPercent))
