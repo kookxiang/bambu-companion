@@ -48,7 +48,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		1A0000010000000000000010 /* BambuCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BambuCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A0000010000000000000010 /* Bambu Companion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bambu Companion.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000010000000000000011 /* BambuCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BambuCompanionApp.swift; sourceTree = "<group>"; };
 		1A0000010000000000000012 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		1A0000010000000000000013 /* BambuMQTTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BambuMQTTClient.swift; sourceTree = "<group>"; };
@@ -139,7 +139,7 @@
 		1A0000010000000000000043 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1A0000010000000000000010 /* BambuCompanion.app */,
+				1A0000010000000000000010 /* Bambu Companion.app */,
 				1A000001000000000000001D /* BambuCompanionTests.xctest */,
 			);
 			name = Products;
@@ -162,7 +162,7 @@
 			);
 			name = BambuCompanion;
 			productName = BambuCompanion;
-			productReference = 1A0000010000000000000010 /* BambuCompanion.app */;
+			productReference = 1A0000010000000000000010 /* Bambu Companion.app */;
 			productType = "com.apple.product-type.application";
 		};
 		1A0000010000000000000022 /* BambuCompanionTests */ = {
@@ -437,7 +437,7 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.bambuCompanion;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Bambu Companion";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -461,7 +461,7 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.bambuCompanion;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Bambu Companion";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
