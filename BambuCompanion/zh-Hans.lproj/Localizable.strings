@@ -17,6 +17,7 @@
 "Connecting" = "连接中";
 "Connecting video..." = "正在连接视频...";
 "Connecting..." = "正在连接...";
+"Current: %@" = "当前：%@";
 "Diameter: %@ mm" = "直径：%@ mm";
 "Disconnected" = "已断开";
 "Drying filament: %@" = "烘干耗材：%@";
@@ -39,6 +40,8 @@
 "Layer %d" = "第 %d 层";
 "Layer %d/%d" = "第 %d/%d 层";
 "Laser" = "激光";
+"Left target: %@" = "左喷嘴目标：%@";
+"Left: %@" = "左喷嘴：%@";
 "Loading cover image" = "正在加载封面图";
 "Material: %@" = "材料：%@";
 "Mode" = "模式";
@@ -63,6 +66,8 @@
 "Reconnect Video" = "重新连接视频";
 "Remaining" = "剩余";
 "Remaining: %d%%" = "剩余：%d%%";
+"Right target: %@" = "右喷嘴目标：%@";
+"Right: %@" = "右喷嘴：%@";
 "Save" = "保存";
 "Saved. Reconnecting..." = "已保存，正在重新连接...";
 "Serial number" = "序列号";
@@ -72,6 +77,7 @@
 "Slot %d" = "槽位 %d";
 "Spool ID" = "料盘 ID";
 "Tag UID" = "标签 UID";
+"Target: %@" = "目标：%@";
 "Temperature: %@" = "温度：%@";
 "Test Connection" = "测试连接";
 "The access code is stored in Keychain. The app connects to MQTT over TLS on port 8883 and subscribes to device/{serial}/report." = "访问码会存储在钥匙串中。应用会通过 8883 端口使用 TLS 连接 MQTT，并订阅 device/{serial}/report。";

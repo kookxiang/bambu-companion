@@ -17,6 +17,7 @@
 "Connecting" = "Connecting";
 "Connecting video..." = "Connecting video...";
 "Connecting..." = "Connecting...";
+"Current: %@" = "Current: %@";
 "Diameter: %@ mm" = "Diameter: %@ mm";
 "Disconnected" = "Disconnected";
 "Drying filament: %@" = "Drying filament: %@";
@@ -39,6 +40,8 @@
 "Layer %d" = "Layer %d";
 "Layer %d/%d" = "Layer %d/%d";
 "Laser" = "Laser";
+"Left target: %@" = "Left target: %@";
+"Left: %@" = "Left: %@";
 "Loading cover image" = "Loading cover image";
 "Material: %@" = "Material: %@";
 "Mode" = "Mode";
@@ -63,6 +66,8 @@
 "Reconnect Video" = "Reconnect Video";
 "Remaining" = "Remaining";
 "Remaining: %d%%" = "Remaining: %d%%";
+"Right target: %@" = "Right target: %@";
+"Right: %@" = "Right: %@";
 "Save" = "Save";
 "Saved. Reconnecting..." = "Saved. Reconnecting...";
 "Serial number" = "Serial number";
@@ -72,6 +77,7 @@
 "Slot %d" = "Slot %d";
 "Spool ID" = "Spool ID";
 "Tag UID" = "Tag UID";
+"Target: %@" = "Target: %@";
 "Temperature: %@" = "Temperature: %@";
 "Test Connection" = "Test Connection";
 "The access code is stored in Keychain. The app connects to MQTT over TLS on port 8883 and subscribes to device/{serial}/report." = "The access code is stored in Keychain. The app connects to MQTT over TLS on port 8883 and subscribes to device/{serial}/report.";

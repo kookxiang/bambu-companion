@@ -139,11 +139,13 @@ struct StatusSummaryView: View {
     private var nozzleMetric: some View {
         if status.leftNozzleTemperature != nil || status.rightNozzleTemperature != nil {
             DualNozzleMetricView(
-                leftTemperature: temperature(status.leftNozzleTemperature, target: status.targetLeftNozzleTemperature),
-                rightTemperature: temperature(status.rightNozzleTemperature, target: status.targetRightNozzleTemperature)
+                leftTemperature: nozzleTemperature(status.leftNozzleTemperature, target: status.targetLeftNozzleTemperature),
+                rightTemperature: nozzleTemperature(status.rightNozzleTemperature, target: status.targetRightNozzleTemperature)
             )
         } else {
-            MetricView(title: "Nozzle", value: temperature(status.nozzleTemperature, target: status.targetNozzleTemperature))
+            let nozzleTemperature = nozzleTemperature(status.nozzleTemperature, target: status.targetNozzleTemperature)
+            MetricView(title: "Nozzle", value: nozzleTemperature.currentText, valueColor: nozzleTemperature.color)
+                .help(nozzleTemperature.helpText)
         }
     }
 
@@ -165,6 +167,43 @@ struct StatusSummaryView: View {
             return temperature(value)
         }
         return "\(TemperatureText.string(value)) / \(TemperatureText.string(target))"
+    }
+
+    private func nozzleTemperature(_ value: Double?, target: Double?) -> NozzleTemperatureMetric {
+        NozzleTemperatureMetric(current: value, target: target)
+    }
+}
+
+private struct NozzleTemperatureMetric {
+    let current: Double?
+    let target: Double?
+
+    var currentText: String {
+        guard let current else {
+            return "--"
+        }
+        return TemperatureText.string(current)
+    }
+
+    var helpText: String {
+        var lines = [L10n.format("Current: %@", currentText)]
+        if let target, target > 0 {
+            lines.append(L10n.format("Target: %@", TemperatureText.string(target)))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    var color: Color {
+        guard let current, let target, target > 0 else {
+            return .primary
+        }
+        if current < target - 1 {
+            return .orange
+        }
+        if current > target + 1 {
+            return .cyan
+        }
+        return .primary
     }
 }
 
@@ -626,6 +665,7 @@ private struct CoverImageView: View {
 private struct MetricView: View {
     let title: LocalizedStringKey
     let value: String
+    var valueColor: Color = .primary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -634,6 +674,7 @@ private struct MetricView: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.callout.monospacedDigit())
+                .foregroundStyle(valueColor)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
@@ -798,8 +839,8 @@ private struct FanMetricView: View {
 }
 
 private struct DualNozzleMetricView: View {
-    let leftTemperature: String
-    let rightTemperature: String
+    let leftTemperature: NozzleTemperatureMetric
+    let rightTemperature: NozzleTemperatureMetric
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -808,9 +849,11 @@ private struct DualNozzleMetricView: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {
-                Text(leftTemperature)
+                Text(leftTemperature.currentText)
+                    .foregroundStyle(leftTemperature.color)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                Text(rightTemperature)
+                Text(rightTemperature.currentText)
+                    .foregroundStyle(rightTemperature.color)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .font(.callout.monospacedDigit())
@@ -820,6 +863,25 @@ private struct DualNozzleMetricView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .help(helpText)
+    }
+
+    private var helpText: String {
+        [
+            L10n.format("Left: %@", leftTemperature.currentText),
+            targetLine("Left target: %@", leftTemperature.target),
+            L10n.format("Right: %@", rightTemperature.currentText),
+            targetLine("Right target: %@", rightTemperature.target)
+        ]
+        .compactMap(\.self)
+        .joined(separator: "\n")
+    }
+
+    private func targetLine(_ key: String, _ target: Double?) -> String? {
+        guard let target, target > 0 else {
+            return nil
+        }
+        return L10n.format(key, TemperatureText.string(target))
     }
 }
 
