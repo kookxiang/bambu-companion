@@ -307,7 +307,7 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
     }
 
-    func testIgnoresGenericAMSMaterialAsBrand() throws {
+    func testParsesAMSSeriesEvenWhenItMatchesMaterial() throws {
         let json = """
         {
           "print": {
@@ -333,10 +333,10 @@ final class MQTTReportParserTests: XCTestCase {
         let status = try MQTTReportParser.parse(Data(json.utf8))
 
         XCTAssertEqual(status.amsUnits.first?.slots.first?.material, "ABS")
-        XCTAssertNil(status.amsUnits.first?.slots.first?.subBrands)
+        XCTAssertEqual(status.amsUnits.first?.slots.first?.subBrands, "ABS")
     }
 
-    func testKeepsBambuAMSBrand() throws {
+    func testParsesBambuAMSSeries() throws {
         let json = """
         {
           "print": {
