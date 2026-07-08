@@ -14,10 +14,14 @@ final class AppState: NSObject, ObservableObject {
     private let coverImageService = CoverImageService()
     private let notificationService = PrintNotificationService()
     private var mqttClient: BambuMQTTClient?
+    private var reconnectTask: Task<Void, Never>?
+    private var reconnectAttempt = 0
     private var coverImageTask: Task<Void, Never>?
     private var currentCoverJobKey: String?
     private var currentCoverAttemptKey: String?
     private var notificationGate = PrintNotificationGate()
+
+    private static let reconnectDelays: [UInt64] = [3, 10, 30, 60]
 
     var menuBarSymbolName: String {
         switch connectionState {
@@ -60,6 +64,15 @@ final class AppState: NSObject, ObservableObject {
     }
 
     func reconnectIfConfigured() {
+        reconnectIfConfigured(resetBackoff: true)
+    }
+
+    private func reconnectIfConfigured(resetBackoff: Bool) {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        if resetBackoff {
+            reconnectAttempt = 0
+        }
         mqttClient?.disconnect()
         mqttClient = nil
         coverImageTask?.cancel()
@@ -84,12 +97,38 @@ final class AppState: NSObject, ObservableObject {
     }
 
     func disconnect() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        reconnectAttempt = 0
         mqttClient?.disconnect()
         mqttClient = nil
         coverImageTask?.cancel()
         coverImageTask = nil
         notificationGate.reset()
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
+    }
+
+    private func scheduleReconnect(for client: BambuMQTTClient) {
+        guard mqttClient === client,
+              configuration.isComplete,
+              connectionState != .authenticationFailed,
+              reconnectTask == nil else {
+            return
+        }
+
+        let delay = Self.reconnectDelays[min(reconnectAttempt, Self.reconnectDelays.count - 1)]
+        reconnectAttempt += 1
+        reconnectTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: delay * 1_000_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else {
+                return
+            }
+            self?.reconnectIfConfigured(resetBackoff: false)
+        }
     }
 
     private func apply(status newStatus: PrinterStatus) {
@@ -309,12 +348,21 @@ enum VideoStreamURLBuilder {
 extension AppState: BambuMQTTClientDelegate {
     nonisolated func mqttClientDidConnect(_ client: BambuMQTTClient) {
         Task { @MainActor in
+            guard self.mqttClient === client else {
+                return
+            }
+            self.reconnectTask?.cancel()
+            self.reconnectTask = nil
+            self.reconnectAttempt = 0
             self.connectionState = .connected
         }
     }
 
     nonisolated func mqttClient(_ client: BambuMQTTClient, didReceiveReport data: Data) {
         Task { @MainActor in
+            guard self.mqttClient === client else {
+                return
+            }
             do {
                 let status = try MQTTReportParser.parse(data)
                 self.apply(status: status)
@@ -326,17 +374,27 @@ extension AppState: BambuMQTTClientDelegate {
 
     nonisolated func mqttClient(_ client: BambuMQTTClient, didFail error: Error) {
         Task { @MainActor in
+            guard self.mqttClient === client else {
+                return
+            }
             if error.localizedDescription.localizedCaseInsensitiveContains("authentication") {
+                self.reconnectTask?.cancel()
+                self.reconnectTask = nil
                 self.connectionState = .authenticationFailed
             } else {
                 self.connectionState = .failed(error.localizedDescription)
+                self.scheduleReconnect(for: client)
             }
         }
     }
 
     nonisolated func mqttClientDidDisconnect(_ client: BambuMQTTClient) {
         Task { @MainActor in
+            guard self.mqttClient === client else {
+                return
+            }
             self.connectionState = self.configuration.isComplete ? .disconnected : .notConfigured
+            self.scheduleReconnect(for: client)
         }
     }
 }
