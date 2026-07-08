@@ -267,6 +267,7 @@ enum MQTTReportParser {
                     let material = normalizedMaterial(stringValue(tray["tray_type"]))
                     let colorHex = normalizedColorHex(stringValue(tray["tray_color"]))
                     let remainingPercent = normalizedPercent(intValue(tray["remain"]))
+                    let subBrands = normalizedSubBrands(stringValue(tray["tray_sub_brands"]), material: material)
                     let slot = AMSSlotStatus(
                         id: "\(rawID)-\(slotIndex)",
                         index: slotIndex,
@@ -274,7 +275,7 @@ enum MQTTReportParser {
                         colorHex: colorHex,
                         remainingPercent: remainingPercent,
                         name: normalizedMaterial(stringValue(tray["tray_id_name"])),
-                        subBrands: normalizedMaterial(stringValue(tray["tray_sub_brands"])),
+                        subBrands: subBrands,
                         tagUID: normalizedMaterial(stringValue(tray["tag_uid"])),
                         trayInfoIndex: normalizedMaterial(stringValue(tray["tray_info_idx"])),
                         diameter: normalizedPositive(doubleValue(tray["tray_diameter"])),
@@ -373,6 +374,20 @@ enum MQTTReportParser {
     private static func normalizedMaterial(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !value.isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    private static func normalizedSubBrands(_ value: String?, material: String?) -> String? {
+        guard let value = normalizedMaterial(value) else {
+            return nil
+        }
+        if let material,
+           value.localizedCaseInsensitiveCompare(material) == .orderedSame {
+            return nil
+        }
+        guard value.localizedCaseInsensitiveContains("bambu") else {
             return nil
         }
         return value

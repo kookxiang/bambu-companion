@@ -307,6 +307,63 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.amsUnits[1].slots[0].colorHex, "FF0000")
     }
 
+    func testIgnoresGenericAMSMaterialAsBrand() throws {
+        let json = """
+        {
+          "print": {
+            "ams": {
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {
+                      "id": "3",
+                      "tray_type": "ABS",
+                      "tray_sub_brands": "ABS",
+                      "tray_color": "000000FF"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.amsUnits.first?.slots.first?.material, "ABS")
+        XCTAssertNil(status.amsUnits.first?.slots.first?.subBrands)
+    }
+
+    func testKeepsBambuAMSBrand() throws {
+        let json = """
+        {
+          "print": {
+            "ams": {
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {
+                      "id": "0",
+                      "tray_type": "PETG",
+                      "tray_sub_brands": "Bambu Lab",
+                      "tray_color": "FFFFFFFF"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.amsUnits.first?.slots.first?.subBrands, "Bambu Lab")
+    }
+
     func testParsesAMSHTDisplayName() throws {
         let json = """
         {
