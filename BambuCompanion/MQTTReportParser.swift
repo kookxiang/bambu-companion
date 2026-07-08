@@ -36,6 +36,9 @@ enum MQTTReportParser {
         status.targetChamberTemperature = chamberTemperatures.target
         status.cameraStreamURL = cameraStreamURL(from: print)
         status.alert = alert(from: print)
+        if containsAlertUpdate(print) {
+            status.alertUpdate = .set(status.alert)
+        }
         status.airductMode = airductMode(from: print)
         status.fans = fanStatus(from: print)
         status.amsUnits = amsUnits(from: print)
@@ -187,6 +190,10 @@ enum MQTTReportParser {
             return hms.compactMap(hmsAlert(from:)).first
         }
         return nil
+    }
+
+    private static func containsAlertUpdate(_ print: [String: Any]) -> Bool {
+        print.keys.contains("print_error") || print.keys.contains("hms")
     }
 
     private static func printErrorAlert(from printError: Int) -> PrinterAlert {

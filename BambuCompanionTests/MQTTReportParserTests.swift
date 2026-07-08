@@ -78,6 +78,33 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(merged.progress, 13)
     }
 
+    func testIncrementalUpdatePreservesAlertWhenAlertFieldsAreMissing() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"hms":[{"attr":402691840,"code":196609}]}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"mc_percent":13}}"#.utf8))
+
+        let merged = base.mergingIncrementalUpdate(update)
+
+        XCTAssertEqual(merged.alert, base.alert)
+    }
+
+    func testIncrementalUpdateClearsAlertWhenHMSListIsEmpty() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"hms":[{"attr":402691840,"code":196609}]}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"hms":[]}}"#.utf8))
+
+        let merged = base.mergingIncrementalUpdate(update)
+
+        XCTAssertNil(merged.alert)
+    }
+
+    func testIncrementalUpdateClearsAlertWhenPrintErrorResets() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"print_error":117473286}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"print_error":0}}"#.utf8))
+
+        let merged = base.mergingIncrementalUpdate(update)
+
+        XCTAssertNil(merged.alert)
+    }
+
     func testParsesCancelledActivity() throws {
         let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"CANCELLED"}}"#.utf8))
 

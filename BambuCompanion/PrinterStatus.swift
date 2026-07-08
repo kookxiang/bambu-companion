@@ -50,6 +50,7 @@ struct PrinterStatus: Equatable {
     var fans = PrinterFanStatus()
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
+    var alertUpdate: PrinterAlertUpdate = .unchanged
 
     static let empty = PrinterStatus()
 
@@ -79,7 +80,12 @@ struct PrinterStatus: Equatable {
         merged.chamberTemperature = update.chamberTemperature ?? chamberTemperature
         merged.targetChamberTemperature = update.targetChamberTemperature ?? targetChamberTemperature
         merged.cameraStreamURL = update.cameraStreamURL ?? cameraStreamURL
-        merged.alert = update.alert ?? alert
+        switch update.alertUpdate {
+        case .unchanged:
+            break
+        case .set(let alert):
+            merged.alert = alert
+        }
         merged.airductMode = update.airductMode ?? airductMode
         if update.fans.hasAnyValue {
             merged.fans = update.fans
@@ -116,6 +122,11 @@ struct PrinterAlert: Equatable {
 enum PrinterAlertSource: Equatable {
     case printer
     case hms
+}
+
+enum PrinterAlertUpdate: Equatable {
+    case unchanged
+    case set(PrinterAlert?)
 }
 
 struct AMSUnitStatus: Equatable, Identifiable {
