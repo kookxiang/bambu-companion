@@ -1,4 +1,6 @@
 import AVFoundation
+import AVKit
+import Combine
 import CryptoKit
 import Network
 import OSLog
@@ -23,13 +25,12 @@ private struct NativeVideoStreamSurface: View {
     @StateObject private var floatingVideoWindowController = FloatingVideoWindowController.shared
     @StateObject private var streamState = VideoStreamState()
     @State private var isHoveringFloatingWindow = false
-    @Environment(\.dismiss) private var dismiss
     private let staleFrameCheckTimer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
     private var cornerRadius: CGFloat {
         showFloatingButton ? 8 : FloatingVideoWindowController.cornerRadius
     }
     private var effectiveURL: URL? {
-        showFloatingButton && floatingVideoWindowController.isShowing ? nil : url
+        url
     }
     private var controlButtonSize: CGFloat {
         showFloatingButton ? 28 : 34
@@ -169,16 +170,13 @@ private struct NativeVideoStreamSurface: View {
 
     private var openFloatingButton: some View {
         floatingControlButton(
-            systemName: "rectangle.on.rectangle",
+            systemName: "pip.enter",
             accessibilityLabel: L10n.string("Open Floating Video")
         ) {
             guard url != nil else {
                 return
             }
-            let presentingWindow = NSApp.keyWindow
             FloatingVideoWindowController.shared.toggle(url: url)
-            dismiss()
-            presentingWindow?.close()
         }
     }
 
@@ -266,227 +264,54 @@ private final class VideoStreamState: ObservableObject {
     }
 }
 
-private struct FloatingVideoStreamView: View {
-    let url: URL?
-
-    var body: some View {
-        NativeVideoStreamSurface(
-            url: url,
-            showFloatingButton: false
-        )
-            .ignoresSafeArea()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .frame(minWidth: 360, minHeight: 200)
-            .onAppear {
-                if url == nil {
-                    FloatingVideoWindowController.shared.dismiss()
-                }
-            }
-    }
-}
-
-@MainActor
 private final class FloatingVideoWindowController: ObservableObject {
     static let shared = FloatingVideoWindowController()
-    static let cornerRadius: CGFloat = 28
+    static let cornerRadius: CGFloat = 8
 
     @Published private(set) var isShowing = false
     @Published private(set) var videoReconnectGeneration = 0
 
-    private var panel: NSPanel?
-    private var delegate: FloatingVideoWindowDelegate?
-    private let defaultSize = NSSize(width: 640, height: 360)
-    private let defaultScreenMargin: CGFloat = 28
+    private weak var activeCoordinator: NativeVideoLayerView.Coordinator?
 
-    @MainActor func toggle(url: URL?) {
-        guard let url else {
+    func toggle(url: URL?) {
+        guard url != nil else {
             dismiss()
             return
         }
-        if let panel, panel.isVisible {
-            panel.close()
+        guard let activeCoordinator else {
+            return
+        }
+        if isShowing {
+            activeCoordinator.stopPictureInPicture()
             isShowing = false
             return
         }
-        show(url: url)
+        activeCoordinator.startPictureInPicture()
     }
 
-    @MainActor func show(url: URL) {
-        if let panel {
-            if let host = panel.contentViewController as? NSHostingController<FloatingVideoStreamView> {
-                host.rootView = FloatingVideoStreamView(url: url)
-            } else {
-                let controller = NSHostingController(
-                    rootView: FloatingVideoStreamView(url: url)
-                )
-                controller.view.autoresizingMask = [.width, .height]
-                panel.contentViewController = controller
-            }
-            panel.contentViewController?.view.frame = panel.contentView?.bounds ?? .zero
-            panel.makeKeyAndOrderFront(nil)
-            panel.deminiaturize(nil)
-            isShowing = true
-            return
-        }
-
-        let panel = makePanel()
-        let controller = NSHostingController(
-            rootView: FloatingVideoStreamView(url: url)
-        )
-        controller.view.autoresizingMask = [.width, .height]
-        panel.contentViewController = controller
-        panel.setFrame(defaultPanelFrame(), display: false)
-        panel.makeKeyAndOrderFront(nil)
-        self.panel = panel
-        isShowing = true
-    }
-
-    @MainActor func dismiss() {
+    func dismiss() {
+        activeCoordinator?.stopPictureInPicture()
         isShowing = false
-        panel?.close()
     }
 
-    @MainActor func reconnectVideo() {
+    func reconnectVideo() {
         videoReconnectGeneration += 1
     }
 
-    private func makePanel() -> NSPanel {
-        let panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: defaultSize),
-            styleMask: [.titled, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isFloatingPanel = true
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.isMovableByWindowBackground = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.title = ""
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
-        panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.cornerRadius = Self.cornerRadius
-        panel.contentView?.layer?.masksToBounds = true
-        panel.contentView?.layer?.cornerCurve = .continuous
-
-        let panelDelegate = FloatingVideoWindowDelegate { [weak self] in
-            self?.panel = nil
-            self?.delegate = nil
-            self?.isShowing = false
-        }
-        panel.delegate = panelDelegate
-        delegate = panelDelegate
-        panel.contentView?.autoresizesSubviews = true
-        return panel
+    func register(_ coordinator: NativeVideoLayerView.Coordinator) {
+        activeCoordinator = coordinator
     }
 
-    private func defaultPanelFrame() -> NSRect {
-        let visibleFrame = defaultScreen().visibleFrame
-        let x = max(
-            visibleFrame.minX + defaultScreenMargin,
-            visibleFrame.maxX - defaultSize.width - defaultScreenMargin
-        )
-        let y = visibleFrame.minY + defaultScreenMargin
-        return NSRect(origin: NSPoint(x: x, y: y), size: defaultSize)
-    }
-
-    private func defaultScreen() -> NSScreen {
-        let mouseLocation = NSEvent.mouseLocation
-        return NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
-    }
-}
-
-private final class FloatingVideoWindowDelegate: NSObject, NSWindowDelegate {
-    private let snapMargin: CGFloat = 28
-    private let snapThreshold: CGFloat = 32
-    private let snapDelay: TimeInterval = 0.2
-    private let onClose: () -> Void
-    private var pendingSnapWorkItem: DispatchWorkItem?
-    private var isSnapping = false
-
-    init(onClose: @escaping () -> Void) {
-        self.onClose = onClose
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        pendingSnapWorkItem?.cancel()
-        onClose()
-    }
-
-    func windowDidMove(_ notification: Notification) {
-        guard !isSnapping,
-              let window = notification.object as? NSWindow else {
+    func unregister(_ coordinator: NativeVideoLayerView.Coordinator) {
+        guard activeCoordinator === coordinator else {
             return
         }
-        pendingSnapWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self, weak window] in
-            guard let self,
-                  let window else {
-                return
-            }
-            self.snapWindowIfNeeded(window)
-        }
-        pendingSnapWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + snapDelay, execute: workItem)
+        activeCoordinator = nil
+        isShowing = false
     }
 
-    private func snapWindowIfNeeded(_ window: NSWindow) {
-        guard let snappedFrame = snappedFrame(for: window) else {
-            return
-        }
-        isSnapping = true
-        window.setFrame(snappedFrame, display: true, animate: true)
-        isSnapping = false
-    }
-
-    private func snappedFrame(for window: NSWindow) -> NSRect? {
-        let frame = window.frame
-        let visibleFrame = (window.screen ?? screen(containing: frame) ?? NSScreen.main)?.visibleFrame
-        guard let visibleFrame else {
-            return nil
-        }
-
-        let leftX = visibleFrame.minX + snapMargin
-        let rightX = visibleFrame.maxX - frame.width - snapMargin
-        let bottomY = visibleFrame.minY + snapMargin
-        let topY = visibleFrame.maxY - frame.height - snapMargin
-
-        let horizontalSnap: CGFloat?
-        if abs(frame.minX - leftX) <= snapThreshold {
-            horizontalSnap = leftX
-        } else if abs(frame.minX - rightX) <= snapThreshold {
-            horizontalSnap = rightX
-        } else {
-            horizontalSnap = nil
-        }
-
-        let verticalSnap: CGFloat?
-        if abs(frame.minY - bottomY) <= snapThreshold {
-            verticalSnap = bottomY
-        } else if abs(frame.minY - topY) <= snapThreshold {
-            verticalSnap = topY
-        } else {
-            verticalSnap = nil
-        }
-
-        guard let x = horizontalSnap,
-              let y = verticalSnap else {
-            return nil
-        }
-        let snappedFrame = NSRect(origin: NSPoint(x: x, y: y), size: frame.size)
-        return snappedFrame == frame ? nil : snappedFrame
-    }
-
-    private func screen(containing frame: NSRect) -> NSScreen? {
-        let center = NSPoint(x: frame.midX, y: frame.midY)
-        return NSScreen.screens.first { $0.frame.contains(center) }
+    func setShowing(_ isShowing: Bool) {
+        self.isShowing = isShowing
     }
 }
 
@@ -519,23 +344,28 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         coordinator.stop()
     }
 
-    final class Coordinator {
+    final class Coordinator: NSObject, AVPictureInPictureControllerDelegate, AVPictureInPictureSampleBufferPlaybackDelegate {
         private let onError: (String?) -> Void
         private weak var view: VideoLayerHostView?
         private var client: NativeRTSPVideoClient?
+        private var pictureInPictureController: AVPictureInPictureController?
         private var currentURL: URL?
         private var currentReconnectID = 0
         private var desiredURL: URL?
         private var desiredReconnectID = 0
         private var desiredOnFrame: (() -> Void)?
         private var isWindowVisible = true
+        private var pipResizeObserver: NSObjectProtocol?
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
+            super.init()
         }
 
         func attach(to view: VideoLayerHostView) {
             self.view = view
+            configurePictureInPictureIfNeeded(for: view)
+            FloatingVideoWindowController.shared.register(self)
         }
 
         func start(url: URL?, reconnectID: Int, onFrame: @escaping () -> Void) {
@@ -552,6 +382,8 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             isWindowVisible = isVisible
             if isVisible {
                 startDesiredStreamIfNeeded()
+            } else if pictureInPictureController?.isPictureInPictureActive == true {
+                return
             } else {
                 currentURL = nil
                 stopStream()
@@ -595,15 +427,184 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func stop() {
+            stopPictureInPicture()
             desiredURL = nil
             desiredOnFrame = nil
             currentURL = nil
             stopStream()
+            FloatingVideoWindowController.shared.unregister(self)
         }
 
         private func stopStream() {
             client?.stop()
             client = nil
+        }
+
+        private func configurePictureInPictureIfNeeded(for view: VideoLayerHostView) {
+            guard pictureInPictureController == nil,
+                  AVPictureInPictureController.isPictureInPictureSupported() else {
+                return
+            }
+            let source = AVPictureInPictureController.ContentSource(
+                sampleBufferDisplayLayer: view.displayLayer,
+                playbackDelegate: self
+            )
+            let controller = AVPictureInPictureController(contentSource: source)
+            controller.delegate = self
+            pictureInPictureController = controller
+        }
+
+        func startPictureInPicture() {
+            guard let pictureInPictureController else {
+                onError(L10n.string("Picture in Picture is unavailable."))
+                return
+            }
+            guard pictureInPictureController.isPictureInPicturePossible else {
+                onError(L10n.string("Picture in Picture is not ready yet."))
+                return
+            }
+            pictureInPictureController.startPictureInPicture()
+        }
+
+        func stopPictureInPicture() {
+            guard pictureInPictureController?.isPictureInPictureActive == true else {
+                restorePictureInPictureWorkaround()
+                return
+            }
+            pictureInPictureController?.stopPictureInPicture()
+        }
+
+        func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+            FloatingVideoWindowController.shared.setShowing(true)
+            applyPictureInPictureWorkaround()
+        }
+
+        func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+            FloatingVideoWindowController.shared.setShowing(false)
+            restorePictureInPictureWorkaround()
+        }
+
+        func pictureInPictureController(
+            _ pictureInPictureController: AVPictureInPictureController,
+            failedToStartPictureInPictureWithError error: Error
+        ) {
+            FloatingVideoWindowController.shared.setShowing(false)
+            restorePictureInPictureWorkaround()
+            onError(error.localizedDescription)
+        }
+
+        func pictureInPictureController(
+            _ pictureInPictureController: AVPictureInPictureController,
+            setPlaying playing: Bool
+        ) {
+            guard let timebase = view?.displayLayer.controlTimebase else {
+                return
+            }
+            CMTimebaseSetRate(timebase, rate: playing ? 1 : 0)
+        }
+
+        func pictureInPictureControllerTimeRangeForPlayback(
+            _ pictureInPictureController: AVPictureInPictureController
+        ) -> CMTimeRange {
+            CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity)
+        }
+
+        func pictureInPictureControllerIsPlaybackPaused(
+            _ pictureInPictureController: AVPictureInPictureController
+        ) -> Bool {
+            guard let timebase = view?.displayLayer.controlTimebase else {
+                return false
+            }
+            return CMTimebaseGetRate(timebase) == 0
+        }
+
+        func pictureInPictureController(
+            _ pictureInPictureController: AVPictureInPictureController,
+            didTransitionToRenderSize newRenderSize: CMVideoDimensions
+        ) {
+            guard newRenderSize.width > 0, newRenderSize.height > 0 else {
+                return
+            }
+            resizeSourceLayerForPictureInPicture(
+                NSSize(width: Int(newRenderSize.width), height: Int(newRenderSize.height))
+            )
+        }
+
+        func pictureInPictureController(
+            _ pictureInPictureController: AVPictureInPictureController,
+            skipByInterval skipInterval: CMTime,
+            completion: @escaping @Sendable () -> Void
+        ) {
+            completion()
+        }
+
+        private func applyPictureInPictureWorkaround() {
+            syncSourceLayerToPictureInPictureWindow()
+            hideBrokenPictureInPictureOverlay()
+            observePictureInPictureWindowResize()
+        }
+
+        private func restorePictureInPictureWorkaround() {
+            if let pipResizeObserver {
+                NotificationCenter.default.removeObserver(pipResizeObserver)
+                self.pipResizeObserver = nil
+            }
+            view?.isPictureInPictureActive = false
+            view?.needsLayout = true
+        }
+
+        private func observePictureInPictureWindowResize() {
+            guard pipResizeObserver == nil,
+                  let pipContentView = pictureInPictureWindow()?.contentView else {
+                return
+            }
+            pipContentView.postsFrameChangedNotifications = true
+            pipResizeObserver = NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification,
+                object: pipContentView,
+                queue: .main
+            ) { [weak self] _ in
+                self?.syncSourceLayerToPictureInPictureWindow()
+                self?.hideBrokenPictureInPictureOverlay()
+            }
+        }
+
+        private func syncSourceLayerToPictureInPictureWindow() {
+            guard let pipContentView = pictureInPictureWindow()?.contentView else {
+                return
+            }
+            resizeSourceLayerForPictureInPicture(pipContentView.bounds.size)
+        }
+
+        private func resizeSourceLayerForPictureInPicture(_ size: NSSize) {
+            guard size.width > 0, size.height > 0 else {
+                return
+            }
+            view?.resizeDisplayLayerForPictureInPicture(size)
+        }
+
+        private func hideBrokenPictureInPictureOverlay() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                guard let contentView = self.pictureInPictureWindow()?.contentView else {
+                    return
+                }
+                self.walkViews(contentView) { candidate in
+                    if String(describing: type(of: candidate)) == "AVPictureInPictureCALayerHostView" {
+                        candidate.isHidden = true
+                    }
+                }
+            }
+        }
+
+        private func walkViews(_ view: NSView, visit: (NSView) -> Void) {
+            visit(view)
+            view.subviews.forEach { walkViews($0, visit: visit) }
+        }
+
+        private func pictureInPictureWindow() -> NSWindow? {
+            NSApplication.shared.windows.first {
+                String(describing: type(of: $0)).contains("PIPPanel")
+            }
         }
     }
 }
@@ -695,6 +696,7 @@ private final class VideoHostContainerView: NSView {
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
+    var isPictureInPictureActive = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -722,7 +724,14 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
-        displayLayer.frame = bounds
+        if !isPictureInPictureActive {
+            displayLayer.frame = bounds
+        }
+    }
+
+    func resizeDisplayLayerForPictureInPicture(_ size: NSSize) {
+        isPictureInPictureActive = true
+        displayLayer.frame = NSRect(origin: .zero, size: size)
     }
 }
 
