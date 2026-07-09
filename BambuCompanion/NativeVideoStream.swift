@@ -346,6 +346,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var desiredOnFrame: (() -> Void)?
         private var isWindowVisible = true
         private var isPictureInPictureProtected = false
+        private var needsPictureInPictureLayoutRefreshAfterNextFrame = false
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -372,7 +373,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             isWindowVisible = isVisible
             if isVisible {
                 startDesiredStreamIfNeeded()
-            } else if isPictureInPictureProtected || pictureInPictureController?.isPictureInPictureActive == true {
+            } else if isPictureInPictureActiveOrStarting {
                 return
             } else {
                 currentURL = nil
@@ -381,7 +382,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         private func startDesiredStreamIfNeeded() {
-            guard isWindowVisible else {
+            guard shouldKeepVideoStreamRunning else {
                 currentURL = nil
                 stopStream()
                 return
@@ -406,13 +407,22 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             let client = NativeRTSPVideoClient(
                 url: url,
                 displayLayer: view.displayLayer,
-                onFrame: onFrame
+                onFrame: { [weak self] in
+                    onFrame()
+                    self?.refreshPictureInPictureLayoutAfterFrameIfNeeded()
+                },
+                onConnected: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.refreshPictureInPictureLayoutAfterReconnectIfNeeded()
+                    }
+                }
             ) { [weak self] message in
                 DispatchQueue.main.async {
                     self?.onError(message)
                 }
             }
             self.client = client
+            refreshPictureInPictureLayoutAfterReconnectIfNeeded()
             client.start()
         }
 
@@ -428,6 +438,14 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private func stopStream() {
             client?.stop()
             client = nil
+        }
+
+        private var shouldKeepVideoStreamRunning: Bool {
+            isWindowVisible || isPictureInPictureActiveOrStarting
+        }
+
+        private var isPictureInPictureActiveOrStarting: Bool {
+            isPictureInPictureProtected || pictureInPictureController?.isPictureInPictureActive == true
         }
 
         private func configurePictureInPictureIfNeeded(for view: VideoLayerHostView) {
@@ -541,11 +559,44 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             }
         }
 
+        private func refreshPictureInPictureLayoutAfterReconnectIfNeeded() {
+            guard isPictureInPictureActiveOrStarting else {
+                needsPictureInPictureLayoutRefreshAfterNextFrame = false
+                return
+            }
+            needsPictureInPictureLayoutRefreshAfterNextFrame = true
+            moveDisplayLayerToPictureInPictureSource()
+            refreshPictureInPictureLayout()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.refreshPictureInPictureLayout()
+            }
+        }
+
+        private func refreshPictureInPictureLayoutAfterFrameIfNeeded() {
+            guard needsPictureInPictureLayoutRefreshAfterNextFrame else {
+                return
+            }
+            needsPictureInPictureLayoutRefreshAfterNextFrame = false
+            refreshPictureInPictureLayout()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.refreshPictureInPictureLayout()
+            }
+        }
+
+        private func refreshPictureInPictureLayout() {
+            guard isPictureInPictureActiveOrStarting else {
+                return
+            }
+            syncPictureInPictureSourceWindowToPiPWindow()
+            hideBrokenPictureInPictureOverlay()
+        }
+
         private func restorePictureInPictureWorkaround() {
             if let pipResizeObserver {
                 NotificationCenter.default.removeObserver(pipResizeObserver)
                 self.pipResizeObserver = nil
             }
+            needsPictureInPictureLayoutRefreshAfterNextFrame = false
             moveDisplayLayerToPreview()
             pictureInPictureSource?.restore()
             view?.needsLayout = true
@@ -874,16 +925,19 @@ private final class NativeRTSPVideoClient {
     private var isDisplayFrameScheduled = false
     private var isStopped = false
     private let onFrame: () -> Void
+    private let onConnected: () -> Void
 
     init(
         url: URL,
         displayLayer: AVSampleBufferDisplayLayer,
         onFrame: @escaping () -> Void,
+        onConnected: @escaping () -> Void,
         onError: @escaping (String?) -> Void
     ) {
         self.url = url
         self.displayLayer = displayLayer
         self.onFrame = onFrame
+        self.onConnected = onConnected
         self.onError = onError
     }
 
@@ -1432,6 +1486,7 @@ private final class NativeRTSPVideoClient {
     private func markStreamConnected() {
         reconnectDelay = Self.initialReconnectDelay
         logVideoResolutions()
+        onConnected()
         onError(nil)
     }
 
