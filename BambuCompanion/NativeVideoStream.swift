@@ -54,9 +54,7 @@ private struct NativeVideoStreamSurface: View {
                 .clipped()
             }
 
-            if showFloatingButton && floatingVideoWindowController.isShowing {
-                floatingPlaceholder
-            } else if let errorMessage = streamState.errorMessage {
+            if let errorMessage = streamState.errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
             } else if effectiveURL != nil, !streamState.hasVideo {
                 VStack(spacing: 8) {
@@ -114,21 +112,6 @@ private struct NativeVideoStreamSurface: View {
             if shouldReconnect {
                 floatingVideoWindowController.reconnectVideo()
             }
-        }
-    }
-
-    private var floatingPlaceholder: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "pip.enter")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Text("Showing in Picture in Picture")
-                .font(.headline)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            FloatingVideoWindowController.shared.dismiss()
         }
     }
 
