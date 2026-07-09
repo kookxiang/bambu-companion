@@ -309,11 +309,12 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         containerView.onWindowVisibilityChange = { isVisible in
             context.coordinator.setWindowVisible(isVisible)
         }
-        context.coordinator.attach(to: containerView)
+        context.coordinator.attach(to: containerView.videoView)
         return containerView
     }
 
     func updateNSView(_ view: VideoHostContainerView, context: Context) {
+        view.videoView.frame = view.bounds
         context.coordinator.start(url: url, reconnectID: reconnectID, onFrame: onFrame)
         view.layoutSubtreeIfNeeded()
     }
@@ -331,8 +332,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private weak var view: VideoLayerHostView?
         private var client: NativeRTSPVideoClient?
         private var pictureInPictureController: AVPictureInPictureController?
-        private var pipSourceWindow: NSPanel?
-        private var pipSourceView: VideoLayerHostView?
         private var currentURL: URL?
         private var currentReconnectID = 0
         private var desiredURL: URL?
@@ -340,18 +339,15 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var desiredOnFrame: (() -> Void)?
         private var isWindowVisible = true
         private var pipResizeObserver: NSObjectProtocol?
-        private var pendingPictureInPictureStart = false
-        private var pipStartRetryCount = 0
-        private var isPiPStartRetryScheduled = false
-        private let fallbackSourceSize = NSSize(width: 340, height: 191)
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
             super.init()
         }
 
-        func attach(to containerView: VideoHostContainerView) {
-            self.view = containerView.videoView
+        func attach(to view: VideoLayerHostView) {
+            self.view = view
+            configurePictureInPictureIfNeeded(for: view)
             FloatingVideoWindowController.shared.register(self)
         }
 
@@ -395,22 +391,15 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             currentURL = url
             currentReconnectID = desiredReconnectID
             onError(nil)
-            activeDisplayLayers().forEach {
-                $0.sampleBufferRenderer.flush(removingDisplayedImage: true)
-            }
+            view?.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
 
-            guard view != nil else {
+            guard let view else {
                 return
             }
             let client = NativeRTSPVideoClient(
                 url: url,
-                displayLayers: { [weak self] in
-                    self?.activeDisplayLayers() ?? []
-                },
-                onFrame: { [weak self] in
-                    onFrame()
-                    self?.tryStartPendingPictureInPicture()
-                }
+                displayLayer: view.displayLayer,
+                onFrame: onFrame
             ) { [weak self] message in
                 DispatchQueue.main.async {
                     self?.onError(message)
@@ -422,7 +411,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
         func stop() {
             stopPictureInPicture()
-            tearDownPictureInPictureSource()
             desiredURL = nil
             desiredOnFrame = nil
             currentURL = nil
@@ -435,22 +423,13 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             client = nil
         }
 
-        private func activeDisplayLayers() -> [AVSampleBufferDisplayLayer] {
-            [view?.displayLayer, pipSourceView?.displayLayer].compactMap { $0 }
-        }
-
-        private func activeTimebases() -> [CMTimebase] {
-            activeDisplayLayers().compactMap(\.controlTimebase)
-        }
-
-        private func configurePictureInPictureIfNeeded() {
+        private func configurePictureInPictureIfNeeded(for view: VideoLayerHostView) {
             guard pictureInPictureController == nil,
-                  AVPictureInPictureController.isPictureInPictureSupported(),
-                  let pipSourceView = preparePictureInPictureSourceView() else {
+                  AVPictureInPictureController.isPictureInPictureSupported() else {
                 return
             }
             let source = AVPictureInPictureController.ContentSource(
-                sampleBufferDisplayLayer: pipSourceView.displayLayer,
+                sampleBufferDisplayLayer: view.displayLayer,
                 playbackDelegate: self
             )
             let controller = AVPictureInPictureController(contentSource: source)
@@ -459,15 +438,12 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func startPictureInPicture() {
-            configurePictureInPictureIfNeeded()
             guard let pictureInPictureController else {
                 onError(L10n.string("Picture in Picture is unavailable."))
                 return
             }
             guard pictureInPictureController.isPictureInPicturePossible else {
-                pendingPictureInPictureStart = true
-                pipStartRetryCount = 0
-                schedulePictureInPictureStartRetry()
+                onError(L10n.string("Picture in Picture is not ready yet."))
                 return
             }
             pictureInPictureController.startPictureInPicture()
@@ -475,58 +451,20 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
         func stopPictureInPicture() {
             guard pictureInPictureController?.isPictureInPictureActive == true else {
-                restorePictureInPictureWorkaround(syncToInline: true)
+                restorePictureInPictureWorkaround()
                 return
             }
             pictureInPictureController?.stopPictureInPicture()
         }
 
-        private func tryStartPendingPictureInPicture() {
-            guard pendingPictureInPictureStart,
-                  let pictureInPictureController else {
-                return
-            }
-            if pictureInPictureController.isPictureInPictureActive {
-                pendingPictureInPictureStart = false
-                return
-            }
-            guard pictureInPictureController.isPictureInPicturePossible else {
-                schedulePictureInPictureStartRetry()
-                return
-            }
-            pendingPictureInPictureStart = false
-            pipStartRetryCount = 0
-            pictureInPictureController.startPictureInPicture()
-        }
-
-        private func schedulePictureInPictureStartRetry() {
-            guard !isPiPStartRetryScheduled else {
-                return
-            }
-            guard pipStartRetryCount < 20 else {
-                pendingPictureInPictureStart = false
-                onError(L10n.string("Picture in Picture is not ready yet."))
-                tearDownPictureInPictureSource()
-                return
-            }
-            isPiPStartRetryScheduled = true
-            pipStartRetryCount += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                guard let self else { return }
-                isPiPStartRetryScheduled = false
-                tryStartPendingPictureInPicture()
-            }
-        }
-
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-            pendingPictureInPictureStart = false
             FloatingVideoWindowController.shared.setShowing(true)
             applyPictureInPictureWorkaround()
         }
 
         func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
             FloatingVideoWindowController.shared.setShowing(false)
-            tearDownPictureInPictureSource()
+            restorePictureInPictureWorkaround()
         }
 
         func pictureInPictureController(
@@ -534,7 +472,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             failedToStartPictureInPictureWithError error: Error
         ) {
             FloatingVideoWindowController.shared.setShowing(false)
-            tearDownPictureInPictureSource()
+            restorePictureInPictureWorkaround()
             onError(error.localizedDescription)
         }
 
@@ -542,9 +480,10 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             _ pictureInPictureController: AVPictureInPictureController,
             setPlaying playing: Bool
         ) {
-            activeTimebases().forEach {
-                CMTimebaseSetRate($0, rate: playing ? 1 : 0)
+            guard let timebase = view?.displayLayer.controlTimebase else {
+                return
             }
+            CMTimebaseSetRate(timebase, rate: playing ? 1 : 0)
         }
 
         func pictureInPictureControllerTimeRangeForPlayback(
@@ -556,7 +495,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         func pictureInPictureControllerIsPlaybackPaused(
             _ pictureInPictureController: AVPictureInPictureController
         ) -> Bool {
-            guard let timebase = pipSourceView?.displayLayer.controlTimebase ?? view?.displayLayer.controlTimebase else {
+            guard let timebase = view?.displayLayer.controlTimebase else {
                 return false
             }
             return CMTimebaseGetRate(timebase) == 0
@@ -569,7 +508,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard newRenderSize.width > 0, newRenderSize.height > 0 else {
                 return
             }
-            resizePictureInPictureSource(to:
+            resizeSourceLayerForPictureInPicture(
                 NSSize(width: Int(newRenderSize.width), height: Int(newRenderSize.height))
             )
         }
@@ -583,20 +522,18 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         private func applyPictureInPictureWorkaround() {
-            syncSourceWindowToPictureInPictureWindow()
+            syncSourceLayerToPictureInPictureWindow()
             hideBrokenPictureInPictureOverlay()
             observePictureInPictureWindowResize()
         }
 
-        private func restorePictureInPictureWorkaround(syncToInline: Bool) {
+        private func restorePictureInPictureWorkaround() {
             if let pipResizeObserver {
                 NotificationCenter.default.removeObserver(pipResizeObserver)
                 self.pipResizeObserver = nil
             }
-            pipSourceView?.isPictureInPictureActive = false
-            if syncToInline {
-                syncSourceWindowToInlineVideoSize()
-            }
+            view?.isPictureInPictureActive = false
+            view?.needsLayout = true
         }
 
         private func observePictureInPictureWindowResize() {
@@ -610,146 +547,23 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 object: pipContentView,
                 queue: .main
             ) { [weak self] _ in
-                self?.syncSourceWindowToPictureInPictureWindow()
+                self?.syncSourceLayerToPictureInPictureWindow()
                 self?.hideBrokenPictureInPictureOverlay()
             }
         }
 
-        private func syncSourceWindowToPictureInPictureWindow() {
+        private func syncSourceLayerToPictureInPictureWindow() {
             guard let pipContentView = pictureInPictureWindow()?.contentView else {
                 return
             }
-            guard let size = sanitizedSize(pipContentView.bounds.size) else {
+            resizeSourceLayerForPictureInPicture(pipContentView.bounds.size)
+        }
+
+        private func resizeSourceLayerForPictureInPicture(_ size: NSSize) {
+            guard size.width > 0, size.height > 0 else {
                 return
             }
-            resizePictureInPictureSource(to: size)
-        }
-
-        private func resizePictureInPictureSource(to size: NSSize) {
-            guard let size = sanitizedSize(size) else {
-                return
-            }
-            guard let sourceWindow = pipSourceWindow,
-                  let sourceView = pipSourceView else {
-                return
-            }
-            let currentFrame = sourceWindow.frame
-            let origin = sanitizedOrigin(currentFrame.origin) ?? sourceWindowFrame(size: size).origin
-            let previousHeight = currentFrame.height.isFinite && currentFrame.height > 0 ? currentFrame.height : size.height
-            let frame = NSRect(
-                x: origin.x,
-                y: origin.y + max(previousHeight, size.height) - size.height,
-                width: size.width,
-                height: size.height
-            )
-            sourceWindow.setFrame(frame, display: true)
-            sourceView.setSafeFrame(NSRect(origin: .zero, size: size))
-            sourceView.resizeDisplayLayerForPictureInPicture(size)
-        }
-
-        private func preparePictureInPictureSourceView() -> VideoLayerHostView? {
-            if let pipSourceView {
-                syncSourceWindowToInlineVideoSize()
-                return pipSourceView
-            }
-
-            let sourceView = VideoLayerHostView()
-            let initialSize = inlineVideoSize()
-            sourceView.setSafeFrame(NSRect(origin: .zero, size: initialSize))
-            let contentView = NSView(frame: NSRect(origin: .zero, size: initialSize))
-            contentView.wantsLayer = true
-            contentView.layer?.backgroundColor = NSColor.clear.cgColor
-            contentView.autoresizesSubviews = true
-            contentView.addSubview(sourceView)
-            sourceView.autoresizingMask = [.width, .height]
-
-            let window = NSPanel(
-                contentRect: sourceWindowFrame(size: initialSize),
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false
-            )
-            window.contentView = contentView
-            window.isReleasedWhenClosed = false
-            window.hidesOnDeactivate = false
-            window.ignoresMouseEvents = true
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            window.alphaValue = 0
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-            window.isExcludedFromWindowsMenu = true
-            window.orderFront(nil)
-            sourceView.layoutSubtreeIfNeeded()
-
-            pipSourceView = sourceView
-            pipSourceWindow = window
-            return sourceView
-        }
-
-        private func syncSourceWindowToInlineVideoSize() {
-            guard let sourceWindow = pipSourceWindow,
-                  let sourceView = pipSourceView else {
-                return
-            }
-            let size = inlineVideoSize()
-            sourceWindow.setFrame(sourceWindowFrame(size: size), display: true)
-            sourceView.setSafeFrame(NSRect(origin: .zero, size: size))
-            sourceView.needsLayout = true
-            sourceView.layoutSubtreeIfNeeded()
-        }
-
-        private func inlineVideoSize() -> NSSize {
-            sanitizedSize(view?.bounds.size ?? .zero) ?? fallbackSourceSize
-        }
-
-        private func sourceWindowFrame(size: NSSize) -> NSRect {
-            let size = sanitizedSize(size) ?? fallbackSourceSize
-            if let view,
-               let window = view.window {
-                let rectInWindow = view.convert(view.bounds, to: nil)
-                let screenRect = window.convertToScreen(rectInWindow)
-                if let origin = sanitizedOrigin(screenRect.origin) {
-                    return NSRect(origin: origin, size: size)
-                }
-            }
-            let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
-            return NSRect(origin: visibleFrame.origin, size: size)
-        }
-
-        private func tearDownPictureInPictureSource() {
-            restorePictureInPictureWorkaround(syncToInline: false)
-            pendingPictureInPictureStart = false
-            pipStartRetryCount = 0
-            isPiPStartRetryScheduled = false
-            pictureInPictureController?.delegate = nil
-            pictureInPictureController = nil
-            pipSourceWindow?.close()
-            pipSourceWindow = nil
-            pipSourceView = nil
-        }
-
-        private func sanitizedSize(_ size: NSSize) -> NSSize? {
-            let width = size.width
-            let height = size.height
-            guard width.isFinite,
-                  height.isFinite,
-                  width >= 16,
-                  height >= 9,
-                  width <= 10_000,
-                  height <= 10_000 else {
-                return nil
-            }
-            return NSSize(width: width.rounded(.toNearestOrAwayFromZero), height: height.rounded(.toNearestOrAwayFromZero))
-        }
-
-        private func sanitizedOrigin(_ origin: NSPoint) -> NSPoint? {
-            guard origin.x.isFinite,
-                  origin.y.isFinite,
-                  abs(origin.x) <= 100_000,
-                  abs(origin.y) <= 100_000 else {
-                return nil
-            }
-            return origin
+            view?.resizeDisplayLayerForPictureInPicture(size)
         }
 
         private func hideBrokenPictureInPictureOverlay() {
@@ -894,38 +708,12 @@ private final class VideoLayerHostView: NSView {
     override func layout() {
         super.layout()
         if !isPictureInPictureActive {
-            resizeDisplayLayer(to: bounds.size)
+            displayLayer.frame = bounds
         }
-    }
-
-    func setSafeFrame(_ frame: NSRect) {
-        guard frame.origin.x.isFinite,
-              frame.origin.y.isFinite,
-              frame.width.isFinite,
-              frame.height.isFinite,
-              frame.width >= 0,
-              frame.height >= 0,
-              frame.width <= 10_000,
-              frame.height <= 10_000 else {
-            return
-        }
-        self.frame = frame
     }
 
     func resizeDisplayLayerForPictureInPicture(_ size: NSSize) {
         isPictureInPictureActive = true
-        resizeDisplayLayer(to: size)
-    }
-
-    private func resizeDisplayLayer(to size: NSSize) {
-        guard size.width.isFinite,
-              size.height.isFinite,
-              size.width >= 0,
-              size.height >= 0,
-              size.width <= 10_000,
-              size.height <= 10_000 else {
-            return
-        }
         displayLayer.frame = NSRect(origin: .zero, size: size)
     }
 }
@@ -934,7 +722,7 @@ private final class NativeRTSPVideoClient {
     private static let logger = Logger(subsystem: "com.kookxiang.bambuCompanion", category: "VideoStream")
 
     private let url: URL
-    private let displayLayers: () -> [AVSampleBufferDisplayLayer]
+    private weak var displayLayer: AVSampleBufferDisplayLayer?
     private let onError: (String) -> Void
     private let queue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient")
     private let enqueueQueue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient.enqueue")
@@ -958,12 +746,12 @@ private final class NativeRTSPVideoClient {
 
     init(
         url: URL,
-        displayLayers: @escaping () -> [AVSampleBufferDisplayLayer],
+        displayLayer: AVSampleBufferDisplayLayer,
         onFrame: @escaping () -> Void,
         onError: @escaping (String) -> Void
     ) {
         self.url = url
-        self.displayLayers = displayLayers
+        self.displayLayer = displayLayer
         self.onFrame = onFrame
         self.onError = onError
     }
@@ -1395,8 +1183,7 @@ private final class NativeRTSPVideoClient {
     }
 
     private func flushPendingSample() {
-        let layers = displayLayers()
-        guard !layers.isEmpty else {
+        guard let layer = displayLayer else {
             enqueueQueue.async { [weak self] in
                 self?.pendingSampleBuffer = nil
                 self?.isDisplayFrameScheduled = false
@@ -1416,21 +1203,12 @@ private final class NativeRTSPVideoClient {
             return
         }
 
-        var didEnqueueSample = false
-        for layer in layers {
-            let renderer = layer.sampleBufferRenderer
-            if renderer.status == .failed {
-                renderer.flush()
-            }
-            guard renderer.isReadyForMoreMediaData,
-                  let sampleForLayer = sampleBuffer(sampleToRender, copying: didEnqueueSample) else {
-                continue
-            }
-            renderer.enqueue(sampleForLayer)
-            didEnqueueSample = true
+        let renderer = layer.sampleBufferRenderer
+        if renderer.status == .failed {
+            renderer.flush()
         }
-
-        if didEnqueueSample {
+        if renderer.isReadyForMoreMediaData {
+            renderer.enqueue(sampleToRender)
             onFrame()
             if !didDisplayFrame {
                 didDisplayFrame = true
@@ -1449,22 +1227,6 @@ private final class NativeRTSPVideoClient {
                 self?.flushPendingSample()
             }
         }
-    }
-
-    private func sampleBuffer(_ sampleBuffer: CMSampleBuffer, copying shouldCopy: Bool) -> CMSampleBuffer? {
-        guard shouldCopy else {
-            return sampleBuffer
-        }
-        var copiedSampleBuffer: CMSampleBuffer?
-        let status = CMSampleBufferCreateCopy(
-            allocator: kCFAllocatorDefault,
-            sampleBuffer: sampleBuffer,
-            sampleBufferOut: &copiedSampleBuffer
-        )
-        guard status == noErr else {
-            return nil
-        }
-        return copiedSampleBuffer
     }
 
     private func authorizationHeader(method: String, uri: String) -> String? {
