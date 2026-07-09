@@ -587,6 +587,11 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             _ pictureInPictureController: AVPictureInPictureController,
             didTransitionToRenderSize newRenderSize: CMVideoDimensions
         ) {
+            if pictureInPictureWindow()?.contentView == nil {
+                syncPictureInPictureSourceWindow(to: NSSize(width: CGFloat(newRenderSize.width), height: CGFloat(newRenderSize.height)))
+            }
+            refreshPictureInPictureLayout()
+            schedulePictureInPictureLayoutRefreshes(after: [0.05, 0.15])
         }
 
         func pictureInPictureController(
@@ -598,14 +603,9 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         private func applyPictureInPictureWorkaround() {
-            syncPictureInPictureSourceWindowToPiPWindow()
+            refreshPictureInPictureLayout()
             observePictureInPictureWindowResize()
-            hideBrokenPictureInPictureOverlay()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.syncPictureInPictureSourceWindowToPiPWindow()
-                self?.observePictureInPictureWindowResize()
-                self?.hideBrokenPictureInPictureOverlay()
-            }
+            schedulePictureInPictureLayoutRefreshes(after: [0.05, 0.15, 0.35])
         }
 
         private func refreshPictureInPictureLayoutAfterReconnectIfNeeded() {
@@ -616,9 +616,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             needsPictureInPictureLayoutRefreshAfterNextFrame = true
             moveDisplayLayerToPictureInPictureSource()
             refreshPictureInPictureLayout()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                self?.refreshPictureInPictureLayout()
-            }
+            schedulePictureInPictureLayoutRefreshes(after: [0.05, 0.15, 0.35, 0.75])
         }
 
         private func refreshPictureInPictureLayoutAfterFrameIfNeeded() {
@@ -627,9 +625,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             }
             needsPictureInPictureLayoutRefreshAfterNextFrame = false
             refreshPictureInPictureLayout()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.refreshPictureInPictureLayout()
-            }
+            schedulePictureInPictureLayoutRefreshes(after: [0.05, 0.15, 0.35])
         }
 
         private func refreshPictureInPictureLayout() {
@@ -662,8 +658,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 object: pipContentView,
                 queue: .main
             ) { [weak self] _ in
-                self?.syncPictureInPictureSourceWindowToPiPWindow()
-                self?.hideBrokenPictureInPictureOverlay()
+                self?.refreshPictureInPictureLayout()
             }
         }
 
@@ -671,7 +666,19 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard let pipContentView = pictureInPictureWindow()?.contentView else {
                 return
             }
-            pictureInPictureSource?.resizeToPictureInPictureContentSize(pipContentView.bounds.size)
+            syncPictureInPictureSourceWindow(to: pipContentView.bounds.size)
+        }
+
+        private func syncPictureInPictureSourceWindow(to size: NSSize) {
+            pictureInPictureSource?.resizeToPictureInPictureContentSize(size)
+        }
+
+        private func schedulePictureInPictureLayoutRefreshes(after delays: [TimeInterval]) {
+            for delay in delays {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    self?.refreshPictureInPictureLayout()
+                }
+            }
         }
 
         private func moveDisplayLayerToPictureInPictureSource() {
@@ -831,7 +838,7 @@ private final class VideoLayerHostView: NSView {
         guard let layer, displayLayer.superlayer === layer else {
             return
         }
-        displayLayer.frame = bounds
+        layoutDisplayLayer(in: layer)
     }
 
     func attachDisplayLayer() {
@@ -843,6 +850,17 @@ private final class VideoLayerHostView: NSView {
         layer.addSublayer(displayLayer)
         needsLayout = true
         layoutSubtreeIfNeeded()
+        layoutDisplayLayer(in: layer)
+    }
+
+    private func layoutDisplayLayer(in hostLayer: CALayer) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        hostLayer.bounds = bounds
+        displayLayer.bounds = bounds
+        displayLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        displayLayer.frame = bounds
+        CATransaction.commit()
     }
 }
 
@@ -897,6 +915,8 @@ private final class PictureInPictureSourceWindow {
         displayLayer.removeFromSuperlayer()
         displayLayer.videoGravity = .resizeAspect
         hostLayer.addSublayer(displayLayer)
+        hostLayer.needsDisplayOnBoundsChange = true
+        displayLayer.needsDisplayOnBoundsChange = true
         resizeLayerToHostBounds()
     }
 
@@ -939,7 +959,20 @@ private final class PictureInPictureSourceWindow {
     }
 
     private func resizeLayerToHostBounds() {
-        displayLayer?.frame = videoHostView.bounds
+        guard let displayLayer else {
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        videoHostView.needsLayout = true
+        videoHostView.layoutSubtreeIfNeeded()
+        videoHostView.layer?.bounds = videoHostView.bounds
+        displayLayer.bounds = videoHostView.bounds
+        displayLayer.position = CGPoint(x: videoHostView.bounds.midX, y: videoHostView.bounds.midY)
+        displayLayer.frame = videoHostView.bounds
+        displayLayer.setNeedsLayout()
+        displayLayer.layoutIfNeeded()
+        CATransaction.commit()
     }
 }
 
@@ -1025,6 +1058,7 @@ private final class NativeRTSPVideoClient {
             return
         }
         resetConnectionState()
+        flushDisplayLayerForReconnect()
 
         let tls = NWProtocolTLS.Options()
         sec_protocol_options_set_verify_block(tls.securityProtocolOptions, { _, _, complete in
@@ -1534,9 +1568,20 @@ private final class NativeRTSPVideoClient {
 
     private func markStreamConnected() {
         reconnectDelay = Self.initialReconnectDelay
+        flushDisplayLayerForReconnect()
         logVideoResolutions()
         onConnected()
         onError(nil)
+    }
+
+    private func flushDisplayLayerForReconnect() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isStopped, let displayLayer = self.displayLayer else {
+                return
+            }
+            displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
+            displayLayer.setNeedsLayout()
+        }
     }
 
     private func logVideoResolutions() {
