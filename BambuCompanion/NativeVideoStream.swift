@@ -189,6 +189,8 @@ private struct NativeVideoStreamSurface: View {
 
 @MainActor
 private final class VideoStreamState: ObservableObject {
+    private static let staleFrameReconnectInterval: TimeInterval = 1
+
     @Published private(set) var errorMessage: String?
     @Published private(set) var hasVideo = false
     @Published private(set) var isWaitingForFrame = false
@@ -238,11 +240,11 @@ private final class VideoStreamState: ObservableObject {
         }
 
         let elapsed = now.timeIntervalSince(lastFrameTime)
-        let shouldWait = hasVideo && elapsed > 1
+        let shouldWait = hasVideo && elapsed > Self.staleFrameReconnectInterval
         if isWaitingForFrame != shouldWait {
             isWaitingForFrame = shouldWait
         }
-        guard elapsed >= 15, !didRequestAutomaticReconnect else {
+        guard elapsed >= Self.staleFrameReconnectInterval, !didRequestAutomaticReconnect else {
             return false
         }
         didRequestAutomaticReconnect = true
@@ -861,6 +863,8 @@ private final class NativeRTSPVideoClient {
     private var sps: Data?
     private var pps: Data?
     private var formatDescription: CMVideoFormatDescription?
+    private var describedCurrentResolution: VideoResolution?
+    private var describedVideoResolutions: [VideoResolution] = []
     private var fuBuffer = Data()
     private var currentAccessUnit = Data()
     private var currentAccessUnitTimestamp: UInt32?
@@ -968,6 +972,8 @@ private final class NativeRTSPVideoClient {
             let media = SDPVideoMedia(sdp: sdp)
             self.sps = media.sps
             self.pps = media.pps
+            self.describedCurrentResolution = media.selectedResolution
+            self.describedVideoResolutions = media.resolutions
             self.updateFormatDescriptionIfNeeded()
             self.sendSetup(control: media.control ?? "track1")
         }
@@ -1235,27 +1241,7 @@ private final class NativeRTSPVideoClient {
 
     private func updateFormatDescriptionIfNeeded() {
         guard let sps, let pps else { return }
-        sps.withUnsafeBytes { spsBuffer in
-            pps.withUnsafeBytes { ppsBuffer in
-                guard let spsBaseAddress = spsBuffer.baseAddress,
-                      let ppsBaseAddress = ppsBuffer.baseAddress else {
-                    return
-                }
-                var parameterSetPointers = [
-                    spsBaseAddress.assumingMemoryBound(to: UInt8.self),
-                    ppsBaseAddress.assumingMemoryBound(to: UInt8.self)
-                ]
-                var parameterSetSizes = [sps.count, pps.count]
-                CMVideoFormatDescriptionCreateFromH264ParameterSets(
-                    allocator: kCFAllocatorDefault,
-                    parameterSetCount: 2,
-                    parameterSetPointers: &parameterSetPointers,
-                    parameterSetSizes: &parameterSetSizes,
-                    nalUnitHeaderLength: 4,
-                    formatDescriptionOut: &formatDescription
-                )
-            }
-        }
+        formatDescription = makeH264FormatDescription(sps: sps, pps: pps)
     }
 
     private func appendToCurrentAccessUnit(_ nalUnit: Data, timestamp: UInt32) {
@@ -1445,7 +1431,23 @@ private final class NativeRTSPVideoClient {
 
     private func markStreamConnected() {
         reconnectDelay = Self.initialReconnectDelay
+        logVideoResolutions()
         onError(nil)
+    }
+
+    private func logVideoResolutions() {
+        let currentResolution = formatDescription.flatMap(VideoResolution.init(formatDescription:)) ?? describedCurrentResolution
+        let supportedResolutions = describedVideoResolutions.isEmpty
+            ? currentResolution.map { [$0] } ?? []
+            : describedVideoResolutions
+        let currentDescription = currentResolution?.description ?? "unknown"
+        let supportedDescription = supportedResolutions.isEmpty
+            ? "unknown"
+            : supportedResolutions.map(\.description).joined(separator: ", ")
+
+        Self.logger.warning(
+            "Video stream connected: \(self.streamIdentifier, privacy: .public), current resolution: \(currentDescription, privacy: .public), supported resolutions: \(supportedDescription, privacy: .public)"
+        )
     }
 
     private func resetConnectionState() {
@@ -1457,6 +1459,8 @@ private final class NativeRTSPVideoClient {
         sps = nil
         pps = nil
         formatDescription = nil
+        describedCurrentResolution = nil
+        describedVideoResolutions = []
         fuBuffer.removeAll(keepingCapacity: false)
         currentAccessUnit.removeAll(keepingCapacity: false)
         currentAccessUnitTimestamp = nil
@@ -1477,6 +1481,42 @@ private struct RTSPResponse {
 
     var cseq: Int? {
         Int(headers["cseq"] ?? "")
+    }
+}
+
+private struct VideoResolution: Hashable, CustomStringConvertible {
+    let width: Int32
+    let height: Int32
+
+    var description: String {
+        "\(width)x\(height)"
+    }
+
+    var pixelCount: Int64 {
+        Int64(width) * Int64(height)
+    }
+
+    init?(width: Int32, height: Int32) {
+        guard width > 0, height > 0 else {
+            return nil
+        }
+        self.width = width
+        self.height = height
+    }
+
+    init?(formatDescription: CMVideoFormatDescription) {
+        let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
+        self.init(width: dimensions.width, height: dimensions.height)
+    }
+
+    static func uniqueSortedByQuality(_ resolutions: [VideoResolution]) -> [VideoResolution] {
+        var seen: Set<VideoResolution> = []
+        var result: [VideoResolution] = []
+        for resolution in resolutions.sorted(by: { $0.pixelCount > $1.pixelCount }) where !seen.contains(resolution) {
+            seen.insert(resolution)
+            result.append(resolution)
+        }
+        return result
     }
 }
 
@@ -1513,29 +1553,155 @@ private struct SDPVideoMedia {
     let control: String?
     let sps: Data?
     let pps: Data?
+    let selectedResolution: VideoResolution?
+    let resolutions: [VideoResolution]
 
     init(sdp: String) {
-        var control: String?
-        var parameterSets: [Data] = []
+        var fallbackStream = Stream()
+        var streams: [Stream] = []
+        var currentStream: Stream?
+        var didSeeMediaSection = false
+
         for line in sdp.components(separatedBy: .newlines) {
+            let line = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else {
+                continue
+            }
+
+            if line.hasPrefix("m=") {
+                if let currentStream {
+                    streams.append(currentStream)
+                }
+                didSeeMediaSection = true
+                currentStream = line.hasPrefix("m=video") ? Stream() : nil
+                continue
+            }
+
+            if var stream = currentStream {
+                stream.apply(line: line)
+                currentStream = stream
+            } else if !didSeeMediaSection {
+                fallbackStream.apply(line: line)
+            }
+        }
+
+        if let currentStream {
+            streams.append(currentStream)
+        }
+        if streams.isEmpty, fallbackStream.hasMediaInfo {
+            streams.append(fallbackStream)
+        }
+
+        let selected = streams.max { lhs, rhs in
+            (lhs.bestResolution?.pixelCount ?? 0) < (rhs.bestResolution?.pixelCount ?? 0)
+        }
+        let resolutions = VideoResolution.uniqueSortedByQuality(streams.flatMap(\.resolutions))
+
+        self.control = selected?.normalizedControl
+        self.sps = selected?.sps
+        self.pps = selected?.pps
+        self.selectedResolution = selected?.bestResolution
+        self.resolutions = resolutions
+    }
+
+    private struct Stream {
+        var control: String?
+        var sps: Data?
+        var pps: Data?
+        var resolutions: [VideoResolution] = []
+
+        var normalizedControl: String? {
+            control == "*" ? nil : control
+        }
+
+        var bestResolution: VideoResolution? {
+            resolutions.max { $0.pixelCount < $1.pixelCount }
+        }
+
+        var hasMediaInfo: Bool {
+            control != nil || sps != nil || pps != nil || !resolutions.isEmpty
+        }
+
+        mutating func apply(line: String) {
             if line.hasPrefix("a=control:") {
                 control = String(line.dropFirst("a=control:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            if line.hasPrefix("a=fmtp:"),
-               let range = line.range(of: "sprop-parameter-sets=") {
-                let value = line[range.upperBound...]
-                    .split(separator: ";", maxSplits: 1)
-                    .first?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                parameterSets = value?
-                    .split(separator: ",")
-                    .compactMap { Data(base64Encoded: String($0)) } ?? []
+            if let resolution = Self.frameSize(from: line) {
+                resolutions.append(resolution)
+            }
+            let parameterSets = Self.parameterSets(from: line)
+            guard let parameterSPS = parameterSets.first else {
+                return
+            }
+            sps = parameterSPS
+            pps = parameterSets.dropFirst().first
+            if let pps,
+               let formatDescription = makeH264FormatDescription(sps: parameterSPS, pps: pps),
+               let resolution = VideoResolution(formatDescription: formatDescription) {
+                resolutions.append(resolution)
             }
         }
-        self.control = control == "*" ? nil : control
-        self.sps = parameterSets.first
-        self.pps = parameterSets.dropFirst().first
+
+        private static func frameSize(from line: String) -> VideoResolution? {
+            guard line.hasPrefix("a=framesize:") else {
+                return nil
+            }
+            let parts = line.split(separator: " ", maxSplits: 1)
+            guard parts.count == 2 else {
+                return nil
+            }
+            let dimensions = parts[1].split(separator: "-", maxSplits: 1)
+            guard dimensions.count == 2,
+                  let width = Int32(dimensions[0]),
+                  let height = Int32(dimensions[1]) else {
+                return nil
+            }
+            return VideoResolution(width: width, height: height)
+        }
+
+        private static func parameterSets(from line: String) -> [Data] {
+            guard line.hasPrefix("a=fmtp:"),
+                  let range = line.range(of: "sprop-parameter-sets=") else {
+                return []
+            }
+            let value = line[range.upperBound...]
+                .split(separator: ";", maxSplits: 1)
+                .first?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return value?
+                .split(separator: ",")
+                .compactMap { Data(base64Encoded: String($0).trimmingCharacters(in: .whitespacesAndNewlines)) } ?? []
+        }
     }
+}
+
+private func makeH264FormatDescription(sps: Data, pps: Data) -> CMVideoFormatDescription? {
+    var formatDescription: CMVideoFormatDescription?
+    sps.withUnsafeBytes { spsBuffer in
+        pps.withUnsafeBytes { ppsBuffer in
+            guard let spsBaseAddress = spsBuffer.baseAddress,
+                  let ppsBaseAddress = ppsBuffer.baseAddress else {
+                return
+            }
+            var parameterSetPointers = [
+                spsBaseAddress.assumingMemoryBound(to: UInt8.self),
+                ppsBaseAddress.assumingMemoryBound(to: UInt8.self)
+            ]
+            var parameterSetSizes = [sps.count, pps.count]
+            let status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                allocator: kCFAllocatorDefault,
+                parameterSetCount: 2,
+                parameterSetPointers: &parameterSetPointers,
+                parameterSetSizes: &parameterSetSizes,
+                nalUnitHeaderLength: 4,
+                formatDescriptionOut: &formatDescription
+            )
+            if status != noErr {
+                formatDescription = nil
+            }
+        }
+    }
+    return formatDescription
 }
 
 private func md5(_ value: String) -> String {
