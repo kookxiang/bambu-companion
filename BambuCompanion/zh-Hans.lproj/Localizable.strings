@@ -51,6 +51,7 @@
 "Off" = "关闭";
 "Open Floating Video" = "打开画中画视频";
 "Part" = "模型";
+"Playing in Picture in Picture" = "已在画中画模式显示";
 "Open Settings" = "打开设置";
 "Cancelled" = "已取消";
 "Paused" = "已暂停";
@@ -81,6 +82,7 @@
 "The current print failed." = "当前打印失败。";
 "The current print is paused." = "当前打印已暂停。";
 "The current print was cancelled." = "当前打印已取消。";
+"This video is playing in Picture in Picture." = "此视频正以画中画播放。";
 "Unknown" = "未知";
 "Video preview is unavailable." = "视频预览不可用。";
 "%@ paused" = "%@ 已暂停";

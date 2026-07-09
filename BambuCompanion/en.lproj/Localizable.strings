@@ -51,6 +51,7 @@
 "Off" = "Off";
 "Open Floating Video" = "Open Floating Video";
 "Part" = "Part";
+"Playing in Picture in Picture" = "Playing in Picture in Picture";
 "Open Settings" = "Open Settings";
 "Cancelled" = "Cancelled";
 "Paused" = "Paused";
@@ -81,6 +82,7 @@
 "The current print failed." = "The current print failed.";
 "The current print is paused." = "The current print is paused.";
 "The current print was cancelled." = "The current print was cancelled.";
+"This video is playing in Picture in Picture." = "This video is playing in Picture in Picture.";
 "Unknown" = "Unknown";
 "Video preview is unavailable." = "Video preview is unavailable.";
 "%@ paused" = "%@ paused";

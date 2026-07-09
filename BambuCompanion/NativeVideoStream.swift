@@ -56,10 +56,12 @@ private struct NativeVideoStreamSurface: View {
 
             if let errorMessage = streamState.errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
+            } else if effectiveURL != nil, floatingVideoWindowController.isShowing {
+                pictureInPicturePlaceholder
             } else if effectiveURL != nil, !streamState.hasVideo {
                 VStack(spacing: 8) {
                     ProgressView()
-                    Text("Connecting video...")
+                    Text(L10n.string("Connecting video..."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -67,7 +69,7 @@ private struct NativeVideoStreamSurface: View {
                 placeholder(icon: "video.slash", text: L10n.string("Video preview is unavailable."))
             }
 
-            if streamState.isWaitingForFrame && effectiveURL != nil && streamState.errorMessage == nil {
+            if streamState.isWaitingForFrame && effectiveURL != nil && streamState.errorMessage == nil && !floatingVideoWindowController.isShowing {
                 ProgressView()
                     .controlSize(.small)
                     .padding(8)
@@ -113,6 +115,27 @@ private struct NativeVideoStreamSurface: View {
                 floatingVideoWindowController.reconnectVideo()
             }
         }
+    }
+
+    private var pictureInPicturePlaceholder: some View {
+        VStack(spacing: 12) {
+            PictureInPicturePlaceholderIcon()
+                .frame(width: 88, height: 62)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 4) {
+                Text(L10n.string("Playing in Picture in Picture"))
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                Text(L10n.string("This video is playing in Picture in Picture."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 20)
+        .allowsHitTesting(false)
     }
 
     private func placeholder(icon: String, text: String) -> some View {
@@ -184,6 +207,32 @@ private struct NativeVideoStreamSurface: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+private struct PictureInPicturePlaceholderIcon: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(lineWidth: 5)
+                .frame(width: 66, height: 50)
+                .offset(x: -8, y: -5)
+
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(lineWidth: 4)
+                .frame(width: 48, height: 32)
+                .offset(x: 16, y: 11)
+
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.secondary)
+                .frame(width: 22, height: 16)
+                .offset(x: 0, y: 8)
+
+            Image(systemName: "arrow.down.forward.and.arrow.up.backward")
+                .font(.system(size: 14, weight: .bold))
+                .offset(x: -12, y: -3)
+        }
+        .opacity(0.74)
     }
 }
 
