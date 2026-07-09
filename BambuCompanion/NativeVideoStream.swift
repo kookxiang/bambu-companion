@@ -211,28 +211,26 @@ private struct NativeVideoStreamSurface: View {
 }
 
 private struct PictureInPicturePlaceholderIcon: View {
+    private let strokeStyle = StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 7)
-                .stroke(lineWidth: 5)
-                .frame(width: 66, height: 50)
-                .offset(x: -8, y: -5)
+                .strokeBorder(style: strokeStyle)
+                .frame(width: 72, height: 52)
+                .offset(x: -6, y: -4)
 
             RoundedRectangle(cornerRadius: 4)
-                .stroke(lineWidth: 4)
-                .frame(width: 48, height: 32)
-                .offset(x: 16, y: 11)
+                .strokeBorder(style: strokeStyle)
+                .frame(width: 52, height: 34)
+                .offset(x: 17, y: 10)
 
             RoundedRectangle(cornerRadius: 4)
                 .fill(.secondary)
-                .frame(width: 22, height: 16)
-                .offset(x: 0, y: 8)
-
-            Image(systemName: "arrow.down.forward.and.arrow.up.backward")
-                .font(.system(size: 14, weight: .bold))
-                .offset(x: -12, y: -3)
+                .frame(width: 26, height: 18)
+                .offset(x: 2, y: 8)
         }
-        .opacity(0.74)
+        .opacity(0.72)
     }
 }
 
