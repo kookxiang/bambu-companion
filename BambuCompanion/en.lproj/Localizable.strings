@@ -16,6 +16,7 @@
 "Connected" = "Connected";
 "Connecting" = "Connecting";
 "Connecting video..." = "Connecting video...";
+"Click to return Picture in Picture to this window." = "Click to return Picture in Picture to this window.";
 "Connecting..." = "Connecting...";
 "Current: %@" = "Current: %@";
 "Disconnected" = "Disconnected";
@@ -63,6 +64,7 @@
 "Quit" = "Quit";
 "Reconnect" = "Reconnect";
 "Reconnect Video" = "Reconnect Video";
+"Return Picture in Picture to this window" = "Return Picture in Picture to this window";
 "Remaining" = "Remaining";
 "Remaining: %d%%" = "Remaining: %d%%";
 "Right target: %@" = "Right target: %@";
@@ -82,7 +84,6 @@
 "The current print failed." = "The current print failed.";
 "The current print is paused." = "The current print is paused.";
 "The current print was cancelled." = "The current print was cancelled.";
-"This video is playing in Picture in Picture." = "This video is playing in Picture in Picture.";
 "Unknown" = "Unknown";
 "Video preview is unavailable." = "Video preview is unavailable.";
 "%@ paused" = "%@ paused";

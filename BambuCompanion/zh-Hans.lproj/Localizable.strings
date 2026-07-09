@@ -16,6 +16,7 @@
 "Connected" = "已连接";
 "Connecting" = "连接中";
 "Connecting video..." = "正在连接视频...";
+"Click to return Picture in Picture to this window." = "点击收回到此窗口。";
 "Connecting..." = "正在连接...";
 "Current: %@" = "当前：%@";
 "Disconnected" = "已断开";
@@ -63,6 +64,7 @@
 "Quit" = "退出";
 "Reconnect" = "重新连接";
 "Reconnect Video" = "重新连接视频";
+"Return Picture in Picture to this window" = "收回画中画到此窗口";
 "Remaining" = "剩余";
 "Remaining: %d%%" = "剩余：%d%%";
 "Right target: %@" = "右喷嘴目标：%@";
@@ -82,7 +84,6 @@
 "The current print failed." = "当前打印失败。";
 "The current print is paused." = "当前打印已暂停。";
 "The current print was cancelled." = "当前打印已取消。";
-"This video is playing in Picture in Picture." = "此视频正以画中画播放。";
 "Unknown" = "未知";
 "Video preview is unavailable." = "视频预览不可用。";
 "%@ paused" = "%@ 已暂停";

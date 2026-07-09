@@ -118,24 +118,31 @@ private struct NativeVideoStreamSurface: View {
     }
 
     private var pictureInPicturePlaceholder: some View {
-        VStack(spacing: 12) {
-            PictureInPicturePlaceholderIcon()
-                .frame(width: 88, height: 62)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 4) {
-                Text(L10n.string("Playing in Picture in Picture"))
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                Text(L10n.string("This video is playing in Picture in Picture."))
-                    .font(.callout)
+        Button {
+            floatingVideoWindowController.dismiss()
+        } label: {
+            VStack(spacing: 12) {
+                PictureInPicturePlaceholderIcon()
+                    .frame(width: 88, height: 62)
                     .foregroundStyle(.secondary)
+
+                VStack(spacing: 4) {
+                    Text(L10n.string("Playing in Picture in Picture"))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    Text(L10n.string("Click to return Picture in Picture to this window."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .multilineTextAlignment(.center)
             }
-            .multilineTextAlignment(.center)
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
-        .allowsHitTesting(false)
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .accessibilityLabel(L10n.string("Return Picture in Picture to this window"))
     }
 
     private func placeholder(icon: String, text: String) -> some View {
@@ -211,26 +218,11 @@ private struct NativeVideoStreamSurface: View {
 }
 
 private struct PictureInPicturePlaceholderIcon: View {
-    private let strokeStyle = StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
-
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7)
-                .strokeBorder(style: strokeStyle)
-                .frame(width: 72, height: 52)
-                .offset(x: -6, y: -4)
-
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(style: strokeStyle)
-                .frame(width: 52, height: 34)
-                .offset(x: 17, y: 10)
-
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.secondary)
-                .frame(width: 26, height: 18)
-                .offset(x: 2, y: 8)
-        }
-        .opacity(0.72)
+        Image(systemName: "pip.exit")
+            .font(.system(size: 54, weight: .regular))
+            .symbolRenderingMode(.hierarchical)
+            .opacity(0.76)
     }
 }
 
