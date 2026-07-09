@@ -199,6 +199,9 @@ private final class VideoStreamState: ObservableObject {
         if !hasVideo {
             hasVideo = true
         }
+        if errorMessage != nil {
+            errorMessage = nil
+        }
         lastFrameTime = Date()
         didRequestAutomaticReconnect = false
         if isWaitingForFrame {
@@ -338,7 +341,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var desiredReconnectID = 0
         private var desiredOnFrame: (() -> Void)?
         private var isWindowVisible = true
-        private var pipResizeObserver: NSObjectProtocol?
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -505,12 +507,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             _ pictureInPictureController: AVPictureInPictureController,
             didTransitionToRenderSize newRenderSize: CMVideoDimensions
         ) {
-            guard newRenderSize.width > 0, newRenderSize.height > 0 else {
-                return
-            }
-            resizeSourceLayerForPictureInPicture(
-                NSSize(width: Int(newRenderSize.width), height: Int(newRenderSize.height))
-            )
         }
 
         func pictureInPictureController(
@@ -522,48 +518,11 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         private func applyPictureInPictureWorkaround() {
-            syncSourceLayerToPictureInPictureWindow()
             hideBrokenPictureInPictureOverlay()
-            observePictureInPictureWindowResize()
         }
 
         private func restorePictureInPictureWorkaround() {
-            if let pipResizeObserver {
-                NotificationCenter.default.removeObserver(pipResizeObserver)
-                self.pipResizeObserver = nil
-            }
-            view?.isPictureInPictureActive = false
             view?.needsLayout = true
-        }
-
-        private func observePictureInPictureWindowResize() {
-            guard pipResizeObserver == nil,
-                  let pipContentView = pictureInPictureWindow()?.contentView else {
-                return
-            }
-            pipContentView.postsFrameChangedNotifications = true
-            pipResizeObserver = NotificationCenter.default.addObserver(
-                forName: NSView.frameDidChangeNotification,
-                object: pipContentView,
-                queue: .main
-            ) { [weak self] _ in
-                self?.syncSourceLayerToPictureInPictureWindow()
-                self?.hideBrokenPictureInPictureOverlay()
-            }
-        }
-
-        private func syncSourceLayerToPictureInPictureWindow() {
-            guard let pipContentView = pictureInPictureWindow()?.contentView else {
-                return
-            }
-            resizeSourceLayerForPictureInPicture(pipContentView.bounds.size)
-        }
-
-        private func resizeSourceLayerForPictureInPicture(_ size: NSSize) {
-            guard size.width > 0, size.height > 0 else {
-                return
-            }
-            view?.resizeDisplayLayerForPictureInPicture(size)
         }
 
         private func hideBrokenPictureInPictureOverlay() {
@@ -679,7 +638,6 @@ private final class VideoHostContainerView: NSView {
 
 private final class VideoLayerHostView: NSView {
     let displayLayer = AVSampleBufferDisplayLayer()
-    var isPictureInPictureActive = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -707,26 +665,23 @@ private final class VideoLayerHostView: NSView {
 
     override func layout() {
         super.layout()
-        if !isPictureInPictureActive {
-            displayLayer.frame = bounds
-        }
-    }
-
-    func resizeDisplayLayerForPictureInPicture(_ size: NSSize) {
-        isPictureInPictureActive = true
-        displayLayer.frame = NSRect(origin: .zero, size: size)
+        displayLayer.frame = bounds
     }
 }
 
 private final class NativeRTSPVideoClient {
     private static let logger = Logger(subsystem: "com.kookxiang.bambuCompanion", category: "VideoStream")
+    private static let initialReconnectDelay: TimeInterval = 1
+    private static let maximumReconnectDelay: TimeInterval = 30
 
     private let url: URL
     private weak var displayLayer: AVSampleBufferDisplayLayer?
-    private let onError: (String) -> Void
+    private let onError: (String?) -> Void
     private let queue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient")
     private let enqueueQueue = DispatchQueue(label: "BambuCompanion.NativeRTSPVideoClient.enqueue")
     private var connection: NWConnection?
+    private var reconnectWorkItem: DispatchWorkItem?
+    private var reconnectDelay = NativeRTSPVideoClient.initialReconnectDelay
     private var receiveBuffer = Data()
     private var cseq = 1
     private var session: String?
@@ -748,7 +703,7 @@ private final class NativeRTSPVideoClient {
         url: URL,
         displayLayer: AVSampleBufferDisplayLayer,
         onFrame: @escaping () -> Void,
-        onError: @escaping (String) -> Void
+        onError: @escaping (String?) -> Void
     ) {
         self.url = url
         self.displayLayer = displayLayer
@@ -768,13 +723,11 @@ private final class NativeRTSPVideoClient {
         queue.async {
             Self.logger.warning("Stopping video stream: \(self.streamIdentifier, privacy: .public)")
             self.isStopped = true
+            self.reconnectWorkItem?.cancel()
+            self.reconnectWorkItem = nil
             self.connection?.cancel()
             self.connection = nil
-            self.receiveBuffer.removeAll(keepingCapacity: false)
-            self.fuBuffer.removeAll(keepingCapacity: false)
-            self.currentAccessUnit.removeAll(keepingCapacity: false)
-            self.currentAccessUnitTimestamp = nil
-            self.firstRTPTimestamp = nil
+            self.resetConnectionState()
         }
     }
 
@@ -789,9 +742,10 @@ private final class NativeRTSPVideoClient {
             return
         }
         guard let host = url.host, let port = url.port else {
-            fail("Video stream URL is invalid.")
+            fail("Video stream URL is invalid.", shouldRetry: false)
             return
         }
+        resetConnectionState()
 
         let tls = NWProtocolTLS.Options()
         sec_protocol_options_set_verify_block(tls.securityProtocolOptions, { _, _, complete in
@@ -804,6 +758,9 @@ private final class NativeRTSPVideoClient {
         connection.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             self.queue.async {
+                guard self.connection === connection else {
+                    return
+                }
                 switch state {
                 case .ready:
                     self.receiveLoop()
@@ -871,6 +828,7 @@ private final class NativeRTSPVideoClient {
                 self.fail("Video PLAY failed.")
                 return
             }
+            self.markStreamConnected()
         }
     }
 
@@ -908,27 +866,48 @@ private final class NativeRTSPVideoClient {
         lines.append("")
         lines.append("")
 
+        guard let connection else {
+            fail("Video connection is unavailable.")
+            return
+        }
         pendingResponses[requestCSeq] = PendingResponse(cseq: requestCSeq, completion: completion)
         let data = Data(lines.joined(separator: "\r\n").utf8)
-        connection?.send(content: data, completion: .contentProcessed { [weak self] error in
+        connection.send(content: data, completion: .contentProcessed { [weak self, weak connection] error in
             if let error {
                 self?.queue.async {
-                    self?.fail("Video request failed: \(error.localizedDescription)")
+                    guard let self,
+                          let connection,
+                          self.connection === connection else {
+                        return
+                    }
+                    self.fail("Video request failed: \(error.localizedDescription)")
                 }
             }
         })
     }
 
     private func receiveLoop() {
-        connection?.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+        guard let connection else {
+            fail("Video connection is unavailable.")
+            return
+        }
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self, weak connection] data, _, isComplete, error in
             guard let self else { return }
             self.queue.async {
+                guard let connection,
+                      self.connection === connection else {
+                    return
+                }
                 if let data, !data.isEmpty {
                     self.receiveBuffer.append(data)
                     self.parseIncomingData()
                 }
                 if let error {
                     self.fail("Video receive failed: \(error.localizedDescription)")
+                    return
+                }
+                if isComplete {
+                    self.fail("Video connection closed.")
                     return
                 }
                 if !isComplete {
@@ -1257,9 +1236,64 @@ private final class NativeRTSPVideoClient {
     }
 
     private func fail(_ message: String) {
+        fail(message, shouldRetry: true)
+    }
+
+    private func fail(_ message: String, shouldRetry: Bool) {
+        guard !isStopped else {
+            return
+        }
         onError("\(message) (\(url.absoluteString))")
         connection?.cancel()
         connection = nil
+        pendingResponses.removeAll()
+        if shouldRetry {
+            scheduleReconnect()
+        }
+    }
+
+    private func scheduleReconnect() {
+        guard !isStopped, reconnectWorkItem == nil else {
+            return
+        }
+        let delay = reconnectDelay
+        reconnectDelay = min(reconnectDelay * 2, Self.maximumReconnectDelay)
+        Self.logger.warning("Retrying video stream in \(delay, privacy: .public) seconds: \(self.streamIdentifier, privacy: .public)")
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, !self.isStopped else {
+                return
+            }
+            self.reconnectWorkItem = nil
+            self.connect()
+        }
+        reconnectWorkItem = workItem
+        queue.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func markStreamConnected() {
+        reconnectDelay = Self.initialReconnectDelay
+        onError(nil)
+    }
+
+    private func resetConnectionState() {
+        receiveBuffer.removeAll(keepingCapacity: false)
+        pendingResponses.removeAll(keepingCapacity: false)
+        cseq = 1
+        session = nil
+        digestChallenge = nil
+        sps = nil
+        pps = nil
+        formatDescription = nil
+        fuBuffer.removeAll(keepingCapacity: false)
+        currentAccessUnit.removeAll(keepingCapacity: false)
+        currentAccessUnitTimestamp = nil
+        firstRTPTimestamp = nil
+        didDisplayFrame = false
+        enqueueQueue.async { [weak self] in
+            self?.pendingSampleBuffer = nil
+            self?.isDisplayFrameScheduled = false
+        }
     }
 
 }
