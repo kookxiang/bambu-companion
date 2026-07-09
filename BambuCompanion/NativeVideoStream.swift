@@ -314,7 +314,6 @@ private struct NativeVideoLayerView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: VideoHostContainerView, context: Context) {
-        view.videoView.frame = view.bounds
         context.coordinator.start(url: url, reconnectID: reconnectID, onFrame: onFrame)
         view.layoutSubtreeIfNeeded()
     }
@@ -344,6 +343,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var pendingPictureInPictureStart = false
         private var pipStartRetryCount = 0
         private var isPiPStartRetryScheduled = false
+        private let fallbackSourceSize = NSSize(width: 340, height: 191)
 
         init(onError: @escaping (String?) -> Void) {
             self.onError = onError
@@ -475,7 +475,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
         func stopPictureInPicture() {
             guard pictureInPictureController?.isPictureInPictureActive == true else {
-                restorePictureInPictureWorkaround()
+                restorePictureInPictureWorkaround(syncToInline: true)
                 return
             }
             pictureInPictureController?.stopPictureInPicture()
@@ -588,13 +588,15 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             observePictureInPictureWindowResize()
         }
 
-        private func restorePictureInPictureWorkaround() {
+        private func restorePictureInPictureWorkaround(syncToInline: Bool) {
             if let pipResizeObserver {
                 NotificationCenter.default.removeObserver(pipResizeObserver)
                 self.pipResizeObserver = nil
             }
             pipSourceView?.isPictureInPictureActive = false
-            syncSourceWindowToInlineVideoSize()
+            if syncToInline {
+                syncSourceWindowToInlineVideoSize()
+            }
         }
 
         private func observePictureInPictureWindowResize() {
@@ -617,11 +619,14 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             guard let pipContentView = pictureInPictureWindow()?.contentView else {
                 return
             }
-            resizePictureInPictureSource(to: pipContentView.bounds.size)
+            guard let size = sanitizedSize(pipContentView.bounds.size) else {
+                return
+            }
+            resizePictureInPictureSource(to: size)
         }
 
         private func resizePictureInPictureSource(to size: NSSize) {
-            guard size.width > 0, size.height > 0 else {
+            guard let size = sanitizedSize(size) else {
                 return
             }
             guard let sourceWindow = pipSourceWindow,
@@ -629,16 +634,16 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 return
             }
             let currentFrame = sourceWindow.frame
-            sourceWindow.setFrame(
-                NSRect(
-                    x: currentFrame.minX,
-                    y: currentFrame.maxY - size.height,
-                    width: size.width,
-                    height: size.height
-                ),
-                display: true
+            let origin = sanitizedOrigin(currentFrame.origin) ?? sourceWindowFrame(size: size).origin
+            let previousHeight = currentFrame.height.isFinite && currentFrame.height > 0 ? currentFrame.height : size.height
+            let frame = NSRect(
+                x: origin.x,
+                y: origin.y + max(previousHeight, size.height) - size.height,
+                width: size.width,
+                height: size.height
             )
-            sourceView.frame = NSRect(origin: .zero, size: size)
+            sourceWindow.setFrame(frame, display: true)
+            sourceView.setSafeFrame(NSRect(origin: .zero, size: size))
             sourceView.resizeDisplayLayerForPictureInPicture(size)
         }
 
@@ -650,7 +655,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
             let sourceView = VideoLayerHostView()
             let initialSize = inlineVideoSize()
-            sourceView.frame = NSRect(origin: .zero, size: initialSize)
+            sourceView.setSafeFrame(NSRect(origin: .zero, size: initialSize))
             let contentView = NSView(frame: NSRect(origin: .zero, size: initialSize))
             contentView.wantsLayer = true
             contentView.layer?.backgroundColor = NSColor.clear.cgColor
@@ -688,32 +693,31 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             }
             let size = inlineVideoSize()
             sourceWindow.setFrame(sourceWindowFrame(size: size), display: true)
-            sourceView.frame = NSRect(origin: .zero, size: size)
+            sourceView.setSafeFrame(NSRect(origin: .zero, size: size))
             sourceView.needsLayout = true
             sourceView.layoutSubtreeIfNeeded()
         }
 
         private func inlineVideoSize() -> NSSize {
-            let size = view?.bounds.size ?? .zero
-            guard size.width > 0, size.height > 0 else {
-                return NSSize(width: 340, height: 191)
-            }
-            return size
+            sanitizedSize(view?.bounds.size ?? .zero) ?? fallbackSourceSize
         }
 
         private func sourceWindowFrame(size: NSSize) -> NSRect {
+            let size = sanitizedSize(size) ?? fallbackSourceSize
             if let view,
                let window = view.window {
                 let rectInWindow = view.convert(view.bounds, to: nil)
                 let screenRect = window.convertToScreen(rectInWindow)
-                return NSRect(origin: screenRect.origin, size: size)
+                if let origin = sanitizedOrigin(screenRect.origin) {
+                    return NSRect(origin: origin, size: size)
+                }
             }
             let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
             return NSRect(origin: visibleFrame.origin, size: size)
         }
 
         private func tearDownPictureInPictureSource() {
-            restorePictureInPictureWorkaround()
+            restorePictureInPictureWorkaround(syncToInline: false)
             pendingPictureInPictureStart = false
             pipStartRetryCount = 0
             isPiPStartRetryScheduled = false
@@ -722,6 +726,30 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             pipSourceWindow?.close()
             pipSourceWindow = nil
             pipSourceView = nil
+        }
+
+        private func sanitizedSize(_ size: NSSize) -> NSSize? {
+            let width = size.width
+            let height = size.height
+            guard width.isFinite,
+                  height.isFinite,
+                  width >= 16,
+                  height >= 9,
+                  width <= 10_000,
+                  height <= 10_000 else {
+                return nil
+            }
+            return NSSize(width: width.rounded(.toNearestOrAwayFromZero), height: height.rounded(.toNearestOrAwayFromZero))
+        }
+
+        private func sanitizedOrigin(_ origin: NSPoint) -> NSPoint? {
+            guard origin.x.isFinite,
+                  origin.y.isFinite,
+                  abs(origin.x) <= 100_000,
+                  abs(origin.y) <= 100_000 else {
+                return nil
+            }
+            return origin
         }
 
         private func hideBrokenPictureInPictureOverlay() {
@@ -866,12 +894,38 @@ private final class VideoLayerHostView: NSView {
     override func layout() {
         super.layout()
         if !isPictureInPictureActive {
-            displayLayer.frame = bounds
+            resizeDisplayLayer(to: bounds.size)
         }
+    }
+
+    func setSafeFrame(_ frame: NSRect) {
+        guard frame.origin.x.isFinite,
+              frame.origin.y.isFinite,
+              frame.width.isFinite,
+              frame.height.isFinite,
+              frame.width >= 0,
+              frame.height >= 0,
+              frame.width <= 10_000,
+              frame.height <= 10_000 else {
+            return
+        }
+        self.frame = frame
     }
 
     func resizeDisplayLayerForPictureInPicture(_ size: NSSize) {
         isPictureInPictureActive = true
+        resizeDisplayLayer(to: size)
+    }
+
+    private func resizeDisplayLayer(to size: NSSize) {
+        guard size.width.isFinite,
+              size.height.isFinite,
+              size.width >= 0,
+              size.height >= 0,
+              size.width <= 10_000,
+              size.height <= 10_000 else {
+            return
+        }
         displayLayer.frame = NSRect(origin: .zero, size: size)
     }
 }
