@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import UserNotifications
@@ -400,6 +401,7 @@ extension AppState: BambuMQTTClientDelegate {
 }
 
 private final class PrintNotificationService: NSObject, UNUserNotificationCenterDelegate {
+    private static let notificationSound = NSSound(named: NSSound.Name("Glass"))
     private let center = UNUserNotificationCenter.current()
 
     override init() {
@@ -416,20 +418,33 @@ private final class PrintNotificationService: NSObject, UNUserNotificationCenter
         let content = UNMutableNotificationContent()
         content.title = notification.title
         content.body = notification.body
-        content.sound = .default
         content.threadIdentifier = "print-status"
         content.userInfo = notification.userInfo
 
         let identifier = "\(notification.identifierPrefix)-\(Int(Date().timeIntervalSince1970))"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         center.add(request)
+        playNotificationSoundIfEnabled()
+    }
+
+    private func playNotificationSoundIfEnabled() {
+        center.getNotificationSettings { settings in
+            guard settings.soundSetting == .enabled else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                Self.notificationSound?.stop()
+                Self.notificationSound?.play()
+            }
+        }
     }
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        [.banner]
     }
 }
 
