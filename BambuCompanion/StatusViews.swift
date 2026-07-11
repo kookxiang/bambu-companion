@@ -51,22 +51,18 @@ struct StatusSummaryView: View {
 
             LazyVGrid(columns: metricColumns, spacing: 10) {
                 nozzleMetric
-                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
-
-                MetricView(title: "Bed", value: temperature(status.bedTemperature))
-                    .help(L10n.format("Bed: %@", temperature(status.bedTemperature, target: status.targetBedTemperature)))
-
-                if let chamberTemperature = status.chamberTemperature {
-                    MetricView(title: "Chamber temperature", value: temperature(chamberTemperature))
-                        .help(L10n.format(
-                            "Chamber: %@",
-                            temperature(chamberTemperature, target: status.targetChamberTemperature)
-                        ))
-                }
-
+                BedChamberMetricView(
+                    bedTemperature: temperature(status.bedTemperature),
+                    bedDetail: temperature(status.bedTemperature, target: status.targetBedTemperature),
+                    chamberTemperature: status.chamberTemperature.map { temperature($0) },
+                    chamberDetail: status.chamberTemperature.map { _ in
+                        temperature(status.chamberTemperature, target: status.targetChamberTemperature)
+                    }
+                )
                 if status.fans.hasVisibleValue || status.airductMode != nil {
                     FanMetricView(fans: status.fans, airductMode: status.airductMode)
                 }
+                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
             }
 
             if !status.amsUnits.isEmpty {
@@ -670,6 +666,29 @@ private struct DynamicMetricView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct BedChamberMetricView: View {
+    let bedTemperature: String
+    let bedDetail: String
+    let chamberTemperature: String?
+    let chamberDetail: String?
+
+    @ViewBuilder
+    var body: some View {
+        if let chamberTemperature {
+            HStack(spacing: 6) {
+                MetricView(title: "Bed", value: bedTemperature)
+                    .help(L10n.format("Bed: %@", bedDetail))
+
+                MetricView(title: "Chamber temperature", value: chamberTemperature)
+                    .help(L10n.format("Chamber: %@", chamberDetail ?? chamberTemperature))
+            }
+        } else {
+            MetricView(title: "Bed", value: bedTemperature)
+                .help(L10n.format("Bed: %@", bedDetail))
+        }
     }
 }
 
