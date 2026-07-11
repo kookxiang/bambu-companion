@@ -59,7 +59,7 @@ struct StatusSummaryView: View {
                         temperature(status.chamberTemperature, target: status.targetChamberTemperature)
                     }
                 )
-                if status.fans.hasAnyValue || status.airductMode != nil {
+                if status.fans.hasVisibleValue || status.airductMode != nil {
                     FanMetricView(fans: status.fans, airductMode: status.airductMode)
                 }
                 RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
@@ -749,6 +749,14 @@ private enum AirductModeText {
     }
 }
 
+private extension PrinterFanStatus {
+    var hasVisibleValue: Bool {
+        partCoolingPercent != nil ||
+            auxiliaryPercent != nil ||
+            chamberPercent != nil
+    }
+}
+
 private struct FanMetricView: View {
     let fans: PrinterFanStatus
     let airductMode: String?
@@ -781,8 +789,7 @@ private struct FanMetricView: View {
         [
             fanLine("Part", fans.partCoolingPercent, showingZeroValues: showingZeroValues),
             fanLine("Aux", fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
-            fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues),
-            fanLine("Heatbreak", fans.heatbreakPercent, showingZeroValues: showingZeroValues)
+            fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues)
         ].compactMap(\.self)
     }
 
@@ -790,8 +797,7 @@ private struct FanMetricView: View {
         [
             fanPercent(fans.partCoolingPercent, showingZeroValues: showingZeroValues),
             fanPercent(fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
-            fanPercent(fans.chamberPercent, showingZeroValues: showingZeroValues),
-            fanPercent(fans.heatbreakPercent, showingZeroValues: showingZeroValues)
+            fanPercent(fans.chamberPercent, showingZeroValues: showingZeroValues)
         ].compactMap(\.self)
     }
 
