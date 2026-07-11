@@ -7,6 +7,7 @@
 "Bed: %@" = "热床：%@";
 "Brand" = "品牌";
 "Chamber" = "腔体";
+"Chamber temperature" = "腔温";
 "Chamber hold" = "腔温保持模式";
 "Chamber: %@" = "腔温：%@";
 "Close Floating Video" = "关闭画中画视频";

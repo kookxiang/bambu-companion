@@ -51,18 +51,22 @@ struct StatusSummaryView: View {
 
             LazyVGrid(columns: metricColumns, spacing: 10) {
                 nozzleMetric
-                BedChamberMetricView(
-                    bedTemperature: temperature(status.bedTemperature),
-                    bedDetail: temperature(status.bedTemperature, target: status.targetBedTemperature),
-                    chamberTemperature: status.chamberTemperature.map { temperature($0) },
-                    chamberDetail: status.chamberTemperature.map { _ in
-                        temperature(status.chamberTemperature, target: status.targetChamberTemperature)
-                    }
-                )
+                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
+
+                MetricView(title: "Bed", value: temperature(status.bedTemperature))
+                    .help(L10n.format("Bed: %@", temperature(status.bedTemperature, target: status.targetBedTemperature)))
+
+                if let chamberTemperature = status.chamberTemperature {
+                    MetricView(title: "Chamber temperature", value: temperature(chamberTemperature))
+                        .help(L10n.format(
+                            "Chamber: %@",
+                            temperature(chamberTemperature, target: status.targetChamberTemperature)
+                        ))
+                }
+
                 if status.fans.hasVisibleValue || status.airductMode != nil {
                     FanMetricView(fans: status.fans, airductMode: status.airductMode)
                 }
-                RemainingMetricView(value: remainingTime, completionDate: estimatedCompletionDate)
             }
 
             if !status.amsUnits.isEmpty {
@@ -666,33 +670,6 @@ private struct DynamicMetricView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-    }
-}
-
-private struct BedChamberMetricView: View {
-    let bedTemperature: String
-    let bedDetail: String
-    let chamberTemperature: String?
-    let chamberDetail: String?
-
-    var body: some View {
-        MetricView(title: chamberTemperature == nil ? "Bed" : "Bed / Chamber", value: value)
-            .help(helpText)
-    }
-
-    private var value: String {
-        guard let chamberTemperature else {
-            return bedTemperature
-        }
-        return "\(bedTemperature) / \(chamberTemperature)"
-    }
-
-    private var helpText: String {
-        var lines = [L10n.format("Bed: %@", bedDetail)]
-        if let chamberDetail {
-            lines.append(L10n.format("Chamber: %@", chamberDetail))
-        }
-        return lines.joined(separator: "\n")
     }
 }
 
