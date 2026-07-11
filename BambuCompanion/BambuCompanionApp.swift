@@ -16,6 +16,13 @@ struct BambuCompanionApp: App {
                         .monospacedDigit()
                 }
             }
+            .background {
+                PictureInPictureStartupView(url: appState.videoStreamURL)
+                    .frame(width: 160, height: 90)
+                    .opacity(0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
         .menuBarExtraStyle(.window)
 
