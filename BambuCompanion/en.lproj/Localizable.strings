@@ -47,6 +47,7 @@
 "Laser" = "Laser";
 "Left target: %@" = "Left target: %@";
 "Left: %@" = "Left: %@";
+"Left" = "Left";
 "Loading cover image" = "Loading cover image";
 "Material: %@" = "Material: %@";
 "Mode" = "Mode";
@@ -74,6 +75,7 @@
 "Remaining: %d%%" = "Remaining: %d%%";
 "Right target: %@" = "Right target: %@";
 "Right: %@" = "Right: %@";
+"Right" = "Right";
 "Save" = "Save";
 "Saved. Reconnecting..." = "Saved. Reconnecting...";
 "Serial number" = "Serial number";
@@ -99,6 +101,7 @@
 "%@ print failed" = "%@ print failed";
 "%@ print finished" = "%@ print finished";
 "%@ started printing" = "%@ started printing";
+"%@ nozzle" = "%@ nozzle";
 "Unknown stage" = "Unknown stage";
 "Auto bed leveling" = "Auto bed leveling";
 "Heatbed preheating" = "Heatbed preheating";

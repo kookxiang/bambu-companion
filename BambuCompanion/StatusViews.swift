@@ -843,16 +843,14 @@ private struct NozzleMetricView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("Nozzle")
+            Text(nozzleTitle(specification?.title))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             HStack(spacing: 6) {
-                if let specificationTitle = specification?.title {
-                    Text(specificationTitle)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 4)
+                Spacer(minLength: 0)
                 Text(temperature.currentText)
                     .foregroundStyle(temperature.color)
             }
@@ -874,27 +872,26 @@ private struct DualNozzleMetricView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("Nozzle")
+            Text(nozzleTitle(NozzleSpecification.combinedTitle(
+                left: leftSpecification,
+                right: rightSpecification
+            )))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
 
-            HStack(spacing: 6) {
-                if let specificationTitle = NozzleSpecification.combinedTitle(
-                    left: leftSpecification,
-                    right: rightSpecification
-                ) {
-                    Text(specificationTitle)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 4)
-                HStack(spacing: 3) {
-                    Text(leftTemperature.currentText)
-                        .foregroundStyle(leftTemperature.color)
-                    Text("/")
-                        .foregroundStyle(.secondary)
-                    Text(rightTemperature.currentText)
-                        .foregroundStyle(rightTemperature.color)
-                }
+            HStack(spacing: 3) {
+                Text(L10n.string("Left"))
+                    .foregroundStyle(.secondary)
+                Text(leftTemperature.currentText)
+                    .foregroundStyle(leftTemperature.color)
+                Text("/")
+                    .foregroundStyle(.secondary)
+                Text(L10n.string("Right"))
+                    .foregroundStyle(.secondary)
+                Text(rightTemperature.currentText)
+                    .foregroundStyle(rightTemperature.color)
             }
             .font(.callout.monospacedDigit())
             .lineLimit(1)
@@ -930,6 +927,13 @@ private struct DualNozzleMetricView: View {
         }
         return L10n.format(key, TemperatureText.string(target))
     }
+}
+
+private func nozzleTitle(_ specificationTitle: String?) -> String {
+    guard let specificationTitle else {
+        return L10n.string("Nozzle")
+    }
+    return L10n.format("%@ nozzle", specificationTitle)
 }
 
 struct VideoPreviewView: View {

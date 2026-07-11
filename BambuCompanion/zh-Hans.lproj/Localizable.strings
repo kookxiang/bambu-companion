@@ -47,6 +47,7 @@
 "Laser" = "激光";
 "Left target: %@" = "左喷嘴目标：%@";
 "Left: %@" = "左喷嘴：%@";
+"Left" = "左";
 "Loading cover image" = "正在加载封面图";
 "Material: %@" = "材料：%@";
 "Mode" = "模式";
@@ -74,6 +75,7 @@
 "Remaining: %d%%" = "剩余：%d%%";
 "Right target: %@" = "右喷嘴目标：%@";
 "Right: %@" = "右喷嘴：%@";
+"Right" = "右";
 "Save" = "保存";
 "Saved. Reconnecting..." = "已保存，正在重新连接...";
 "Serial number" = "序列号";
@@ -99,6 +101,7 @@
 "%@ print failed" = "%@ 打印失败";
 "%@ print finished" = "%@ 打印完成";
 "%@ started printing" = "%@ 开始打印";
+"%@ nozzle" = "%@喷嘴";
 "Unknown stage" = "未知阶段";
 "Auto bed leveling" = "自动热床调平";
 "Heatbed preheating" = "热床预热中";
