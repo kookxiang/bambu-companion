@@ -20,6 +20,11 @@ enum MQTTReportParser {
         status.remainingMinutes = intValue(print["mc_remaining_time"]) ?? intValue(print["remaining_time"])
         status.currentLayer = intValue(print["layer_num"]) ?? intValue(print["current_layer"])
         status.totalLayers = intValue(print["total_layer_num"]) ?? intValue(print["total_layers"])
+        if let stageID = currentStageID(from: print) {
+            let stage = stageID == -1 || stageID == 255 ? nil : PrinterStage(id: stageID)
+            status.currentStage = stage
+            status.currentStageUpdate = .set(stage)
+        }
         let nozzle = nozzleTemperatures(from: print)
         status.nozzleTemperature = nozzle.current
         status.targetNozzleTemperature = nozzle.target
@@ -66,6 +71,16 @@ enum MQTTReportParser {
         default:
             return .unknown
         }
+    }
+
+    private static func currentStageID(from print: [String: Any]) -> Int? {
+        if let legacyStageID = intValue(print["stg_cur"]) {
+            return legacyStageID
+        }
+        guard let stage = print["stage"] as? [String: Any] else {
+            return nil
+        }
+        return intValue(stage["_id"]) ?? intValue(stage["id"])
     }
 
     private static func nozzleTemperatures(from print: [String: Any]) -> (current: Double?, target: Double?) {

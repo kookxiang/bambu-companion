@@ -29,7 +29,7 @@ struct StatusSummaryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(status.activity.title)
+                            Text(status.primaryTitle)
                                 .font(.title3.bold())
                             Text(statusDetail)
                                 .font(.caption)

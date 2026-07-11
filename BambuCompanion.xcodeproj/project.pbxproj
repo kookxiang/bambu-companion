@@ -21,20 +21,13 @@
 		1A000001000000000000000C /* CoverImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001E /* CoverImageService.swift */; };
 		1A000001000000000000000D /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
 		1A000001000000000000000E /* ZIPArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000023 /* ZIPArchive.swift */; };
-		1A000001000000000000000F /* CoverImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001E /* CoverImageService.swift */; };
-		1A0000010000000000000024 /* ZIPArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000023 /* ZIPArchive.swift */; };
 		1A0000010000000000000025 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
-		1A0000010000000000000027 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000026 /* Utilities.swift */; };
-		1A0000010000000000000028 /* FTPSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000001000000000000001F /* FTPSDownloader.swift */; };
 		2A0000010000000000000001 /* NativeVideoStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0000010000000000000002 /* NativeVideoStream.swift */; };
 		3A0000010000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3A0000010000000000000004 /* Localizable.strings */; };
 		4A0000010000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4A0000010000000000000002 /* Assets.xcassets */; };
 		5A0000010000000000000001 /* HMSErrorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000003 /* HMSErrorCatalog.swift */; };
-		5A0000010000000000000002 /* HMSErrorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000003 /* HMSErrorCatalog.swift */; };
 		5A0000010000000000000005 /* HMSResources in Resources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000004 /* HMSResources */; };
 		5A0000010000000000000006 /* HMSResources in Resources */ = {isa = PBXBuildFile; fileRef = 5A0000010000000000000004 /* HMSResources */; };
-		F9C236202FF9039900116D15 /* MQTTReportParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000017 /* MQTTReportParser.swift */; };
-		F9C236212FF9039900116D15 /* PrinterStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000010000000000000016 /* PrinterStatus.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -272,13 +265,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000001000000000000000B /* MQTTReportParserTests.swift in Sources */,
-				F9C236202FF9039900116D15 /* MQTTReportParser.swift in Sources */,
-				F9C236212FF9039900116D15 /* PrinterStatus.swift in Sources */,
-				5A0000010000000000000002 /* HMSErrorCatalog.swift in Sources */,
-				1A000001000000000000000F /* CoverImageService.swift in Sources */,
-				1A0000010000000000000028 /* FTPSDownloader.swift in Sources */,
-				1A0000010000000000000024 /* ZIPArchive.swift in Sources */,
-				1A0000010000000000000027 /* Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -437,6 +423,7 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.bambuCompanion;
+				PRODUCT_MODULE_NAME = BambuCompanion;
 				PRODUCT_NAME = "Bambu Companion";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -461,6 +448,7 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.bambuCompanion;
+				PRODUCT_MODULE_NAME = BambuCompanion;
 				PRODUCT_NAME = "Bambu Companion";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -477,7 +465,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.BambuCompanionTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BambuCompanion.app/Contents/MacOS/BambuCompanion";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Bambu Companion.app/Contents/MacOS/Bambu Companion";
 			};
 			name = Debug;
 		};
@@ -491,7 +479,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.kookxiang.BambuCompanionTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BambuCompanion.app/Contents/MacOS/BambuCompanion";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Bambu Companion.app/Contents/MacOS/Bambu Companion";
 			};
 			name = Release;
 		};

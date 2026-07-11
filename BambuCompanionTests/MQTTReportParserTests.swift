@@ -56,6 +56,62 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
 
+    func testParsesLegacyCurrentStage() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"stg_cur":"14"}}"#.utf8))
+
+        XCTAssertEqual(status.currentStage, PrinterStage(id: 14))
+    }
+
+    func testParsesNestedCurrentStage() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"stage":{"_id":2}}}"#.utf8))
+
+        XCTAssertEqual(status.currentStage, PrinterStage(id: 2))
+    }
+
+    func testLegacyCurrentStageTakesPrecedenceWhenBothArePresent() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"stg_cur":14,"stage":{"_id":2}}}"#.utf8))
+
+        XCTAssertEqual(status.currentStage, PrinterStage(id: 14))
+    }
+
+    func testIdleCurrentStageClearsIncrementalStage() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"RUNNING","stg_cur":14}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"stg_cur":255}}"#.utf8))
+
+        XCTAssertNil(base.mergingIncrementalUpdate(update).currentStage)
+    }
+
+    func testPrimaryTitleUsesStageOnlyWhilePrinting() {
+        var status = PrinterStatus()
+        status.activity = .printing
+        status.currentStage = PrinterStage(id: 14)
+
+        XCTAssertEqual(status.primaryTitle, PrinterStage(id: 14).title)
+
+        status.activity = .paused
+        XCTAssertEqual(status.primaryTitle, PrinterActivity.paused.title)
+    }
+
+    func testMenuBarStageAnnouncementRequiresAnActualPrintingStageChange() {
+        var previous = PrinterStatus()
+        previous.activity = .printing
+        previous.currentStage = PrinterStage(id: 2)
+        var current = previous
+        current.currentStage = PrinterStage(id: 13)
+
+        XCTAssertEqual(
+            MenuBarStageAnnouncement.title(previousStatus: previous, currentStatus: current),
+            PrinterStage(id: 13).title
+        )
+
+        var initial = previous
+        initial.currentStage = nil
+        XCTAssertNil(MenuBarStageAnnouncement.title(previousStatus: initial, currentStatus: current))
+
+        current.activity = .paused
+        XCTAssertNil(MenuBarStageAnnouncement.title(previousStatus: previous, currentStatus: current))
+    }
+
     func testIncrementalUpdatePreservesMissingFields() throws {
         let base = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"IDLE","mc_percent":0,"nozzle_temper":29}}"#.utf8))
         let update = try MQTTReportParser.parse(Data(#"{"print":{"bed_temper":31}}"#.utf8))

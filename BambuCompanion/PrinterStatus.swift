@@ -22,6 +22,95 @@ enum PrinterActivity: String, Equatable {
     }
 }
 
+struct PrinterStage: Equatable {
+    let id: Int
+
+    var title: String {
+        L10n.string(Self.titleKeys[id] ?? "Unknown stage")
+    }
+
+    private static let titleKeys: [Int: String] = [
+        0: "Printing",
+        1: "Auto bed leveling",
+        2: "Heatbed preheating",
+        3: "Vibration compensation",
+        4: "Changing filament",
+        5: "Paused by M400",
+        6: "Paused: filament ran out",
+        7: "Heating hotend",
+        8: "Calibrating extrusion",
+        9: "Scanning bed surface",
+        10: "Inspecting first layer",
+        11: "Identifying build plate",
+        12: "Calibrating micro lidar",
+        13: "Homing toolhead",
+        14: "Cleaning nozzle tip",
+        15: "Checking extruder temperature",
+        16: "Paused by user",
+        17: "Paused: front cover fell off",
+        18: "Calibrating micro lidar",
+        19: "Calibrating extrusion flow",
+        20: "Paused: nozzle temperature issue",
+        21: "Paused: heatbed temperature issue",
+        22: "Unloading filament",
+        23: "Paused: skipped step",
+        24: "Loading filament",
+        25: "Calibrating motor noise",
+        26: "Paused: AMS disconnected",
+        27: "Paused: low heatbreak fan speed",
+        28: "Paused: chamber temperature issue",
+        29: "Cooling chamber",
+        30: "Paused by user G-code",
+        31: "Motor noise calibration demo",
+        32: "Paused: nozzle filament detected",
+        33: "Paused: cutter issue",
+        34: "Paused: first layer issue",
+        35: "Paused: nozzle clog",
+        36: "Checking absolute accuracy",
+        37: "Calibrating absolute accuracy",
+        38: "Verifying absolute accuracy",
+        39: "Calibrating nozzle offset",
+        40: "High-temperature bed leveling",
+        41: "Checking quick release",
+        42: "Checking door and cover",
+        43: "Calibrating laser",
+        44: "Checking platform",
+        45: "Checking Birdseye camera position",
+        46: "Calibrating Birdseye camera",
+        47: "Bed leveling phase 1",
+        48: "Bed leveling phase 2",
+        49: "Heating chamber",
+        50: "Cooling heatbed",
+        51: "Printing calibration lines",
+        52: "Checking material",
+        53: "Calibrating live view camera",
+        54: "Waiting for heatbed temperature",
+        55: "Checking material position",
+        56: "Calibrating cutter offset",
+        57: "Measuring surface",
+        58: "Thermal preconditioning",
+        59: "Homing blade holder",
+        60: "Calibrating camera offset",
+        61: "Calibrating blade holder position",
+        62: "Testing hotend pick and place",
+        63: "Equalizing chamber temperature",
+        64: "Preparing hotend",
+        65: "Calibrating nozzle clumping detection",
+        66: "Purifying chamber air",
+        67: "Measuring rotary attachment",
+        68: "Moving toolhead above purge chute",
+        69: "Cooling nozzle",
+        70: "Centering toolhead over heatbed",
+        71: "Active arc fitting",
+        72: "Detecting hotend type",
+        73: "Detecting build plate alignment",
+        74: "Checking heatbed surface",
+        75: "Checking heatbed underside",
+        76: "Pre-extrusion before printing",
+        77: "Preparing AMS"
+    ]
+}
+
 struct PrinterStatus: Equatable {
     var activity: PrinterActivity = .unknown
     var progress: Int?
@@ -34,6 +123,7 @@ struct PrinterStatus: Equatable {
     var remainingMinutes: Int?
     var currentLayer: Int?
     var totalLayers: Int?
+    var currentStage: PrinterStage?
     var nozzleTemperature: Double?
     var targetNozzleTemperature: Double?
     var leftNozzleTemperature: Double?
@@ -51,6 +141,14 @@ struct PrinterStatus: Equatable {
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
     var alertUpdate: PrinterAlertUpdate = .unchanged
+    var currentStageUpdate: PrinterStageUpdate = .unchanged
+
+    var primaryTitle: String {
+        if activity == .printing, let currentStage {
+            return currentStage.title
+        }
+        return activity.title
+    }
 
     static let empty = PrinterStatus()
 
@@ -69,6 +167,13 @@ struct PrinterStatus: Equatable {
         merged.remainingMinutes = update.remainingMinutes ?? remainingMinutes
         merged.currentLayer = update.currentLayer ?? currentLayer
         merged.totalLayers = update.totalLayers ?? totalLayers
+        switch update.currentStageUpdate {
+        case .unchanged:
+            break
+        case .set(let currentStage):
+            merged.currentStage = currentStage
+        }
+        merged.currentStageUpdate = .unchanged
         merged.nozzleTemperature = update.nozzleTemperature ?? nozzleTemperature
         merged.targetNozzleTemperature = update.targetNozzleTemperature ?? targetNozzleTemperature
         merged.leftNozzleTemperature = update.leftNozzleTemperature ?? leftNozzleTemperature
@@ -127,6 +232,11 @@ enum PrinterAlertSource: Equatable {
 enum PrinterAlertUpdate: Equatable {
     case unchanged
     case set(PrinterAlert?)
+}
+
+enum PrinterStageUpdate: Equatable {
+    case unchanged
+    case set(PrinterStage?)
 }
 
 struct AMSUnitStatus: Equatable, Identifiable {
