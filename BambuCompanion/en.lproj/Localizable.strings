@@ -1,7 +1,7 @@
 "A print job has started." = "A print job has started.";
 "Airduct" = "Airduct";
 "Authentication failed" = "Authentication failed";
-"Aux" = "Aux";
+"Aux" = "Auxiliary";
 "Bed" = "Bed";
 "Bed / Chamber" = "Bed / Chamber";
 "Bed: %@" = "Bed: %@";
@@ -33,6 +33,8 @@
 "Failed" = "Failed";
 "Finished" = "Finished";
 "Fan" = "Fan";
+"Exhaust" = "Exhaust";
+"Heating" = "Heating";
 "Heatbreak" = "Heatbreak";
 "Hardened steel" = "Hardened steel";
 "High-flow hardened steel" = "High-flow hardened steel";

@@ -736,6 +736,18 @@ private enum AirductModeText {
     private static func normalizedMode(_ rawMode: String) -> String {
         rawMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+
+    static func isHeating(_ rawMode: String?) -> Bool {
+        guard let rawMode else {
+            return false
+        }
+        switch normalizedMode(rawMode) {
+        case "1", "heating":
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 private extension PrinterFanStatus {
@@ -778,8 +790,12 @@ private struct FanMetricView: View {
         [
             fanLine("Part", fans.partCoolingPercent, showingZeroValues: showingZeroValues),
             fanLine("Aux", fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
-            fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues)
+            fanLine(chamberFanName, fans.chamberPercent, showingZeroValues: showingZeroValues)
         ].compactMap(\.self)
+    }
+
+    private var chamberFanName: String {
+        AirductModeText.isHeating(airductMode) ? "Heating" : "Exhaust"
     }
 
     private func fanLine(_ name: String, _ percent: Int?, showingZeroValues: Bool) -> String? {
