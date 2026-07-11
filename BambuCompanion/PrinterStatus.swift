@@ -113,6 +113,46 @@ struct PrinterStage: Equatable {
     ]
 }
 
+struct NozzleSpecification: Equatable {
+    var diameter: Double?
+    var type: String?
+
+    var title: String? {
+        let parts = [diameterText, typeText].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
+    static func combinedTitle(left: NozzleSpecification?, right: NozzleSpecification?) -> String? {
+        let leftTitle = left?.title
+        let rightTitle = right?.title
+        if leftTitle == rightTitle {
+            return leftTitle
+        }
+        return [leftTitle, rightTitle].compactMap { $0 }.joined(separator: " / ").nilIfEmpty
+    }
+
+    private var diameterText: String? {
+        guard let diameter, diameter > 0 else { return nil }
+        return "\(diameter.formatted(.number.precision(.fractionLength(0...2))))mm"
+    }
+
+    private var typeText: String? {
+        guard let type else { return nil }
+        let key: String
+        switch type {
+        case "stainless_steel": key = "Stainless steel"
+        case "hardened_steel": key = "Hardened steel"
+        case "tungsten_carbide": key = "Tungsten carbide"
+        case "high_flow_stainless_steel": key = "High-flow stainless steel"
+        case "high_flow_hardened_steel": key = "High-flow hardened steel"
+        case "high_flow_tungsten_carbide": key = "High-flow tungsten carbide"
+        case "tpu_high_flow": key = "TPU high-flow"
+        default: key = "Unknown"
+        }
+        return L10n.string(key)
+    }
+}
+
 struct PrinterStatus: Equatable {
     var activity: PrinterActivity = .unknown
     var progress: Int?
@@ -126,10 +166,13 @@ struct PrinterStatus: Equatable {
     var currentLayer: Int?
     var totalLayers: Int?
     var currentStage: PrinterStage?
+    var nozzleSpecification: NozzleSpecification?
     var nozzleTemperature: Double?
     var targetNozzleTemperature: Double?
+    var leftNozzleSpecification: NozzleSpecification?
     var leftNozzleTemperature: Double?
     var targetLeftNozzleTemperature: Double?
+    var rightNozzleSpecification: NozzleSpecification?
     var rightNozzleTemperature: Double?
     var targetRightNozzleTemperature: Double?
     var bedTemperature: Double?
@@ -183,10 +226,13 @@ struct PrinterStatus: Equatable {
             merged.currentStage = currentStage
         }
         merged.currentStageUpdate = .unchanged
+        merged.nozzleSpecification = update.nozzleSpecification ?? nozzleSpecification
         merged.nozzleTemperature = update.nozzleTemperature ?? nozzleTemperature
         merged.targetNozzleTemperature = update.targetNozzleTemperature ?? targetNozzleTemperature
+        merged.leftNozzleSpecification = update.leftNozzleSpecification ?? leftNozzleSpecification
         merged.leftNozzleTemperature = update.leftNozzleTemperature ?? leftNozzleTemperature
         merged.targetLeftNozzleTemperature = update.targetLeftNozzleTemperature ?? targetLeftNozzleTemperature
+        merged.rightNozzleSpecification = update.rightNozzleSpecification ?? rightNozzleSpecification
         merged.rightNozzleTemperature = update.rightNozzleTemperature ?? rightNozzleTemperature
         merged.targetRightNozzleTemperature = update.targetRightNozzleTemperature ?? targetRightNozzleTemperature
         merged.bedTemperature = update.bedTemperature ?? bedTemperature
@@ -246,6 +292,12 @@ enum PrinterAlertUpdate: Equatable {
 enum PrinterStageUpdate: Equatable {
     case unchanged
     case set(PrinterStage?)
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }
 
 struct AMSUnitStatus: Equatable, Identifiable {

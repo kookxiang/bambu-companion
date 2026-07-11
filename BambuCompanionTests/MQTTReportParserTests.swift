@@ -231,6 +231,12 @@ final class MQTTReportParserTests: XCTestCase {
         {
           "print": {
             "device": {
+              "nozzle": {
+                "info": [
+                  {"id": 0, "diameter": "0.4", "type": "HS01"},
+                  {"id": 1, "diameter": "0.2", "type": "HS00"}
+                ]
+              },
               "extruder": {
                 "info": [
                   {"id": 0, "temp": 16056565},
@@ -247,9 +253,27 @@ final class MQTTReportParserTests: XCTestCase {
 
         XCTAssertEqual(status.rightNozzleTemperature, 245)
         XCTAssertEqual(status.targetRightNozzleTemperature, 245)
+        XCTAssertEqual(status.rightNozzleSpecification, NozzleSpecification(diameter: 0.4, type: "hardened_steel"))
         XCTAssertEqual(status.leftNozzleTemperature, 159)
         XCTAssertEqual(status.targetLeftNozzleTemperature, 88)
+        XCTAssertEqual(status.leftNozzleSpecification, NozzleSpecification(diameter: 0.2, type: "stainless_steel"))
         XCTAssertEqual(status.nozzleTemperature, 245)
+    }
+
+    func testParsesSingleNozzleSpecification() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"nozzle_diameter":"0.2","nozzle_type":"stainless_steel","nozzle_temper":220}}"#.utf8))
+
+        XCTAssertEqual(status.nozzleSpecification, NozzleSpecification(diameter: 0.2, type: "stainless_steel"))
+        XCTAssertEqual(status.nozzleTemperature, 220)
+    }
+
+    func testMatchingDualNozzleSpecificationsAreDisplayedOnce() {
+        let specification = NozzleSpecification(diameter: 0.2, type: "stainless_steel")
+
+        XCTAssertEqual(
+            NozzleSpecification.combinedTitle(left: specification, right: specification),
+            specification.title
+        )
     }
 
     func testParsesCoverImageFileHints() throws {

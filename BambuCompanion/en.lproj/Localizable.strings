@@ -33,6 +33,10 @@
 "Finished" = "Finished";
 "Fan" = "Fan";
 "Heatbreak" = "Heatbreak";
+"Hardened steel" = "Hardened steel";
+"High-flow hardened steel" = "High-flow hardened steel";
+"High-flow stainless steel" = "High-flow stainless steel";
+"High-flow tungsten carbide" = "High-flow tungsten carbide";
 "HMS Alert" = "HMS Alert";
 "Humidity index: %d" = "Humidity index: %d";
 "Humidity: %d%%" = "Humidity: %d%%";
@@ -76,9 +80,12 @@
 "Series" = "Series";
 "Set up your printer" = "Set up your printer";
 "Settings" = "Settings";
+"Stainless steel" = "Stainless steel";
 "Slot %d" = "Slot %d";
 "Target: %@" = "Target: %@";
 "Temperature: %@" = "Temperature: %@";
+"TPU high-flow" = "TPU high-flow";
+"Tungsten carbide" = "Tungsten carbide";
 "Test Connection" = "Test Connection";
 "The access code is stored in Keychain. The app connects to MQTT over TLS on port 8883 and subscribes to device/{serial}/report." = "The access code is stored in Keychain. The app connects to MQTT over TLS on port 8883 and subscribes to device/{serial}/report.";
 "The current print completed successfully." = "The current print completed successfully.";

@@ -33,6 +33,10 @@
 "Finished" = "已完成";
 "Fan" = "风扇";
 "Heatbreak" = "喉管";
+"Hardened steel" = "硬化钢";
+"High-flow hardened steel" = "高流量硬化钢";
+"High-flow stainless steel" = "高流量不锈钢";
+"High-flow tungsten carbide" = "高流量碳化钨";
 "HMS Alert" = "HMS 异常";
 "Humidity index: %d" = "湿度指数：%d";
 "Humidity: %d%%" = "湿度：%d%%";
@@ -76,9 +80,12 @@
 "Series" = "系列";
 "Set up your printer" = "设置你的打印机";
 "Settings" = "设置";
+"Stainless steel" = "不锈钢";
 "Slot %d" = "槽位 %d";
 "Target: %@" = "目标：%@";
 "Temperature: %@" = "温度：%@";
+"TPU high-flow" = "TPU 高流量";
+"Tungsten carbide" = "碳化钨";
 "Test Connection" = "测试连接";
 "The access code is stored in Keychain. The app connects to MQTT over TLS on port 8883 and subscribes to device/{serial}/report." = "访问码会存储在钥匙串中。应用会通过 8883 端口使用 TLS 连接 MQTT，并订阅 device/{serial}/report。";
 "The current print completed successfully." = "当前打印已成功完成。";

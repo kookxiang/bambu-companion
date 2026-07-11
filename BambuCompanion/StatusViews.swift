@@ -142,12 +142,14 @@ struct StatusSummaryView: View {
     private var nozzleMetric: some View {
         if status.leftNozzleTemperature != nil || status.rightNozzleTemperature != nil {
             DualNozzleMetricView(
+                leftSpecification: status.leftNozzleSpecification,
                 leftTemperature: nozzleTemperature(status.leftNozzleTemperature, target: status.targetLeftNozzleTemperature),
+                rightSpecification: status.rightNozzleSpecification,
                 rightTemperature: nozzleTemperature(status.rightNozzleTemperature, target: status.targetRightNozzleTemperature)
             )
         } else {
             let nozzleTemperature = nozzleTemperature(status.nozzleTemperature, target: status.targetNozzleTemperature)
-            MetricView(title: "Nozzle", value: nozzleTemperature.currentText, valueColor: nozzleTemperature.color)
+            NozzleMetricView(specification: status.nozzleSpecification, temperature: nozzleTemperature)
                 .help(nozzleTemperature.helpText)
         }
     }
@@ -835,8 +837,39 @@ private struct FanMetricView: View {
     }
 }
 
+private struct NozzleMetricView: View {
+    let specification: NozzleSpecification?
+    let temperature: NozzleTemperatureMetric
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Nozzle")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 6) {
+                if let specificationTitle = specification?.title {
+                    Text(specificationTitle)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+                Text(temperature.currentText)
+                    .foregroundStyle(temperature.color)
+            }
+            .font(.callout.monospacedDigit())
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
 private struct DualNozzleMetricView: View {
+    let leftSpecification: NozzleSpecification?
     let leftTemperature: NozzleTemperatureMetric
+    let rightSpecification: NozzleSpecification?
     let rightTemperature: NozzleTemperatureMetric
 
     var body: some View {
@@ -845,17 +878,27 @@ private struct DualNozzleMetricView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
-                Text(leftTemperature.currentText)
-                    .foregroundStyle(leftTemperature.color)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(rightTemperature.currentText)
-                    .foregroundStyle(rightTemperature.color)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(spacing: 6) {
+                if let specificationTitle = NozzleSpecification.combinedTitle(
+                    left: leftSpecification,
+                    right: rightSpecification
+                ) {
+                    Text(specificationTitle)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+                HStack(spacing: 3) {
+                    Text(leftTemperature.currentText)
+                        .foregroundStyle(leftTemperature.color)
+                    Text("/")
+                        .foregroundStyle(.secondary)
+                    Text(rightTemperature.currentText)
+                        .foregroundStyle(rightTemperature.color)
+                }
             }
             .font(.callout.monospacedDigit())
             .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .minimumScaleFactor(0.65)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -865,13 +908,20 @@ private struct DualNozzleMetricView: View {
 
     private var helpText: String {
         [
-            L10n.format("Left: %@", leftTemperature.currentText),
+            L10n.format("Left: %@", helpValue(specification: leftSpecification, temperature: leftTemperature)),
             targetLine("Left target: %@", leftTemperature.target),
-            L10n.format("Right: %@", rightTemperature.currentText),
+            L10n.format("Right: %@", helpValue(specification: rightSpecification, temperature: rightTemperature)),
             targetLine("Right target: %@", rightTemperature.target)
         ]
         .compactMap(\.self)
         .joined(separator: "\n")
+    }
+
+    private func helpValue(
+        specification: NozzleSpecification?,
+        temperature: NozzleTemperatureMetric
+    ) -> String {
+        [specification?.title, temperature.currentText].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func targetLine(_ key: String, _ target: Double?) -> String? {

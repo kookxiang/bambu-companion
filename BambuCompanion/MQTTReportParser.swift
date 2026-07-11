@@ -25,6 +25,10 @@ enum MQTTReportParser {
             status.currentStage = stage
             status.currentStageUpdate = .set(stage)
         }
+        let nozzleSpecifications = nozzleSpecifications(from: print)
+        status.nozzleSpecification = nozzleSpecifications.single
+        status.leftNozzleSpecification = nozzleSpecifications.left
+        status.rightNozzleSpecification = nozzleSpecifications.right
         let nozzle = nozzleTemperatures(from: print)
         status.nozzleTemperature = nozzle.current
         status.targetNozzleTemperature = nozzle.target
@@ -90,6 +94,79 @@ enum MQTTReportParser {
             current: doubleValue(print["nozzle_temper"]) ?? doubleValue(print["nozzle_temperature"]),
             target: doubleValue(print["nozzle_target_temper"]) ?? doubleValue(print["target_nozzle_temperature"])
         )
+    }
+
+    private static func nozzleSpecifications(
+        from print: [String: Any]
+    ) -> (single: NozzleSpecification?, left: NozzleSpecification?, right: NozzleSpecification?) {
+        var single = nozzleSpecification(
+            diameter: print["nozzle_diameter"],
+            type: print["nozzle_type"]
+        )
+        var left: NozzleSpecification?
+        var right: NozzleSpecification?
+
+        if let info = ((print["device"] as? [String: Any])?["nozzle"] as? [String: Any])?["info"] as? [[String: Any]] {
+            for entry in info {
+                guard let id = intValue(entry["id"]), id == 0 || id == 1,
+                      let specification = nozzleSpecification(
+                        diameter: entry["diameter"],
+                        type: entry["type"]
+                      ) else {
+                    continue
+                }
+                if id == 0 {
+                    right = specification
+                } else {
+                    left = specification
+                }
+            }
+            if single == nil {
+                single = left == nil ? right : (right == nil ? left : nil)
+            }
+        }
+        return (single, left, right)
+    }
+
+    private static func nozzleSpecification(diameter: Any?, type: Any?) -> NozzleSpecification? {
+        let specification = NozzleSpecification(
+            diameter: doubleValue(diameter).flatMap { $0 > 0 ? $0 : nil },
+            type: normalizedNozzleType(stringValue(type))
+        )
+        return specification.diameter == nil && specification.type == nil ? nil : specification
+    }
+
+    private static func normalizedNozzleType(_ rawType: String?) -> String? {
+        guard let rawType = normalizedMaterial(rawType) else { return nil }
+        let legacyType = rawType.lowercased()
+        let knownLegacyTypes = [
+            "stainless_steel",
+            "hardened_steel",
+            "tungsten_carbide",
+            "high_flow_stainless_steel",
+            "high_flow_hardened_steel",
+            "high_flow_tungsten_carbide",
+            "tpu_high_flow"
+        ]
+        if knownLegacyTypes.contains(legacyType) {
+            return legacyType
+        }
+
+        let code = rawType.uppercased()
+        guard code.count >= 4 else { return nil }
+        let flowCode = code[code.index(after: code.startIndex)]
+        if flowCode == "U" {
+            return "tpu_high_flow"
+        }
+        let materialCode = String(code.suffix(2))
+        let material: String
+        switch materialCode {
+        case "00": material = "stainless_steel"
+        case "01": material = "hardened_steel"
+        case "05": material = "tungsten_carbide"
+        default: return nil
+        }
+        return flowCode == "H" || flowCode == "E" ? "high_flow_\(material)" : material
     }
 
     private static func dualNozzleTemperatures(from print: [String: Any]) -> (left: (current: Double?, target: Double?), right: (current: Double?, target: Double?)) {
