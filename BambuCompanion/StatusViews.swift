@@ -549,8 +549,7 @@ private struct AlertBannerView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if alert.wikiURL != nil {
                 Image(systemName: "arrow.up.right.square")
