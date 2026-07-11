@@ -2,6 +2,18 @@ import XCTest
 @testable import BambuCompanion
 
 final class MQTTReportParserTests: XCTestCase {
+    func testDurationTextFollowsLocale() {
+        XCTAssertEqual(
+            DurationText.remainingMinutes(123, locale: Locale(identifier: "zh_CN")),
+            "2小时3分钟"
+        )
+        XCTAssertEqual(
+            DurationText.remainingMinutes(123, locale: Locale(identifier: "en_US")),
+            "2h 3m"
+        )
+        XCTAssertEqual(DurationText.remainingMinutes(nil), "--")
+    }
+
     func testParsesCommonPrintReportFields() throws {
         let json = """
         {

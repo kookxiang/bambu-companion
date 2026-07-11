@@ -122,13 +122,7 @@ struct StatusSummaryView: View {
     }
 
     private var remainingTime: String {
-        guard let minutes = status.remainingMinutes else {
-            return "--"
-        }
-        if minutes < 60 {
-            return "\(minutes)m"
-        }
-        return "\(minutes / 60)h \(minutes % 60)m"
+        DurationText.remainingMinutes(status.remainingMinutes)
     }
 
     private var estimatedCompletionDate: Date? {
@@ -234,7 +228,7 @@ private struct AMSUnitsView: View {
             lines.append(L10n.format("Humidity index: %d", humidityIndex))
         }
         if unit.isDrying {
-            lines.append(L10n.format("Drying: %@ remaining", dryingRemainingText(unit.dryingRemainingMinutes)))
+            lines.append(L10n.format("Drying: %@ remaining", DurationText.remainingMinutes(unit.dryingRemainingMinutes)))
             if let dryingTemperature = unit.dryingTemperature {
                 lines.append(L10n.format("Drying temperature: %@", TemperatureText.string(dryingTemperature)))
             }
@@ -243,16 +237,6 @@ private struct AMSUnitsView: View {
             }
         }
         return lines.joined(separator: "\n")
-    }
-
-    private func dryingRemainingText(_ minutes: Int?) -> String {
-        guard let minutes else {
-            return "--"
-        }
-        if minutes < 60 {
-            return "\(minutes)m"
-        }
-        return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
@@ -312,7 +296,7 @@ private struct AMSUnitStatusLine: View {
             if unit.isDrying {
                 HStack(spacing: 4) {
                     Image(systemName: "timer")
-                    Text(dryingRemainingText(unit.dryingRemainingMinutes))
+                    Text(DurationText.remainingMinutes(unit.dryingRemainingMinutes))
                 }
 
                 if let dryingTemperature = unit.dryingTemperature {
@@ -353,16 +337,6 @@ private struct AMSUnitStatusLine: View {
             return "\(humidityIndex)"
         }
         return nil
-    }
-
-    private func dryingRemainingText(_ minutes: Int?) -> String {
-        guard let minutes else {
-            return "--"
-        }
-        if minutes < 60 {
-            return "\(minutes)m"
-        }
-        return "\(minutes / 60)h \(minutes % 60)m"
     }
 }
 
