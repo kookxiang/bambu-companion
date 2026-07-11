@@ -41,7 +41,7 @@ struct StatusSummaryView: View {
                         progressBadge
                     }
 
-                    ProgressView(value: Double(status.progress ?? 0), total: 100)
+                    ProgressView(value: Double(status.displayedProgress ?? 0), total: 100)
                 }
             }
 
@@ -92,6 +92,9 @@ struct StatusSummaryView: View {
     }
 
     private var layerText: String? {
+        guard status.activity != .preparing else {
+            return nil
+        }
         guard let currentLayer = status.currentLayer, currentLayer > 0 else {
             return nil
         }
@@ -103,7 +106,7 @@ struct StatusSummaryView: View {
 
     private var progressBadge: some View {
         VStack(alignment: .trailing, spacing: 2) {
-            Text("\(status.progress ?? 0)%")
+            Text("\(status.displayedProgress ?? 0)%")
                 .font(.system(.title3, design: .rounded, weight: .semibold))
 
             if let layerText {

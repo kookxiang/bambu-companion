@@ -20,6 +20,7 @@
 "Connecting..." = "正在连接...";
 "Current: %@" = "当前：%@";
 "Disconnected" = "已断开";
+"Downloading model" = "下载模型中";
 "Drying filament: %@" = "烘干耗材：%@";
 "Drying temperature: %@" = "烘干温度：%@";
 "Drying: %@ remaining" = "烘干剩余：%@";

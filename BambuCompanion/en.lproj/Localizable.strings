@@ -20,6 +20,7 @@
 "Connecting..." = "Connecting...";
 "Current: %@" = "Current: %@";
 "Disconnected" = "Disconnected";
+"Downloading model" = "Downloading model";
 "Drying filament: %@" = "Drying filament: %@";
 "Drying temperature: %@" = "Drying temperature: %@";
 "Drying: %@ remaining" = "Drying: %@ remaining";

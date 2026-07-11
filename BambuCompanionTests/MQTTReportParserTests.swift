@@ -56,6 +56,21 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.nozzleTemperature, 215.5)
     }
 
+    func testModelPreparationUsesDownloadProgress() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"PREPARE","mc_percent":91,"gcode_file_prepare_percent":"37"}}"#.utf8))
+
+        XCTAssertEqual(status.activity, .preparing)
+        XCTAssertEqual(status.primaryTitle, PrinterActivity.preparing.title)
+        XCTAssertEqual(status.displayedProgress, 37)
+    }
+
+    func testPrintingUsesPrintProgressAfterModelPreparation() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"gcode_state":"RUNNING","mc_percent":42,"gcode_file_prepare_percent":"100"}}"#.utf8))
+
+        XCTAssertEqual(status.activity, .printing)
+        XCTAssertEqual(status.displayedProgress, 42)
+    }
+
     func testParsesLegacyCurrentStage() throws {
         let status = try MQTTReportParser.parse(Data(#"{"print":{"stg_cur":"14"}}"#.utf8))
 

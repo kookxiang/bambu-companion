@@ -56,8 +56,10 @@ enum MQTTReportParser {
             return .unknown
         }
         switch raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() {
-        case "IDLE", "PREPARE", "SLICING":
+        case "IDLE", "SLICING":
             return .idle
+        case "PREPARE":
+            return .preparing
         case "RUNNING", "PRINTING":
             return .printing
         case "CANCEL", "CANCELLED", "CANCELED", "ABORT", "ABORTED":

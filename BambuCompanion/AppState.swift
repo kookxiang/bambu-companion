@@ -41,13 +41,13 @@ final class AppState: NSObject, ObservableObject {
 
     var menuBarProgressTitle: String? {
         guard connectionState == .connected,
-              status.activity == .printing || status.activity == .paused else {
+              status.activity == .preparing || status.activity == .printing || status.activity == .paused else {
             return nil
         }
         if status.activity == .printing, let menuBarStageTitle {
             return menuBarStageTitle
         }
-        guard let progress = status.progress else { return nil }
+        guard let progress = status.displayedProgress else { return nil }
         return "\(progress)%"
     }
 
@@ -320,7 +320,7 @@ private extension PrinterActivity {
         switch self {
         case .printing, .cancelled, .paused, .finished, .failed:
             return true
-        case .idle, .unknown:
+        case .idle, .preparing, .unknown:
             return false
         }
     }
@@ -542,7 +542,7 @@ private struct PrintStatusNotification {
         case .finished:
             title = L10n.format("%@ print finished", printerName)
             body = job ?? L10n.string("The current print completed successfully.")
-        case .idle, .unknown:
+        case .idle, .preparing, .unknown:
             return nil
         }
         self.init(

@@ -2,6 +2,7 @@ import Foundation
 
 enum PrinterActivity: String, Equatable {
     case idle
+    case preparing
     case printing
     case cancelled
     case paused
@@ -12,6 +13,7 @@ enum PrinterActivity: String, Equatable {
     var title: String {
         switch self {
         case .idle: return L10n.string("Idle")
+        case .preparing: return L10n.string("Downloading model")
         case .printing: return L10n.string("Printing")
         case .cancelled: return L10n.string("Cancelled")
         case .paused: return L10n.string("Paused")
@@ -148,6 +150,13 @@ struct PrinterStatus: Equatable {
             return currentStage.title
         }
         return activity.title
+    }
+
+    var displayedProgress: Int? {
+        if activity == .preparing {
+            return gcodeFilePreparePercent ?? progress
+        }
+        return progress
     }
 
     static let empty = PrinterStatus()
