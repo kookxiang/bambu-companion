@@ -53,10 +53,10 @@ struct StatusSummaryView: View {
                 nozzleMetric
                 BedChamberMetricView(
                     bedTemperature: temperature(status.bedTemperature),
-                    bedDetail: temperature(status.bedTemperature, target: status.targetBedTemperature),
+                    bedTargetTemperature: temperature(status.targetBedTemperature),
                     chamberTemperature: status.chamberTemperature.map { temperature($0) },
-                    chamberDetail: status.chamberTemperature.map { _ in
-                        temperature(status.chamberTemperature, target: status.targetChamberTemperature)
+                    chamberTargetTemperature: status.chamberTemperature.map { _ in
+                        temperature(status.targetChamberTemperature)
                     }
                 )
                 if status.fans.hasVisibleValue || status.airductMode != nil {
@@ -153,19 +153,6 @@ struct StatusSummaryView: View {
             return "--"
         }
         return TemperatureText.string(value)
-    }
-
-    private func temperature(_ value: Double?, target: Double?) -> String {
-        guard let value else {
-            return "--"
-        }
-        guard let target, target > 0 else {
-            return temperature(value)
-        }
-        guard abs(value - target) > 1 else {
-            return temperature(value)
-        }
-        return "\(TemperatureText.string(value)) / \(TemperatureText.string(target))"
     }
 
     private func nozzleTemperature(_ value: Double?, target: Double?) -> NozzleTemperatureMetric {
@@ -671,23 +658,23 @@ private struct DynamicMetricView: View {
 
 private struct BedChamberMetricView: View {
     let bedTemperature: String
-    let bedDetail: String
+    let bedTargetTemperature: String
     let chamberTemperature: String?
-    let chamberDetail: String?
+    let chamberTargetTemperature: String?
 
     @ViewBuilder
     var body: some View {
         if let chamberTemperature {
             HStack(spacing: 6) {
                 MetricView(title: "Bed", value: bedTemperature)
-                    .help(L10n.format("Bed: %@", bedDetail))
+                    .help(L10n.format("Target: %@", bedTargetTemperature))
 
                 MetricView(title: "Chamber temperature", value: chamberTemperature)
-                    .help(L10n.format("Chamber: %@", chamberDetail ?? chamberTemperature))
+                    .help(L10n.format("Target: %@", chamberTargetTemperature ?? "--"))
             }
         } else {
             MetricView(title: "Bed", value: bedTemperature)
-                .help(L10n.format("Bed: %@", bedDetail))
+                .help(L10n.format("Target: %@", bedTargetTemperature))
         }
     }
 }
