@@ -86,6 +86,7 @@ private struct NativeVideoStreamSurface: View {
             if effectiveURL != nil {
                 VStack {
                     HStack(spacing: 8) {
+                        Spacer()
                         if !showFloatingButton {
                             floatingCloseButton
                         }
@@ -93,7 +94,6 @@ private struct NativeVideoStreamSurface: View {
                         if streamState.hasVideo && showFloatingButton && !floatingVideoWindowController.isShowing {
                             openFloatingButton
                         }
-                        Spacer()
                     }
                     Spacer()
                 }
