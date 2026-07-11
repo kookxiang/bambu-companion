@@ -41,6 +41,12 @@ private struct NativeVideoStreamSurface: View {
     private var controlPadding: CGFloat {
         showFloatingButton ? 8 : 14
     }
+    private var previewHeight: CGFloat? {
+        guard showFloatingButton else {
+            return nil
+        }
+        return floatingVideoWindowController.isShowing ? 92 : 191
+    }
 
     var body: some View {
         ZStack {
@@ -97,9 +103,10 @@ private struct NativeVideoStreamSurface: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .frame(height: showFloatingButton ? 191 : nil)
+        .frame(height: previewHeight)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: cornerRadius))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .animation(.easeInOut(duration: 0.2), value: previewHeight)
         .onHover { hovering in
             isHoveringFloatingWindow = hovering
         }
@@ -121,23 +128,25 @@ private struct NativeVideoStreamSurface: View {
         Button {
             floatingVideoWindowController.dismiss()
         } label: {
-            VStack(spacing: 12) {
+            HStack(spacing: 12) {
                 PictureInPicturePlaceholderIcon()
-                    .frame(width: 88, height: 62)
+                    .frame(width: 48, height: 36)
                     .foregroundStyle(.secondary)
 
-                VStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(L10n.string("Playing in Picture in Picture"))
-                        .font(.headline)
+                        .font(.callout)
                         .fontWeight(.semibold)
                         .foregroundStyle(.primary)
                     Text(L10n.string("Click to return Picture in Picture to this window."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
+
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -220,7 +229,7 @@ private struct NativeVideoStreamSurface: View {
 private struct PictureInPicturePlaceholderIcon: View {
     var body: some View {
         Image(systemName: "pip.exit")
-            .font(.system(size: 54, weight: .regular))
+            .font(.system(size: 32, weight: .regular))
             .symbolRenderingMode(.hierarchical)
             .opacity(0.76)
     }
