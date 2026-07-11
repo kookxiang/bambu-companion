@@ -304,10 +304,21 @@ private final class FloatingVideoWindowController: ObservableObject {
     static let shared = FloatingVideoWindowController()
     static let cornerRadius: CGFloat = 8
 
+    private enum DefaultsKey {
+        static let pictureInPictureEnabled = "video.pictureInPictureEnabled"
+    }
+
     @Published private(set) var isShowing = false
     @Published private(set) var videoReconnectGeneration = 0
 
+    private let defaults: UserDefaults
     private weak var activeCoordinator: NativeVideoLayerView.Coordinator?
+    private var isRestoreStartPending = false
+    private var didAttemptRestore = false
+
+    private init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
 
     func toggle(url: URL?) {
         guard url != nil else {
@@ -318,6 +329,7 @@ private final class FloatingVideoWindowController: ObservableObject {
             return
         }
         if isShowing {
+            setPictureInPictureEnabled(false)
             activeCoordinator.stopPictureInPicture()
             isShowing = false
             return
@@ -326,6 +338,7 @@ private final class FloatingVideoWindowController: ObservableObject {
     }
 
     func dismiss() {
+        setPictureInPictureEnabled(false)
         activeCoordinator?.stopPictureInPicture()
         isShowing = false
     }
@@ -336,6 +349,8 @@ private final class FloatingVideoWindowController: ObservableObject {
 
     func register(_ coordinator: NativeVideoLayerView.Coordinator) {
         activeCoordinator = coordinator
+        isRestoreStartPending = false
+        didAttemptRestore = false
     }
 
     func unregister(_ coordinator: NativeVideoLayerView.Coordinator) {
@@ -344,10 +359,54 @@ private final class FloatingVideoWindowController: ObservableObject {
         }
         activeCoordinator = nil
         isShowing = false
+        isRestoreStartPending = false
+        didAttemptRestore = false
     }
 
-    func setShowing(_ isShowing: Bool) {
-        self.isShowing = isShowing
+    func restorePictureInPictureIfNeeded() {
+        guard defaults.bool(forKey: DefaultsKey.pictureInPictureEnabled),
+              !isShowing,
+              !isRestoreStartPending,
+              !didAttemptRestore,
+              let activeCoordinator else {
+            return
+        }
+
+        isRestoreStartPending = true
+        didAttemptRestore = true
+        if !activeCoordinator.startPictureInPicture(reportUnavailable: false) {
+            isRestoreStartPending = false
+            didAttemptRestore = false
+        }
+    }
+
+    var shouldRestorePictureInPicture: Bool {
+        defaults.bool(forKey: DefaultsKey.pictureInPictureEnabled) &&
+            !isShowing &&
+            !didAttemptRestore
+    }
+
+    func pictureInPictureDidStart() {
+        isRestoreStartPending = false
+        isShowing = true
+        setPictureInPictureEnabled(true)
+    }
+
+    func pictureInPictureDidStop(preservePreference: Bool) {
+        isRestoreStartPending = false
+        isShowing = false
+        if !preservePreference {
+            setPictureInPictureEnabled(false)
+        }
+    }
+
+    func pictureInPictureDidFailToStart() {
+        isRestoreStartPending = false
+        isShowing = false
+    }
+
+    private func setPictureInPictureEnabled(_ isEnabled: Bool) {
+        defaults.set(isEnabled, forKey: DefaultsKey.pictureInPictureEnabled)
     }
 }
 
@@ -394,6 +453,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         private var desiredOnFrame: (() -> Void)?
         private var isWindowVisible = true
         private var isPictureInPictureProtected = false
+        private var isTearingDown = false
         private var needsPictureInPictureLayoutRefreshAfterNextFrame = false
 
         init(onError: @escaping (String?) -> Void) {
@@ -457,6 +517,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
                 displayLayer: view.displayLayer,
                 onFrame: { [weak self] in
                     onFrame()
+                    FloatingVideoWindowController.shared.restorePictureInPictureIfNeeded()
                     self?.refreshPictureInPictureLayoutAfterFrameIfNeeded()
                 },
                 onConnected: { [weak self] in
@@ -475,6 +536,7 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         func stop() {
+            isTearingDown = true
             stopPictureInPicture()
             desiredURL = nil
             desiredOnFrame = nil
@@ -489,7 +551,9 @@ private struct NativeVideoLayerView: NSViewRepresentable {
         }
 
         private var shouldKeepVideoStreamRunning: Bool {
-            isWindowVisible || isPictureInPictureActiveOrStarting
+            isWindowVisible ||
+                isPictureInPictureActiveOrStarting ||
+                FloatingVideoWindowController.shared.shouldRestorePictureInPicture
         }
 
         private var isPictureInPictureActiveOrStarting: Bool {
@@ -512,18 +576,24 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             pictureInPictureController = controller
         }
 
-        func startPictureInPicture() {
+        @discardableResult
+        func startPictureInPicture(reportUnavailable: Bool = true) -> Bool {
             guard let pictureInPictureController else {
-                onError(L10n.string("Picture in Picture is unavailable."))
-                return
+                if reportUnavailable {
+                    onError(L10n.string("Picture in Picture is unavailable."))
+                }
+                return false
             }
             guard pictureInPictureController.isPictureInPicturePossible else {
-                onError(L10n.string("Picture in Picture is not ready yet."))
-                return
+                if reportUnavailable {
+                    onError(L10n.string("Picture in Picture is not ready yet."))
+                }
+                return false
             }
             isPictureInPictureProtected = true
             moveDisplayLayerToPictureInPictureSource()
             pictureInPictureController.startPictureInPicture()
+            return true
         }
 
         func stopPictureInPicture() {
@@ -537,14 +607,15 @@ private struct NativeVideoLayerView: NSViewRepresentable {
 
         func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
             isPictureInPictureProtected = true
-            FloatingVideoWindowController.shared.setShowing(true)
+            FloatingVideoWindowController.shared.pictureInPictureDidStart()
             applyPictureInPictureWorkaround()
         }
 
         func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
             isPictureInPictureProtected = false
-            FloatingVideoWindowController.shared.setShowing(false)
+            FloatingVideoWindowController.shared.pictureInPictureDidStop(preservePreference: isTearingDown)
             restorePictureInPictureWorkaround()
+            startDesiredStreamIfNeeded()
         }
 
         func pictureInPictureController(
@@ -552,8 +623,9 @@ private struct NativeVideoLayerView: NSViewRepresentable {
             failedToStartPictureInPictureWithError error: Error
         ) {
             isPictureInPictureProtected = false
-            FloatingVideoWindowController.shared.setShowing(false)
+            FloatingVideoWindowController.shared.pictureInPictureDidFailToStart()
             restorePictureInPictureWorkaround()
+            startDesiredStreamIfNeeded()
             onError(error.localizedDescription)
         }
 
