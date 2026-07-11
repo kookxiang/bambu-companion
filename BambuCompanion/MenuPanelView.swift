@@ -3,12 +3,15 @@ import SwiftUI
 struct MenuPanelView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
+    @StateObject private var pictureInPictureState = PictureInPicturePresentationState.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if appState.configuration.isComplete {
-                StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
-                VideoPreviewView(url: appState.videoStreamURL)
+                VStack(alignment: .leading, spacing: pictureInPictureState.isShowing ? 0 : 16) {
+                    StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
+                    VideoPreviewView(url: appState.videoStreamURL)
+                }
             } else {
                 setupPrompt
             }
@@ -62,6 +65,15 @@ struct MenuPanelView: View {
             }
 
             Spacer()
+
+            if pictureInPictureState.isShowing {
+                Button {
+                    pictureInPictureState.dismiss()
+                } label: {
+                    Label("Return Picture in Picture to this window", systemImage: "pip.exit")
+                }
+                .help(L10n.string("Return Picture in Picture to this window"))
+            }
 
             Button {
                 openSettingsWindow()

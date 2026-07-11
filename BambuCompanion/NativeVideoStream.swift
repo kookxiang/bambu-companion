@@ -11,6 +11,18 @@ enum VideoDefaultsKey {
     static let pictureInPictureEnabled = "video.pictureInPictureEnabled"
 }
 
+final class PictureInPicturePresentationState: ObservableObject {
+    static let shared = PictureInPicturePresentationState()
+
+    @Published fileprivate(set) var isShowing = false
+
+    private init() {}
+
+    func dismiss() {
+        FloatingVideoWindowController.shared.dismiss()
+    }
+}
+
 struct NativeVideoPreviewView: View {
     let url: URL?
 
@@ -49,7 +61,7 @@ private struct NativeVideoStreamSurface: View {
         guard showFloatingButton else {
             return nil
         }
-        return floatingVideoWindowController.isShowing ? 92 : 191
+        return floatingVideoWindowController.isShowing ? 0 : 191
     }
 
     var body: some View {
@@ -66,8 +78,6 @@ private struct NativeVideoStreamSurface: View {
 
             if let errorMessage = streamState.errorMessage {
                 placeholder(icon: "video.slash", text: errorMessage)
-            } else if effectiveURL != nil, floatingVideoWindowController.isShowing {
-                pictureInPicturePlaceholder
             } else if effectiveURL != nil, !streamState.hasVideo {
                 VStack(spacing: 8) {
                     ProgressView()
@@ -126,36 +136,6 @@ private struct NativeVideoStreamSurface: View {
                 floatingVideoWindowController.reconnectVideo()
             }
         }
-    }
-
-    private var pictureInPicturePlaceholder: some View {
-        Button {
-            floatingVideoWindowController.dismiss()
-        } label: {
-            HStack(spacing: 12) {
-                PictureInPicturePlaceholderIcon()
-                    .frame(width: 48, height: 36)
-                    .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(L10n.string("Playing in Picture in Picture"))
-                        .font(.callout)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                    Text(L10n.string("Click to return Picture in Picture to this window."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .multilineTextAlignment(.leading)
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16)
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .accessibilityLabel(L10n.string("Return Picture in Picture to this window"))
     }
 
     private func placeholder(icon: String, text: String) -> some View {
@@ -230,15 +210,6 @@ private struct NativeVideoStreamSurface: View {
     }
 }
 
-private struct PictureInPicturePlaceholderIcon: View {
-    var body: some View {
-        Image(systemName: "pip.exit")
-            .font(.system(size: 32, weight: .regular))
-            .symbolRenderingMode(.hierarchical)
-            .opacity(0.76)
-    }
-}
-
 @MainActor
 private final class VideoStreamState: ObservableObject {
     private static let staleFrameReconnectInterval: TimeInterval = 1
@@ -308,7 +279,11 @@ private final class FloatingVideoWindowController: ObservableObject {
     static let shared = FloatingVideoWindowController()
     static let cornerRadius: CGFloat = 8
 
-    @Published private(set) var isShowing = false
+    @Published private(set) var isShowing = false {
+        didSet {
+            PictureInPicturePresentationState.shared.isShowing = isShowing
+        }
+    }
     @Published private(set) var videoReconnectGeneration = 0
 
     private let defaults: UserDefaults
