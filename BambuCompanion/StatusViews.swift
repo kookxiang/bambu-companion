@@ -767,11 +767,11 @@ private struct FanMetricView: View {
     }
 
     private var value: String {
-        let activePercents = fanPercents(showingZeroValues: false)
-        if activePercents.isEmpty {
+        let activeFans = fanLines(showingZeroValues: false)
+        if activeFans.isEmpty {
             return L10n.string("Off")
         }
-        return activePercents.joined(separator: " / ")
+        return activeFans.joined(separator: " / ")
     }
 
     private var helpText: String {
@@ -784,21 +784,6 @@ private struct FanMetricView: View {
             fanLine("Aux", fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
             fanLine("Chamber", fans.chamberPercent, showingZeroValues: showingZeroValues)
         ].compactMap(\.self)
-    }
-
-    private func fanPercents(showingZeroValues: Bool) -> [String] {
-        [
-            fanPercent(fans.partCoolingPercent, showingZeroValues: showingZeroValues),
-            fanPercent(fans.auxiliaryPercent, showingZeroValues: showingZeroValues),
-            fanPercent(fans.chamberPercent, showingZeroValues: showingZeroValues)
-        ].compactMap(\.self)
-    }
-
-    private func fanPercent(_ percent: Int?, showingZeroValues: Bool) -> String? {
-        guard let percent, showingZeroValues || percent > 0 else {
-            return nil
-        }
-        return "\(percent)%"
     }
 
     private func fanLine(_ name: String, _ percent: Int?, showingZeroValues: Bool) -> String? {
