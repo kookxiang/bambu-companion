@@ -9,7 +9,6 @@ final class AppState: NSObject, ObservableObject {
     @Published private(set) var connectionState: ConnectionState = .notConfigured
     @Published private(set) var status: PrinterStatus = .empty
     @Published private(set) var coverImageState: CoverImageState = .unavailable
-    @Published private(set) var menuBarStageTitle: String?
     @Published var isShowingSettings = false
 
     private let configurationStore: PrinterConfigurationStore
@@ -19,7 +18,6 @@ final class AppState: NSObject, ObservableObject {
     private var reconnectTask: Task<Void, Never>?
     private var reconnectAttempt = 0
     private var coverImageTask: Task<Void, Never>?
-    private var menuBarStageTask: Task<Void, Never>?
     private var currentCoverJobKey: String?
     private var currentCoverAttemptKey: String?
     private var notificationGate = PrintNotificationGate()
@@ -40,15 +38,8 @@ final class AppState: NSObject, ObservableObject {
     }
 
     var menuBarProgressTitle: String? {
-        guard connectionState == .connected,
-              status.activity == .preparing || status.activity == .printing || status.activity == .paused else {
-            return nil
-        }
-        if status.activity == .printing, let menuBarStageTitle {
-            return menuBarStageTitle
-        }
-        guard let progress = status.displayedProgress else { return nil }
-        return "\(progress)%"
+        guard connectionState == .connected else { return nil }
+        return status.menuBarTitle
     }
 
     var videoStreamURL: URL? {
@@ -83,9 +74,6 @@ final class AppState: NSObject, ObservableObject {
         mqttClient = nil
         coverImageTask?.cancel()
         coverImageTask = nil
-        menuBarStageTask?.cancel()
-        menuBarStageTask = nil
-        menuBarStageTitle = nil
         coverImageService.reset()
         currentCoverJobKey = nil
         currentCoverAttemptKey = nil
@@ -113,9 +101,6 @@ final class AppState: NSObject, ObservableObject {
         mqttClient = nil
         coverImageTask?.cancel()
         coverImageTask = nil
-        menuBarStageTask?.cancel()
-        menuBarStageTask = nil
-        menuBarStageTitle = nil
         notificationGate.reset()
         connectionState = configuration.isComplete ? .disconnected : .notConfigured
     }
@@ -146,7 +131,6 @@ final class AppState: NSObject, ObservableObject {
     private func apply(status newStatus: PrinterStatus) {
         let mergedStatus = status.mergingIncrementalUpdate(newStatus)
         let notificationEvents = notificationGate.observe(status: mergedStatus)
-        showMenuBarStageIfNeeded(previousStatus: status, currentStatus: mergedStatus)
         status = mergedStatus
 
         for event in notificationEvents {
@@ -158,34 +142,6 @@ final class AppState: NSObject, ObservableObject {
         }
 
         updateCoverImageIfNeeded(for: mergedStatus)
-    }
-
-    private func showMenuBarStageIfNeeded(previousStatus: PrinterStatus, currentStatus: PrinterStatus) {
-        guard currentStatus.activity == .printing, currentStatus.currentStage != nil else {
-            menuBarStageTask?.cancel()
-            menuBarStageTask = nil
-            menuBarStageTitle = nil
-            return
-        }
-        guard let title = MenuBarStageAnnouncement.title(
-            previousStatus: previousStatus,
-            currentStatus: currentStatus
-        ) else {
-            return
-        }
-
-        menuBarStageTask?.cancel()
-        menuBarStageTitle = title
-        menuBarStageTask = Task { [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: 4_000_000_000)
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            self?.menuBarStageTitle = nil
-            self?.menuBarStageTask = nil
-        }
     }
 
     private func updateCoverImageIfNeeded(for status: PrinterStatus) {
@@ -242,19 +198,6 @@ final class AppState: NSObject, ObservableObject {
                 }
             }
         }
-    }
-}
-
-enum MenuBarStageAnnouncement {
-    static func title(previousStatus: PrinterStatus, currentStatus: PrinterStatus) -> String? {
-        guard previousStatus.activity == .printing,
-              currentStatus.activity == .printing,
-              let previousStage = previousStatus.currentStage,
-              let currentStage = currentStatus.currentStage,
-              previousStage != currentStage else {
-            return nil
-        }
-        return currentStage.title
     }
 }
 

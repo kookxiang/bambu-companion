@@ -202,6 +202,20 @@ struct PrinterStatus: Equatable {
         return progress
     }
 
+    var menuBarTitle: String? {
+        switch activity {
+        case .preparing:
+            return displayedProgress.map { "\($0)%" }
+        case .printing:
+            if let currentStage, currentStage.id != 0 {
+                return currentStage.title
+            }
+            return displayedProgress.map { "\($0)%" }
+        default:
+            return nil
+        }
+    }
+
     static let empty = PrinterStatus()
 
     func mergingIncrementalUpdate(_ update: PrinterStatus) -> PrinterStatus {

@@ -119,24 +119,29 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.primaryTitle, PrinterActivity.paused.title)
     }
 
-    func testMenuBarStageAnnouncementRequiresAnActualPrintingStageChange() {
-        var previous = PrinterStatus()
-        previous.activity = .printing
-        previous.currentStage = PrinterStage(id: 2)
-        var current = previous
-        current.currentStage = PrinterStage(id: 13)
+    func testMenuBarTitleShowsStageUntilPrintingBegins() {
+        var status = PrinterStatus()
+        status.activity = .printing
+        status.progress = 42
+        status.currentStage = PrinterStage(id: 14)
+        XCTAssertEqual(status.menuBarTitle, PrinterStage(id: 14).title)
 
-        XCTAssertEqual(
-            MenuBarStageAnnouncement.title(previousStatus: previous, currentStatus: current),
-            PrinterStage(id: 13).title
-        )
+        status.currentStage = PrinterStage(id: 0)
+        XCTAssertEqual(status.menuBarTitle, "42%")
 
-        var initial = previous
-        initial.currentStage = nil
-        XCTAssertNil(MenuBarStageAnnouncement.title(previousStatus: initial, currentStatus: current))
+        status.currentStage = nil
+        XCTAssertEqual(status.menuBarTitle, "42%")
+    }
 
-        current.activity = .paused
-        XCTAssertNil(MenuBarStageAnnouncement.title(previousStatus: previous, currentStatus: current))
+    func testMenuBarTitleKeepsDownloadProgressButHidesPausedProgress() {
+        var status = PrinterStatus()
+        status.activity = .preparing
+        status.progress = 91
+        status.gcodeFilePreparePercent = 36
+        XCTAssertEqual(status.menuBarTitle, "36%")
+
+        status.activity = .paused
+        XCTAssertNil(status.menuBarTitle)
     }
 
     func testIncrementalUpdatePreservesMissingFields() throws {
