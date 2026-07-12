@@ -205,7 +205,7 @@ struct PrinterStatus: Equatable {
     var menuBarTitle: String? {
         switch activity {
         case .preparing:
-            return displayedProgress.map { "\($0)%" }
+            return activity.title
         case .printing:
             if let currentStage, currentStage.id != 0 {
                 return currentStage.title

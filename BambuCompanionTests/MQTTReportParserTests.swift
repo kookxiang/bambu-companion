@@ -133,12 +133,12 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.menuBarTitle, "42%")
     }
 
-    func testMenuBarTitleKeepsDownloadProgressButHidesPausedProgress() {
+    func testMenuBarTitleShowsDownloadStateButHidesPausedProgress() {
         var status = PrinterStatus()
         status.activity = .preparing
         status.progress = 91
         status.gcodeFilePreparePercent = 36
-        XCTAssertEqual(status.menuBarTitle, "36%")
+        XCTAssertEqual(status.menuBarTitle, PrinterActivity.preparing.title)
 
         status.activity = .paused
         XCTAssertNil(status.menuBarTitle)
