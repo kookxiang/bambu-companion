@@ -663,6 +663,40 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertFalse(status.amsUnits[1].slots[3].isActive)
     }
 
+    func testExternalSpoolOverridesStaleActiveAMSSlot() throws {
+        let json = """
+        {
+          "print": {
+            "device": {
+              "extruder": {
+                "state": 0,
+                "info": [
+                  {"id": 0, "snow": 1}
+                ]
+              }
+            },
+            "ams": {
+              "tray_now": 254,
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {"id": "0", "tray_type": "PLA"},
+                    {"id": "1", "tray_type": "PETG"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertFalse(status.amsUnits[0].slots[0].isActive)
+        XCTAssertFalse(status.amsUnits[0].slots[1].isActive)
+    }
+
     func testCoverImageCandidatesPreferSubtaskNameAndSkipMetadataRamdisk() {
         let candidates = CoverImageCandidateBuilder.candidates(
             gcodeFile: "/data/Metadata/plate_1.gcode",

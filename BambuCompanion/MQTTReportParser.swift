@@ -407,10 +407,14 @@ enum MQTTReportParser {
     }
 
     private static func activeAMSSlot(from print: [String: Any], ams: [String: Any]) -> (amsID: String, slotIndex: Int)? {
+        let trayNow = intValue(ams["tray_now"])
+        if trayNow == 254 || trayNow == 255 {
+            return nil
+        }
         if let slot = activeAMSSlotFromExtruder(print) {
             return slot
         }
-        if let trayNow = intValue(ams["tray_now"]) {
+        if let trayNow {
             return activeAMSSlot(fromEncodedTray: trayNow)
         }
         return nil
