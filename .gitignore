@@ -4,3 +4,13 @@ xcuserdata/
 project.xcworkspace/
 DerivedData/
 build/
+*.moved-aside
+*.xcscmblueprint
+*.xccheckout
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+.swiftpm/
+.build/
+*.ipa
+*.dSYM.zip
+*.dSYM
