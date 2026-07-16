@@ -1,81 +1,84 @@
 # Bambu Companion
 
-Bambu Companion is a macOS menu bar app for monitoring Bambu Lab printers on a local network.
+Bambu Companion 是一个 macOS 状态栏应用，用来在局域网内监控 Bambu Lab 打印机。
 
-It connects directly to the printer's LAN MQTT event stream and RTSP video stream, then shows current print status, temperatures, AMS trays, cover images, alerts, and camera preview from the menu bar.
+它会直接连接打印机的 LAN MQTT 事件流和 RTSP 视频流，在状态栏弹出面板里展示当前打印状态、温度、AMS 料盘、封面图、告警和摄像头预览。
 
-## Features
+## 功能
 
-- Menu bar status with active print progress.
-- Popover dashboard for print state, job name, progress, layers, remaining time, nozzle, bed, chamber, fans, and AMS information.
-- Dual-nozzle temperature display for machines such as H2D.
-- AMS tray display with active slot highlighting, filament color/type, estimated remaining weight when available, humidity/temperature tooltips, and drying status.
-- Print cover image loading from the printer over FTPS, with local caching to avoid repeated downloads.
-- Native RTSP video preview using AVFoundation, with a floating always-on-top video window.
-- macOS notifications for meaningful print activity changes and HMS alerts.
-- Localized UI strings for English and Simplified Chinese.
-- Settings window for printer name, host/IP, serial number, and LAN access code.
+- 状态栏显示当前打印进度。
+- 弹出面板展示打印状态、任务名称、进度、层数、剩余时间、喷嘴、热床、机箱、风扇和 AMS 信息。
+- 支持 H2D 等双喷嘴机型的左右喷嘴温度显示。
+- AMS 料盘展示：当前使用槽位高亮、耗材颜色/类型、可用时显示预计剩余重量、悬停显示温湿度信息，并支持烘干状态提示。
+- 通过 FTPS 从打印机读取 `.3mf` 文件并提取打印封面图，带本地缓存，避免重复下载。
+- 使用 AVFoundation 播放原生 RTSP 视频预览，并支持一个置顶的浮动视频窗口。
+- 打印状态发生有效变化、或出现 HMS 告警时发送 macOS 通知。
+- 支持英文和简体中文界面文本。
+- 设置窗口可填写打印机名称、IP/主机名、序列号和局域网访问码。
 
-## Requirements
+## 运行要求
 
-- macOS 14 or newer.
-- Xcode 15.4 or newer. Xcode Beta also works if you are running a beta macOS SDK.
-- A Bambu Lab printer reachable on the same LAN.
-- LAN mode / LAN access enabled on the printer.
-- Printer IP or hostname, serial number, and LAN access code.
+- macOS 14 或更新版本。
+- Xcode 15.4 或更新版本。如果你在使用 beta 系统，也可以使用 Xcode Beta。
+- 一台能在同一局域网内访问到的 Bambu Lab 打印机。
+- 打印机已开启 LAN 模式 / 局域网访问。
+- 打印机 IP 或主机名、序列号、局域网访问码。
 
-## Network Access
+## 网络访问
 
-The app talks directly to the printer:
+应用会直接访问打印机：
 
-- MQTT over TLS on port `8883`.
-- RTSP / RTSPS video on port `322`.
-- FTPS for downloading `.3mf` files used to extract cover images.
+- MQTT over TLS：`8883` 端口。
+- RTSP / RTSPS 视频流：`322` 端口。
+- FTPS：用于下载 `.3mf` 文件并提取封面图。
 
-No cloud account is required by the app. The LAN access code is stored in the macOS Keychain. Other printer settings are stored in `UserDefaults`.
+应用不需要云账号。局域网访问码会存储在 macOS 钥匙串中，其他打印机设置会存储在 `UserDefaults` 中。
 
-## Build
+## 构建
 
-Open `BambuCompanion.xcodeproj` in Xcode and run the `BambuCompanion` scheme.
+用 Xcode 打开 `BambuCompanion.xcodeproj`，运行 `BambuCompanion` scheme。
 
-From the command line:
+也可以用命令行构建：
 
 ```sh
 xcodebuild -scheme BambuCompanion -configuration Debug build
 ```
 
-When using Xcode Beta:
+如果使用 Xcode Beta：
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
   xcodebuild -scheme BambuCompanion -configuration Debug build
 ```
 
-## Setup
+## 设置
 
-1. Launch the app.
-2. Open Settings from the menu bar popover.
-3. Enter the printer IP/host, serial number, and LAN access code.
-4. Save or test the connection.
+1. 启动应用。
+2. 从状态栏弹出面板打开 Settings。
+3. 填写打印机 IP/主机名、序列号和局域网访问码。
+4. 保存，或点击测试连接。
 
-Once connected, updates are pushed through MQTT. The manual reconnect button is only shown when the app is disconnected or failed.
+连接成功后，打印状态会通过 MQTT 推送更新。只有在断开连接或连接失败时，面板底部才会显示手动重连按钮。
 
-## Project Structure
+## 项目结构
 
-- `BambuCompanion/` - App source code and resources.
-- `BambuCompanion/Assets.xcassets/` - App icon asset catalog.
-- `BambuCompanion/HMSResources/` - HMS error catalogs copied from Bambu Studio.
-- `BambuCompanionTests/` - Unit tests for MQTT parsing and related behavior.
-- `Design/` - Logo concept source images.
+- `BambuCompanion/`：应用源码和资源。
+- `BambuCompanion/Assets.xcassets/`：App 图标资源。
+- `BambuCompanion/HMSResources/`：从 Bambu Studio 复制的 HMS 错误信息资源。
+- `BambuCompanionTests/`：MQTT 解析和相关行为的单元测试。
+- `Design/`：Logo 概念图源文件。
 
-## Notes
+## 说明
 
-This is a local-network companion app. It is not affiliated with or endorsed by Bambu Lab.
+这是一个局域网内使用的第三方 companion app，与 Bambu Lab 没有关联，也不代表 Bambu Lab 官方。
 
-The app icon is an original design inspired by the idea of a companion cube and 3D printing. It intentionally avoids copying the original Portal Companion Cube artwork or the exact Bambu Lab logo.
+App 图标是原创设计，灵感来自 companion cube 和 3D 打印语义；它有意避免直接复制 Portal Companion Cube 原始图案或 Bambu Lab 官方 Logo。
 
-## License
+## 许可证
 
-The app source code is licensed under the MIT License. See `LICENSE`.
+应用源码使用 MIT License，见 `LICENSE`。
 
-The HMS JSON resources under `BambuCompanion/HMSResources/` are copied from the official Bambu Studio repository and are licensed under the GNU Affero General Public License v3.0. See `BambuCompanion/HMSResources/NOTICE.txt` and `BambuCompanion/HMSResources/LICENSE-BambuStudio-AGPL-3.0.txt`.
+`BambuCompanion/HMSResources/` 下的 HMS JSON 资源来自官方 Bambu Studio 仓库，按 GNU Affero General Public License v3.0 授权。相关说明和许可证文本见：
+
+- `BambuCompanion/HMSResources/NOTICE.txt`
+- `BambuCompanion/HMSResources/LICENSE-BambuStudio-AGPL-3.0.txt`
