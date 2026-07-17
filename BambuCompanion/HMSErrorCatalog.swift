@@ -69,23 +69,27 @@ struct HMSErrorCatalog {
         guard let data = try? Data(contentsOf: url),
               let object = try? JSONSerialization.jsonObject(with: data),
               let root = object as? [String: Any],
-              let dataObject = root["data"] as? [String: Any],
-              let deviceHMS = dataObject["device_hms"] as? [String: Any],
-              let entries = deviceHMS[language] as? [[String: Any]] else {
+              let dataObject = root["data"] as? [String: Any] else {
             return nil
         }
 
         var table: [String: String] = [:]
-        for entry in entries {
-            guard let ecode = entry["ecode"] as? String,
-                  let intro = entry["intro"] as? String,
-                  !ecode.isEmpty,
-                  !intro.isEmpty else {
+        for sectionName in ["device_hms", "device_error"] {
+            guard let section = dataObject[sectionName] as? [String: Any],
+                  let entries = section[language] as? [[String: Any]] else {
                 continue
             }
-            table[ecode.uppercased()] = intro
+            for entry in entries {
+                guard let ecode = entry["ecode"] as? String,
+                      let intro = entry["intro"] as? String,
+                      !ecode.isEmpty,
+                      !intro.isEmpty else {
+                    continue
+                }
+                table[ecode.uppercased()] = intro
+            }
         }
-        return table
+        return table.isEmpty ? nil : table
     }
 
     private static func languageCandidates(from preferredLanguages: [String]) -> [String] {
