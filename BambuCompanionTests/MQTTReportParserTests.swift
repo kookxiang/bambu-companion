@@ -307,6 +307,35 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.targetLeftNozzleTemperature, 88)
         XCTAssertEqual(status.leftNozzleSpecification, NozzleSpecification(diameter: 0.2, type: "stainless_steel"))
         XCTAssertEqual(status.nozzleTemperature, 245)
+        XCTAssertTrue(status.hasDualNozzleTemperatures)
+    }
+
+    func testTreatsSingleModernExtruderAsSingleNozzle() throws {
+        let json = """
+        {
+          "print": {
+            "device": {
+              "nozzle": {
+                "info": [
+                  {"id": 0, "diameter": "0.4", "type": "HS01"}
+                ]
+              },
+              "extruder": {
+                "info": [
+                  {"id": 0, "temp": 16711935}
+                ]
+              }
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertEqual(status.nozzleTemperature, 255)
+        XCTAssertEqual(status.targetNozzleTemperature, 255)
+        XCTAssertEqual(status.nozzleSpecification, NozzleSpecification(diameter: 0.4, type: "hardened_steel"))
+        XCTAssertFalse(status.hasDualNozzleTemperatures)
     }
 
     func testParsesSingleNozzleSpecification() throws {

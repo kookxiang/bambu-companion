@@ -38,6 +38,11 @@ enum MQTTReportParser {
         status.targetLeftNozzleTemperature = dualNozzles.left.target
         status.rightNozzleTemperature = dualNozzles.right.current
         status.targetRightNozzleTemperature = dualNozzles.right.target
+        if status.leftNozzleTemperature == nil || status.rightNozzleTemperature == nil {
+            let singleNozzle = dualNozzles.left.current == nil ? dualNozzles.right : dualNozzles.left
+            status.nozzleTemperature = status.nozzleTemperature ?? singleNozzle.current
+            status.targetNozzleTemperature = status.targetNozzleTemperature ?? singleNozzle.target
+        }
         let bedTemperatures = bedTemperatures(from: print)
         status.bedTemperature = bedTemperatures.current
         status.targetBedTemperature = bedTemperatures.target
