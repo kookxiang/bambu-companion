@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MenuPanelView: View {
+    private static let contentViewportHeight: CGFloat = 440
+
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
     @StateObject private var pictureInPictureState = PictureInPicturePresentationState.shared
@@ -8,10 +10,15 @@ struct MenuPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if appState.configuration.isComplete {
-                VStack(alignment: .leading, spacing: pictureInPictureState.isShowing ? 0 : 16) {
-                    StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
-                    VideoPreviewView(url: appState.videoStreamURL)
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: pictureInPictureState.isShowing ? 0 : 16) {
+                        StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
+                        VideoPreviewView(url: appState.videoStreamURL)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                .frame(height: Self.contentViewportHeight, alignment: .top)
+                .scrollBounceBehavior(.basedOnSize)
             } else {
                 setupPrompt
             }
