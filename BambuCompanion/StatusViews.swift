@@ -349,26 +349,44 @@ private struct AMSUnitRowView: View {
     let unit: AMSUnitStatus
     let helpText: String
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage private var isExpanded: Bool
+
+    init(unit: AMSUnitStatus, helpText: String) {
+        self.unit = unit
+        self.helpText = helpText
+        _isExpanded = AppStorage(
+            wrappedValue: true,
+            "amsUnit.\(unit.id).isExpanded"
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                AMSUnitLabelView(unit: unit)
-                    .help(helpText)
+            Button(action: toggleExpanded) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    AMSUnitLabelView(unit: unit, isExpanded: isExpanded)
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
 
-                AMSUnitStatusLine(unit: unit)
-                    .help(helpText)
+                    AMSUnitStatusLine(unit: unit)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .help(toggleHelpText)
 
-            HStack(spacing: 6) {
-                ForEach(unit.slots) { slot in
-                    AMSSlotView(slot: slot)
+            if isExpanded {
+                HStack(spacing: 6) {
+                    ForEach(unit.slots) { slot in
+                        AMSSlotView(slot: slot)
+                    }
+                    ForEach(0..<placeholderSlotCount, id: \.self) { _ in
+                        Color.clear
+                            .frame(maxWidth: .infinity, minHeight: 34)
+                    }
                 }
-                ForEach(0..<placeholderSlotCount, id: \.self) { _ in
-                    Color.clear
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.vertical, 3)
@@ -377,13 +395,31 @@ private struct AMSUnitRowView: View {
     private var placeholderSlotCount: Int {
         max(0, 4 - unit.slots.count)
     }
+
+    private var toggleHelpText: String {
+        let key = isExpanded ? "Collapse %@" : "Expand %@"
+        return "\(L10n.format(key, unit.name))\n\(helpText)"
+    }
+
+    private func toggleExpanded() {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25, extraBounce: 0)) {
+            isExpanded.toggle()
+        }
+    }
 }
 
 private struct AMSUnitLabelView: View {
     let unit: AMSUnitStatus
+    let isExpanded: Bool
 
     var body: some View {
         HStack(spacing: 4) {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 8, weight: .bold))
+                .frame(width: 8)
+                .rotationEffect(isExpanded ? .degrees(90) : .zero)
+                .accessibilityHidden(true)
+
             Text(unit.name)
                 .lineLimit(1)
         }

@@ -14,6 +14,7 @@
 "Close the floating window to watch here again." = "关闭浮窗后可重新在这里观看。";
 "Color" = "颜色";
 "Cooling" = "冷却模式";
+"Collapse %@" = "收起 %@";
 "Connected" = "已连接";
 "Connecting" = "连接中";
 "Connecting video..." = "正在连接视频...";
@@ -26,6 +27,7 @@
 "Drying temperature: %@" = "烘干温度：%@";
 "Drying: %@ remaining" = "烘干剩余：%@";
 "Empty" = "空";
+"Expand %@" = "展开 %@";
 "Enter the printer IP, serial number, and LAN access code to start monitoring." = "输入打印机 IP、序列号和局域网访问码以开始监控。";
 "Estimated completion unavailable" = "预计完成时间不可用";
 "Estimated completion: %@" = "预计完成：%@";

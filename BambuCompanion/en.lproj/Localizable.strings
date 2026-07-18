@@ -14,6 +14,7 @@
 "Close the floating window to watch here again." = "Close the floating window to watch here again.";
 "Color" = "Color";
 "Cooling" = "Cooling";
+"Collapse %@" = "Collapse %@";
 "Connected" = "Connected";
 "Connecting" = "Connecting";
 "Connecting video..." = "Connecting video...";
@@ -26,6 +27,7 @@
 "Drying temperature: %@" = "Drying temperature: %@";
 "Drying: %@ remaining" = "Drying: %@ remaining";
 "Empty" = "Empty";
+"Expand %@" = "Expand %@";
 "Enter the printer IP, serial number, and LAN access code to start monitoring." = "Enter the printer IP, serial number, and LAN access code to start monitoring.";
 "Estimated completion unavailable" = "Estimated completion unavailable";
 "Estimated completion: %@" = "Estimated completion: %@";
