@@ -629,6 +629,38 @@ final class MQTTReportParserTests: XCTestCase {
         )
     }
 
+    func testHidesHMSWarningWithoutMessage() throws {
+        let status = try MQTTReportParser.parse(
+            Data(#"{"print":{"hms":[{"attr":83887616,"code":131184}]}}"#.utf8)
+        )
+
+        XCTAssertNil(status.alert)
+    }
+
+    func testSkipsHMSWarningWithoutMessageAndDisplaysNextKnownWarning() throws {
+        let json = """
+        {
+          "print": {
+            "hms": [
+              {
+                "attr": 83887616,
+                "code": 131184
+              },
+              {
+                "attr": 402691840,
+                "code": 196609
+              }
+            ]
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertTrue(status.alert?.title.contains("AMS-HT") == true)
+        XCTAssertEqual(status.alert?.source, .hms)
+    }
+
     func testHMSErrorCatalogLoadsOfficialEnglishResources() throws {
         let resourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -918,6 +950,15 @@ final class MQTTReportParserTests: XCTestCase {
             [.hmsAlert(alert)]
         )
         XCTAssertEqual(gate.observe(status: PrinterStatus(activity: .printing, alert: alert)), [])
+    }
+
+    func testHMSWarningWithoutMessageDoesNotTriggerNotification() throws {
+        let status = try MQTTReportParser.parse(
+            Data(#"{"print":{"hms":[{"attr":83887616,"code":131184}]}}"#.utf8)
+        )
+        var gate = PrintNotificationGate()
+
+        XCTAssertEqual(gate.observe(status: status), [])
     }
 
     func testPrintNotificationGateNotifiesWhenHMSAlertChangesOrReappears() {
