@@ -136,19 +136,20 @@ jobs:
             exit 1
           fi
 
+          appcast_path="${RUNNER_TEMP}/release/appcast.xml"
           printf '%s' "${SPARKLE_PRIVATE_KEY}" | "${generate_appcast}" \
             --ed-key-file - \
             --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
-            -o appcast.xml \
+            -o "${appcast_path}" \
             "${RUNNER_TEMP}/release"
 
-          xmllint --noout appcast.xml
-          if ! grep -q 'sparkle:edSignature=' appcast.xml; then
+          xmllint --noout "${appcast_path}"
+          if ! grep -q 'sparkle:edSignature=' "${appcast_path}"; then
             echo "The appcast was generated without an EdDSA signature. Check SPARKLE_PRIVATE_KEY." >&2
             exit 1
           fi
 
-          echo "path=${RUNNER_TEMP}/release/appcast.xml" >> "${GITHUB_OUTPUT}"
+          echo "path=${appcast_path}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
