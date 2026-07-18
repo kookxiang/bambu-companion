@@ -38,6 +38,8 @@
 "Exhaust" = "外排";
 "Heating" = "加热";
 "Heatbreak" = "喉管";
+"Hide LAN access code" = "隐藏局域网访问码";
+"Hide serial number" = "隐藏序列号";
 "Hardened steel" = "硬化钢";
 "High-flow hardened steel" = "高流量硬化钢";
 "High-flow stainless steel" = "高流量不锈钢";
@@ -93,6 +95,8 @@
 "Series" = "系列";
 "Set up your printer" = "设置你的打印机";
 "Settings" = "设置";
+"Show LAN access code" = "显示局域网访问码";
+"Show serial number" = "显示序列号";
 "Stainless steel" = "不锈钢";
 "Slot %d" = "槽位 %d";
 "Target: %@" = "目标：%@";

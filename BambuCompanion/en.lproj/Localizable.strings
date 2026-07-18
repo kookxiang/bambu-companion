@@ -38,6 +38,8 @@
 "Exhaust" = "Exhaust";
 "Heating" = "Heating";
 "Heatbreak" = "Heatbreak";
+"Hide LAN access code" = "Hide LAN access code";
+"Hide serial number" = "Hide serial number";
 "Hardened steel" = "Hardened steel";
 "High-flow hardened steel" = "High-flow hardened steel";
 "High-flow stainless steel" = "High-flow stainless steel";
@@ -93,6 +95,8 @@
 "Series" = "Series";
 "Set up your printer" = "Set up your printer";
 "Settings" = "Settings";
+"Show LAN access code" = "Show LAN access code";
+"Show serial number" = "Show serial number";
 "Stainless steel" = "Stainless steel";
 "Slot %d" = "Slot %d";
 "Target: %@" = "Target: %@";
