@@ -199,12 +199,14 @@ private struct PrintProgressView: View {
                     Capsule()
                         .fill(speedMode.color.gradient)
                         .frame(width: fillWidth, height: 6)
+                        .overlay {
+                            Capsule()
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        }
 
-                    if speedMode.isFasterThanStandard {
-                        FastSpeedChevronTexture()
-                            .frame(width: fillWidth, height: 6)
-                            .clipShape(Capsule())
-                    }
+                    FastSpeedStripeTexture(pointsPerSecond: speedMode.stripeSpeed)
+                        .frame(width: fillWidth, height: 6)
+                        .clipShape(Capsule())
 
                     Image(systemName: speedMode.symbolName)
                         .font(.system(size: 7, weight: .bold))
@@ -224,26 +226,32 @@ private struct PrintProgressView: View {
     }
 }
 
-private struct FastSpeedChevronTexture: View {
+private struct FastSpeedStripeTexture: View {
+    let pointsPerSecond: Double
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        Canvas { context, size in
-            var chevrons = Path()
-            let chevronWidth = 3.5
-            let patternStride = 7.0
-            var x = -chevronWidth
+        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion)) { timeline in
+            Canvas { context, size in
+                let stripeWidth = 5.0
+                let patternStride = 10.0
+                let elapsed = timeline.date.timeIntervalSinceReferenceDate
+                let phase = reduceMotion ? 0 : (elapsed * pointsPerSecond)
+                    .truncatingRemainder(dividingBy: patternStride)
+                var x = -patternStride + phase
 
-            while x < size.width + chevronWidth {
-                chevrons.move(to: CGPoint(x: x, y: 0.75))
-                chevrons.addLine(to: CGPoint(x: x + chevronWidth, y: size.height / 2))
-                chevrons.addLine(to: CGPoint(x: x, y: size.height - 0.75))
-                x += patternStride
+                while x < size.width + patternStride + size.height {
+                    var stripe = Path()
+                    stripe.move(to: CGPoint(x: x, y: 0))
+                    stripe.addLine(to: CGPoint(x: x + stripeWidth, y: 0))
+                    stripe.addLine(to: CGPoint(x: x + stripeWidth - size.height, y: size.height))
+                    stripe.addLine(to: CGPoint(x: x - size.height, y: size.height))
+                    stripe.closeSubpath()
+                    context.fill(stripe, with: .color(.white.opacity(0.3)))
+                    x += patternStride
+                }
             }
-
-            context.stroke(
-                chevrons,
-                with: .color(.white.opacity(0.5)),
-                style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
-            )
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -251,8 +259,13 @@ private struct FastSpeedChevronTexture: View {
 }
 
 private extension PrintSpeedMode {
-    var isFasterThanStandard: Bool {
-        multiplier > PrintSpeedMode.standard.multiplier
+    var stripeSpeed: Double {
+        switch self {
+        case .silent: return -10
+        case .sport: return 14
+        case .ludicrous: return 22
+        case .standard: return 0
+        }
     }
 
     var color: Color {
