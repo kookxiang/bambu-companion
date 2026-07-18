@@ -790,6 +790,10 @@ private final class VideoHostContainerView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
     deinit {
         removeWindowObservers()
     }
