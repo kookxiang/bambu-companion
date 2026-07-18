@@ -32,7 +32,7 @@ struct SettingsView: View {
                 TextField("Printer IP / Host", text: $draft.host)
                 visibilityTogglingField(
                     "Serial number",
-                    text: $draft.serialNumber,
+                    text: uppercaseSerialNumber,
                     field: .serialNumber
                 )
                 visibilityTogglingField(
@@ -79,7 +79,15 @@ struct SettingsView: View {
         .onAppear {
             revealedFields.removeAll()
             draft = appState.configuration
+            draft.serialNumber = draft.serialNumber.uppercased()
         }
+    }
+
+    private var uppercaseSerialNumber: Binding<String> {
+        Binding(
+            get: { draft.serialNumber },
+            set: { draft.serialNumber = $0.uppercased() }
+        )
     }
 
     @ViewBuilder
