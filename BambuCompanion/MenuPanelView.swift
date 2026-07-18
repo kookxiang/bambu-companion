@@ -5,6 +5,8 @@ import SwiftUI
 struct MenuPanelView: View {
     private static let panelSpacing: CGFloat = 16
     private static let panelPadding: CGFloat = 16
+    private static let fallbackContentViewportHeight: CGFloat = 440
+    private static let estimatedFixedSectionHeight: CGFloat = 40
 
     let updater: SPUUpdater
 
@@ -12,7 +14,7 @@ struct MenuPanelView: View {
     @Environment(\.openSettings) private var openSettings
     @StateObject private var pictureInPictureState = PictureInPicturePresentationState.shared
     @State private var screenVisibleHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 0
-    @State private var fixedSectionHeight: CGFloat = 0
+    @State private var fixedSectionHeight: CGFloat = Self.estimatedFixedSectionHeight
 
     var body: some View {
         VStack(alignment: .leading, spacing: Self.panelSpacing) {
@@ -45,16 +47,19 @@ struct MenuPanelView: View {
         }
     }
 
-    private var maximumContentHeight: CGFloat? {
-        guard screenVisibleHeight > 0, fixedSectionHeight > 0 else {
-            return nil
+    private var maximumContentHeight: CGFloat {
+        guard screenVisibleHeight > 0 else {
+            return Self.fallbackContentViewportHeight
         }
+
+        // MenuBarExtra may retain the size from its first layout pass, so the
+        // scroll view must never begin with an unbounded height.
         return max(
             0,
             screenVisibleHeight
                 - (Self.panelPadding * 2)
                 - Self.panelSpacing
-                - fixedSectionHeight
+                - max(fixedSectionHeight, Self.estimatedFixedSectionHeight)
         )
     }
 
