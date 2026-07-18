@@ -371,19 +371,19 @@ final class MQTTReportParserTests: XCTestCase {
         XCTAssertEqual(status.cameraStreamURL, "rtsp://192.168.1.50/streaming/live/1")
     }
 
-    func testVideoStreamURLBuilderUsesMQTTURLWithLANCredentials() {
+    func testVideoStreamURLBuilderUsesConfiguredHostWithMQTTPath() {
         var status = BambuCompanion.PrinterStatus.empty
-        status.cameraStreamURL = "rtsp://192.168.1.50/streaming/live/1"
+        status.cameraStreamURL = "rtsp://192.0.2.50/streaming/live/2?quality=high"
         let configuration = PrinterConfiguration(
             displayName: "",
-            host: "192.168.1.20",
+            host: "198.51.100.20",
             serialNumber: "SERIAL",
             accessCode: "12345678"
         )
 
         let url = VideoStreamURLBuilder.url(configuration: configuration, status: status)
 
-        XCTAssertEqual(url?.absoluteString, "rtsps://bblp:12345678@192.168.1.50:322/streaming/live/1")
+        XCTAssertEqual(url?.absoluteString, "rtsps://bblp:12345678@198.51.100.20:322/streaming/live/2?quality=high")
     }
 
     func testVideoStreamURLBuilderFallsBackToDefaultLANURL() {

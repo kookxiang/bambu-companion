@@ -298,23 +298,15 @@ enum VideoStreamURLBuilder {
             }
         }
 
-        guard let host = components.host else {
+        guard components.host != nil else {
             return nil
         }
 
-        let scheme = {
-            guard let sourceScheme = components.scheme?.lowercased(),
-                  ["rtsp", "rtsps"].contains(sourceScheme) else {
-                return "rtsps"
-            }
-            return sourceScheme
-        }
-
         var rebuilt = URLComponents()
-        rebuilt.scheme = scheme()
+        rebuilt.scheme = "rtsps"
         rebuilt.user = "bblp"
         rebuilt.password = configuration.accessCode
-        rebuilt.host = host
+        rebuilt.host = sanitizedHost(configuration.host)
         rebuilt.port = components.port ?? 322
         rebuilt.path = components.path.isEmpty ? "/streaming/live/1" : components.path
         rebuilt.fragment = components.fragment
