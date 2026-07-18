@@ -17,7 +17,7 @@ struct MenuPanelView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .frame(height: Self.contentViewportHeight, alignment: .top)
+                .frame(maxHeight: Self.contentViewportHeight, alignment: .top)
                 .scrollBounceBehavior(.basedOnSize)
             } else {
                 setupPrompt
