@@ -180,6 +180,9 @@ struct StatusSummaryView: View {
 }
 
 private struct PrintProgressView: View {
+    private static let emphasizedBarHeight: CGFloat = 8
+    private static let indicatorSize: CGFloat = 16
+
     let progress: Int
     let speedMode: PrintSpeedMode?
 
@@ -189,36 +192,40 @@ private struct PrintProgressView: View {
                 let width = geometry.size.width
                 let fraction = min(max(Double(progress) / 100, 0), 1)
                 let fillWidth = width * fraction
-                let indicatorX = min(max(fillWidth, 7), max(width - 7, 7))
+                let indicatorRadius = Self.indicatorSize / 2
+                let indicatorX = min(
+                    max(fillWidth, indicatorRadius),
+                    max(width - indicatorRadius, indicatorRadius)
+                )
 
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(.quaternary)
-                        .frame(height: 6)
+                        .frame(height: Self.emphasizedBarHeight)
 
                     Capsule()
                         .fill(speedMode.color.gradient)
-                        .frame(width: fillWidth, height: 6)
+                        .frame(width: fillWidth, height: Self.emphasizedBarHeight)
                         .overlay {
                             Capsule()
                                 .stroke(.white.opacity(0.2), lineWidth: 0.5)
                         }
 
                     FastSpeedStripeTexture(pointsPerSecond: speedMode.stripeSpeed)
-                        .frame(width: fillWidth, height: 6)
+                        .frame(width: fillWidth, height: Self.emphasizedBarHeight)
                         .clipShape(Capsule())
 
                     Image(systemName: speedMode.symbolName)
-                        .font(.system(size: 7, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(.white)
-                        .frame(width: 14, height: 14)
+                        .frame(width: Self.indicatorSize, height: Self.indicatorSize)
                         .background(speedMode.color.gradient, in: Circle())
                         .shadow(color: speedMode.color.opacity(0.35), radius: 2, y: 1)
-                        .position(x: indicatorX, y: 7)
+                        .position(x: indicatorX, y: indicatorRadius)
                 }
-                .frame(height: 14)
+                .frame(height: Self.indicatorSize)
             }
-            .frame(height: 14)
+            .frame(height: Self.indicatorSize)
             .help(L10n.format("Print speed: %@", speedMode.displayTitle))
         } else {
             ProgressView(value: Double(progress), total: 100)
