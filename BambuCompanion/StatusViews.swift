@@ -966,14 +966,11 @@ private struct NozzleMetricView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
-            HStack(spacing: 6) {
-                Spacer(minLength: 0)
-                Text(temperature.currentText)
-                    .foregroundStyle(temperature.color)
-            }
-            .font(.callout.monospacedDigit())
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
+            Text(temperature.currentText)
+                .foregroundStyle(temperature.color)
+                .font(.callout.monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
