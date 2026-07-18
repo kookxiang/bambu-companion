@@ -73,12 +73,21 @@ struct SettingsView: View {
         text: Binding<String>,
         field: FocusedField
     ) -> some View {
-        if focusedField == field {
+        let isFocused = focusedField == field
+
+        ZStack {
             TextField(title, text: text)
                 .focused($focusedField, equals: field)
-        } else {
+                .opacity(isFocused ? 1 : 0)
+
             SecureField(title, text: text)
-                .focused($focusedField, equals: field)
+                .allowsHitTesting(false)
+                .focusable(false)
+                .opacity(isFocused ? 0 : 1)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            focusedField = field
         }
     }
 
