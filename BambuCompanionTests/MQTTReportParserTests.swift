@@ -62,10 +62,41 @@ final class MQTTReportParserTests: XCTestCase {
     }
 
     func testStringNumbersAreAccepted() throws {
-        let status = try MQTTReportParser.parse(Data(#"{"print":{"mc_percent":"7","nozzle_temper":"215.5"}}"#.utf8))
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"mc_percent":"7","nozzle_temper":"215.5","spd_lvl":"4"}}"#.utf8))
 
         XCTAssertEqual(status.progress, 7)
         XCTAssertEqual(status.nozzleTemperature, 215.5)
+        XCTAssertEqual(status.printSpeedMode, .ludicrous)
+    }
+
+    func testParsesPrintSpeedModes() throws {
+        let modes: [(level: Int, mode: PrintSpeedMode, multiplier: Int)] = [
+            (1, .silent, 50),
+            (2, .standard, 100),
+            (3, .sport, 124),
+            (4, .ludicrous, 166)
+        ]
+
+        for entry in modes {
+            let status = try MQTTReportParser.parse(
+                Data(#"{"print":{"spd_lvl":\#(entry.level)}}"#.utf8)
+            )
+            XCTAssertEqual(status.printSpeedMode, entry.mode)
+            XCTAssertEqual(status.printSpeedMode?.multiplier, entry.multiplier)
+        }
+    }
+
+    func testFallsBackToPrintSpeedMultiplier() throws {
+        let status = try MQTTReportParser.parse(Data(#"{"print":{"spd_mag":124}}"#.utf8))
+
+        XCTAssertEqual(status.printSpeedMode, .sport)
+    }
+
+    func testIncrementalUpdatePreservesPrintSpeedMode() throws {
+        let base = try MQTTReportParser.parse(Data(#"{"print":{"spd_lvl":1}}"#.utf8))
+        let update = try MQTTReportParser.parse(Data(#"{"print":{"mc_percent":13}}"#.utf8))
+
+        XCTAssertEqual(base.mergingIncrementalUpdate(update).printSpeedMode, .silent)
     }
 
     func testModelPreparationUsesDownloadProgress() throws {

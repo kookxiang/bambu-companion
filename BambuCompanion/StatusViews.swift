@@ -41,7 +41,10 @@ struct StatusSummaryView: View {
                         progressBadge
                     }
 
-                    ProgressView(value: Double(status.displayedProgress ?? 0), total: 100)
+                    PrintProgressView(
+                        progress: status.displayedProgress ?? 0,
+                        speedMode: status.printSpeedMode
+                    )
                 }
             }
 
@@ -116,6 +119,17 @@ struct StatusSummaryView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
+
+            if let speedMode = status.printSpeedMode, !speedMode.isStandard {
+                Label(speedMode.displayTitle, systemImage: speedMode.symbolName)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(speedMode.color)
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(speedMode.color.opacity(0.12), in: Capsule())
+                    .help(L10n.format("Print speed: %@", speedMode.displayTitle))
+            }
         }
         .monospacedDigit()
         .frame(minWidth: 58, alignment: .trailing)
@@ -157,6 +171,65 @@ struct StatusSummaryView: View {
 
     private func nozzleTemperature(_ value: Double?, target: Double?) -> NozzleTemperatureMetric {
         NozzleTemperatureMetric(current: value, target: target)
+    }
+}
+
+private struct PrintProgressView: View {
+    let progress: Int
+    let speedMode: PrintSpeedMode?
+
+    var body: some View {
+        if let speedMode, !speedMode.isStandard {
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let fraction = min(max(Double(progress) / 100, 0), 1)
+                let fillWidth = width * fraction
+                let indicatorX = min(max(fillWidth, 7), max(width - 7, 7))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(.quaternary)
+                        .frame(height: 6)
+
+                    Capsule()
+                        .fill(speedMode.color.gradient)
+                        .frame(width: fillWidth, height: 6)
+
+                    Image(systemName: speedMode.symbolName)
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 14, height: 14)
+                        .background(speedMode.color.gradient, in: Circle())
+                        .shadow(color: speedMode.color.opacity(0.35), radius: 2, y: 1)
+                        .position(x: indicatorX, y: 7)
+                }
+                .frame(height: 14)
+            }
+            .frame(height: 14)
+            .help(L10n.format("Print speed: %@", speedMode.displayTitle))
+        } else {
+            ProgressView(value: Double(progress), total: 100)
+        }
+    }
+}
+
+private extension PrintSpeedMode {
+    var color: Color {
+        switch self {
+        case .silent: return .blue
+        case .standard: return .accentColor
+        case .sport: return .orange
+        case .ludicrous: return .pink
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .silent: return "moon.zzz.fill"
+        case .standard: return "gauge.with.dots.needle.50percent"
+        case .sport: return "bolt.fill"
+        case .ludicrous: return "rocket.fill"
+        }
     }
 }
 

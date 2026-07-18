@@ -70,6 +70,11 @@
 "Printer IP / Host" = "Printer IP / Host";
 "Printer name" = "Printer name";
 "Printing" = "Printing";
+"Print speed: %@" = "Print speed: %@";
+"Ludicrous" = "Ludicrous";
+"Silent" = "Silent";
+"Sport" = "Sport";
+"Standard" = "Standard";
 "Quit" = "Quit";
 "Reconnect" = "Reconnect";
 "Reconnect Video" = "Reconnect Video";

@@ -70,6 +70,11 @@
 "Printer IP / Host" = "打印机 IP / 主机名";
 "Printer name" = "打印机名称";
 "Printing" = "打印中";
+"Print speed: %@" = "打印速度：%@";
+"Ludicrous" = "狂暴";
+"Silent" = "静音";
+"Sport" = "运动";
+"Standard" = "标准";
 "Quit" = "退出";
 "Reconnect" = "重新连接";
 "Reconnect Video" = "重新连接视频";

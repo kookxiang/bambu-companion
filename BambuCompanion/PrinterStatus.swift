@@ -24,6 +24,39 @@ enum PrinterActivity: String, Equatable {
     }
 }
 
+enum PrintSpeedMode: Int, Equatable {
+    case silent = 1
+    case standard = 2
+    case sport = 3
+    case ludicrous = 4
+
+    var multiplier: Int {
+        switch self {
+        case .silent: return 50
+        case .standard: return 100
+        case .sport: return 124
+        case .ludicrous: return 166
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .silent: return L10n.string("Silent")
+        case .standard: return L10n.string("Standard")
+        case .sport: return L10n.string("Sport")
+        case .ludicrous: return L10n.string("Ludicrous")
+        }
+    }
+
+    var displayTitle: String {
+        "\(title) \(multiplier)%"
+    }
+
+    var isStandard: Bool {
+        self == .standard
+    }
+}
+
 struct PrinterStage: Equatable {
     let id: Int
 
@@ -156,6 +189,7 @@ struct NozzleSpecification: Equatable {
 struct PrinterStatus: Equatable {
     var activity: PrinterActivity = .unknown
     var progress: Int?
+    var printSpeedMode: PrintSpeedMode?
     var jobName: String?
     var rawFile: String?
     var gcodeFile: String?
@@ -224,6 +258,7 @@ struct PrinterStatus: Equatable {
             merged.activity = update.activity
         }
         merged.progress = update.progress ?? progress
+        merged.printSpeedMode = update.printSpeedMode ?? printSpeedMode
         merged.rawFile = update.rawFile ?? rawFile
         merged.gcodeFile = update.gcodeFile ?? gcodeFile
         merged.gcodeFileDownloaded = update.gcodeFileDownloaded ?? gcodeFileDownloaded

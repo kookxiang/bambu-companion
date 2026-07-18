@@ -11,6 +11,7 @@ enum MQTTReportParser {
         var status = PrinterStatus()
         status.activity = activity(from: stringValue(print["gcode_state"]) ?? stringValue(print["print_status"]))
         status.progress = intValue(print["mc_percent"]) ?? intValue(print["print_progress"])
+        status.printSpeedMode = printSpeedMode(from: print)
         status.rawFile = stringValue(print["file"])
         status.gcodeFile = stringValue(print["gcode_file"])
         status.gcodeFileDownloaded = stringValue(print["gcode_file_downloaded"])
@@ -87,6 +88,20 @@ enum MQTTReportParser {
             return nil
         }
         return intValue(stage["_id"]) ?? intValue(stage["id"])
+    }
+
+    private static func printSpeedMode(from print: [String: Any]) -> PrintSpeedMode? {
+        if let level = intValue(print["spd_lvl"]), let mode = PrintSpeedMode(rawValue: level) {
+            return mode
+        }
+
+        switch intValue(print["spd_mag"]) {
+        case 50: return .silent
+        case 100: return .standard
+        case 124: return .sport
+        case 166: return .ludicrous
+        default: return nil
+        }
     }
 
     private static func nozzleTemperatures(from print: [String: Any]) -> (current: Double?, target: Double?) {
