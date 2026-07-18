@@ -1,0 +1,188 @@
+name: Build macOS release
+
+run-name: >-
+  Build ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version used in the artifact name (defaults to the Xcode project version)
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build universal macOS app
+    runs-on: macos-15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="$({
+              awk -F ' = ' '/MARKETING_VERSION =/ {
+                gsub(/;/, "", $2)
+                print $2
+                exit
+              }' BambuCompanion.xcodeproj/project.pbxproj
+            })"
+          fi
+
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use the X.Y.Z format; received: ${version}" >&2
+            exit 1
+          fi
+
+          echo "value=${version}" >> "${GITHUB_OUTPUT}"
+          echo "archive_name=BambuCompanion-${version}-macOS.zip" >> "${GITHUB_OUTPUT}"
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+
+          xcodebuild test \
+            -project BambuCompanion.xcodeproj \
+            -scheme BambuCompanion \
+            -configuration Debug \
+            -destination "platform=macOS" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM=
+
+      - name: Archive app
+        env:
+          MARKETING_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          xcodebuild archive \
+            -project BambuCompanion.xcodeproj \
+            -scheme BambuCompanion \
+            -configuration Release \
+            -destination "generic/platform=macOS" \
+            -archivePath "${RUNNER_TEMP}/BambuCompanion.xcarchive" \
+            -derivedDataPath "${RUNNER_TEMP}/DerivedData" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            MARKETING_VERSION="${MARKETING_VERSION}" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
+
+      - name: Verify and package app
+        id: package
+        env:
+          ARCHIVE_NAME: ${{ steps.version.outputs.archive_name }}
+        run: |
+          set -euo pipefail
+
+          app_path="${RUNNER_TEMP}/BambuCompanion.xcarchive/Products/Applications/Bambu Companion.app"
+          output_dir="${RUNNER_TEMP}/release"
+          archive_path="${output_dir}/${ARCHIVE_NAME}"
+
+          test -d "${app_path}"
+          codesign --verify --deep --strict --verbose=2 "${app_path}"
+
+          architectures="$(lipo -archs "${app_path}/Contents/MacOS/Bambu Companion")"
+          [[ " ${architectures} " == *" arm64 "* ]]
+          [[ " ${architectures} " == *" x86_64 "* ]]
+
+          mkdir -p "${output_dir}"
+          ditto -c -k --keepParent --sequesterRsrc "${app_path}" "${archive_path}"
+
+          echo "archive_path=${archive_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Generate signed Sparkle appcast
+        if: github.ref_type == 'tag'
+        id: appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${SPARKLE_PRIVATE_KEY}" ]]; then
+            echo "The SPARKLE_PRIVATE_KEY repository secret is required for tag builds." >&2
+            exit 1
+          fi
+
+          generate_appcast="$(find "${RUNNER_TEMP}/DerivedData/SourcePackages" \
+            -type f -path '*/Sparkle/bin/generate_appcast' -print -quit)"
+          if [[ -z "${generate_appcast}" ]]; then
+            echo "Sparkle generate_appcast tool was not found." >&2
+            exit 1
+          fi
+
+          printf '%s' "${SPARKLE_PRIVATE_KEY}" | "${generate_appcast}" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            -o appcast.xml \
+            "${RUNNER_TEMP}/release"
+
+          xmllint --noout appcast.xml
+          if ! grep -q 'sparkle:edSignature=' appcast.xml; then
+            echo "The appcast was generated without an EdDSA signature. Check SPARKLE_PRIVATE_KEY." >&2
+            exit 1
+          fi
+
+          echo "path=${RUNNER_TEMP}/release/appcast.xml" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.archive_name }}
+          path: ${{ steps.package.outputs.archive_path }}
+          if-no-files-found: error
+
+      - name: Upload appcast workflow artifact
+        if: github.ref_type == 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: appcast-${{ steps.version.outputs.value }}
+          path: ${{ steps.appcast.outputs.path }}
+          if-no-files-found: error
+
+      - name: Create draft release and upload archive
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          APPCAST_PATH: ${{ steps.appcast.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          if ! gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" \
+              --draft \
+              --verify-tag \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
+
+          gh release upload "${GITHUB_REF_NAME}" \
+            "${ARCHIVE_PATH}" \
+            "${APPCAST_PATH}" \
+            --clobber

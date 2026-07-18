@@ -40,6 +40,8 @@ Bambu Companion 是一个 macOS 状态栏应用，用来在局域网内监控 Ba
 
 用 Xcode 打开 `BambuCompanion.xcodeproj`，运行 `BambuCompanion` scheme。
 
+Sparkle 通过 Swift Package Manager 引入。如果 Xcode 提示 packages 不支持 legacy build locations，请在 Xcode 的 Settings → Locations → Advanced 中选择 `Unique`。
+
 也可以用命令行构建：
 
 ```sh
@@ -51,6 +53,28 @@ xcodebuild -scheme BambuCompanion -configuration Debug build
 ```sh
 DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
   xcodebuild -scheme BambuCompanion -configuration Debug build
+```
+
+### 发布构建
+
+仓库中的 `Build macOS release` GitHub Actions workflow 会生成同时支持 Apple Silicon 和 Intel Mac 的 ad-hoc 签名 ZIP：
+
+- 在 Actions 页面手动运行时，ZIP 会作为 workflow artifact 上传；可以选择填写 `X.Y.Z` 格式的版本号。
+- 推送 `vX.Y.Z` 格式的 tag 时，workflow 会使用 `SPARKLE_PRIVATE_KEY` 仓库 Secret 签名更新、生成 `appcast.xml`，再创建或复用同名 Draft Release，并将 ZIP 和 appcast 附加到草稿中。
+
+由于 GitHub 不会为 Draft Release 触发 `release.created` 事件，发布流程以 tag 为入口：
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+当前产物没有 Developer ID 签名或 Apple 公证，首次运行时需要用户在 macOS 的“隐私与安全性”设置中确认打开。
+
+应用内的更新 feed 使用最新正式 Release 中的 `appcast.xml`：
+
+```text
+https://github.com/kookxiang/bambu-companion/releases/latest/download/appcast.xml
 ```
 
 ## 设置

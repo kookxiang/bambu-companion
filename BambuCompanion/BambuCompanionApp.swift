@@ -1,12 +1,19 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 @main
 struct BambuCompanionApp: App {
     @StateObject private var appState = AppState()
+    private let updaterController: SPUStandardUpdaterController
     private let shouldOpenMenuAtLaunch: Bool
 
     init() {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
         shouldOpenMenuAtLaunch = UserDefaults.standard.bool(
             forKey: VideoDefaultsKey.pictureInPictureEnabled
         )
@@ -14,7 +21,7 @@ struct BambuCompanionApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuPanelView()
+            MenuPanelView(updater: updaterController.updater)
                 .environmentObject(appState)
         } label: {
             HStack(spacing: 4) {

@@ -1,9 +1,12 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 struct MenuPanelView: View {
     private static let panelSpacing: CGFloat = 16
     private static let panelPadding: CGFloat = 16
+
+    let updater: SPUUpdater
 
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
@@ -120,6 +123,8 @@ struct MenuPanelView: View {
                 }
                 .help(L10n.string("Return Picture in Picture to this window"))
             }
+
+            CheckForUpdatesButton(updater: updater)
 
             Button {
                 openSettingsWindow()
