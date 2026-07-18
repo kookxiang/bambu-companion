@@ -195,6 +195,12 @@ private struct PrintProgressView: View {
                         .fill(speedMode.color.gradient)
                         .frame(width: fillWidth, height: 6)
 
+                    if speedMode.isFasterThanStandard {
+                        FastSpeedChevronTexture()
+                            .frame(width: fillWidth, height: 6)
+                            .clipShape(Capsule())
+                    }
+
                     Image(systemName: speedMode.symbolName)
                         .font(.system(size: 7, weight: .bold))
                         .foregroundStyle(.white)
@@ -213,7 +219,37 @@ private struct PrintProgressView: View {
     }
 }
 
+private struct FastSpeedChevronTexture: View {
+    var body: some View {
+        Canvas { context, size in
+            var chevrons = Path()
+            let chevronWidth = 3.5
+            let patternStride = 7.0
+            var x = -chevronWidth
+
+            while x < size.width + chevronWidth {
+                chevrons.move(to: CGPoint(x: x, y: 0.75))
+                chevrons.addLine(to: CGPoint(x: x + chevronWidth, y: size.height / 2))
+                chevrons.addLine(to: CGPoint(x: x, y: size.height - 0.75))
+                x += patternStride
+            }
+
+            context.stroke(
+                chevrons,
+                with: .color(.white.opacity(0.5)),
+                style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 private extension PrintSpeedMode {
+    var isFasterThanStandard: Bool {
+        multiplier > PrintSpeedMode.standard.multiplier
+    }
+
     var color: Color {
         switch self {
         case .silent: return .blue
