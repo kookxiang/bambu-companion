@@ -1,14 +1,18 @@
+import AppKit
 import SwiftUI
 
 struct MenuPanelView: View {
-    private static let contentViewportHeight: CGFloat = 440
+    private static let panelSpacing: CGFloat = 16
+    private static let panelPadding: CGFloat = 16
 
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
     @StateObject private var pictureInPictureState = PictureInPicturePresentationState.shared
+    @State private var screenVisibleHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 0
+    @State private var fixedSectionHeight: CGFloat = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Self.panelSpacing) {
             if appState.configuration.isComplete {
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: pictureInPictureState.isShowing ? 0 : 16) {
@@ -17,18 +21,53 @@ struct MenuPanelView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .frame(maxHeight: Self.contentViewportHeight, alignment: .top)
+                .frame(maxHeight: maximumContentHeight, alignment: .top)
                 .scrollBounceBehavior(.basedOnSize)
             } else {
                 setupPrompt
             }
 
-            Divider()
-            footer
+            fixedSection
         }
         .frame(width: 340)
         .fixedSize(horizontal: false, vertical: true)
-        .padding(16)
+        .padding(Self.panelPadding)
+        .background {
+            MenuPanelScreenReader { height in
+                screenVisibleHeight = height
+            }
+        }
+        .onPreferenceChange(FixedSectionHeightPreferenceKey.self) { height in
+            fixedSectionHeight = height
+        }
+    }
+
+    private var maximumContentHeight: CGFloat? {
+        guard screenVisibleHeight > 0, fixedSectionHeight > 0 else {
+            return nil
+        }
+        return max(
+            0,
+            screenVisibleHeight
+                - (Self.panelPadding * 2)
+                - Self.panelSpacing
+                - fixedSectionHeight
+        )
+    }
+
+    private var fixedSection: some View {
+        VStack(alignment: .leading, spacing: Self.panelSpacing) {
+            Divider()
+            footer
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: FixedSectionHeightPreferenceKey.self,
+                    value: geometry.size.height
+                )
+            }
+        }
     }
 
     private var setupPrompt: some View {
@@ -133,5 +172,71 @@ struct MenuPanelView: View {
     private func openSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
         openSettings()
+    }
+}
+
+private struct FixedSectionHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct MenuPanelScreenReader: NSViewRepresentable {
+    let onChange: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> ScreenReaderView {
+        let view = ScreenReaderView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ view: ScreenReaderView, context: Context) {
+        view.onChange = onChange
+        view.reportVisibleHeight()
+    }
+
+    final class ScreenReaderView: NSView {
+        var onChange: ((CGFloat) -> Void)?
+        private var screenObserver: NSObjectProtocol?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            observeScreenChanges()
+            reportVisibleHeight()
+        }
+
+        func reportVisibleHeight() {
+            guard let height = window?.screen?.visibleFrame.height else {
+                return
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.onChange?(height)
+            }
+        }
+
+        private func observeScreenChanges() {
+            if let screenObserver {
+                NotificationCenter.default.removeObserver(screenObserver)
+            }
+            guard let window else {
+                screenObserver = nil
+                return
+            }
+            screenObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didChangeScreenNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.reportVisibleHeight()
+            }
+        }
+
+        deinit {
+            if let screenObserver {
+                NotificationCenter.default.removeObserver(screenObserver)
+            }
+        }
     }
 }
