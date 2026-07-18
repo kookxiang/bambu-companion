@@ -27,6 +27,9 @@ final class AppState: NSObject, ObservableObject {
     var menuBarSymbolName: String {
         switch connectionState {
         case .connected:
+            if let speedMode = status.printSpeedMode, !speedMode.isStandard {
+                return speedMode.symbolName
+            }
             return status.activity == .printing ? "printer.filled.and.paper" : "printer"
         case .connecting:
             return "arrow.triangle.2.circlepath"

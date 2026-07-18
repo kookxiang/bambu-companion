@@ -70,11 +70,11 @@ final class MQTTReportParserTests: XCTestCase {
     }
 
     func testParsesPrintSpeedModes() throws {
-        let modes: [(level: Int, mode: PrintSpeedMode, multiplier: Int)] = [
-            (1, .silent, 50),
-            (2, .standard, 100),
-            (3, .sport, 124),
-            (4, .ludicrous, 166)
+        let modes: [(level: Int, mode: PrintSpeedMode, multiplier: Int, symbolName: String)] = [
+            (1, .silent, 50, "moon.zzz.fill"),
+            (2, .standard, 100, "gauge.with.dots.needle.50percent"),
+            (3, .sport, 124, "bolt.fill"),
+            (4, .ludicrous, 166, "rocket.fill")
         ]
 
         for entry in modes {
@@ -83,6 +83,7 @@ final class MQTTReportParserTests: XCTestCase {
             )
             XCTAssertEqual(status.printSpeedMode, entry.mode)
             XCTAssertEqual(status.printSpeedMode?.multiplier, entry.multiplier)
+            XCTAssertEqual(status.printSpeedMode?.symbolName, entry.symbolName)
         }
     }
 

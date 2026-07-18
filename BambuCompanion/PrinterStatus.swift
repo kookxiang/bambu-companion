@@ -55,6 +55,15 @@ enum PrintSpeedMode: Int, Equatable {
     var isStandard: Bool {
         self == .standard
     }
+
+    var symbolName: String {
+        switch self {
+        case .silent: return "moon.zzz.fill"
+        case .standard: return "gauge.with.dots.needle.50percent"
+        case .sport: return "bolt.fill"
+        case .ludicrous: return "rocket.fill"
+        }
+    }
 }
 
 struct PrinterStage: Equatable {

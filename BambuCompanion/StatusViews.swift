@@ -29,8 +29,24 @@ struct StatusSummaryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(status.primaryTitle)
-                                .font(.title3.bold())
+                            HStack(spacing: 6) {
+                                Text(status.primaryTitle)
+                                    .font(.title3.bold())
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+
+                                if let speedMode = status.printSpeedMode, !speedMode.isStandard {
+                                    Label("\(speedMode.multiplier)%", systemImage: speedMode.symbolName)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(speedMode.color)
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(speedMode.color.opacity(0.12), in: Capsule())
+                                        .fixedSize()
+                                        .help(L10n.format("Print speed: %@", speedMode.displayTitle))
+                                }
+                            }
                             Text(statusDetail)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -118,17 +134,6 @@ struct StatusSummaryView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-            }
-
-            if let speedMode = status.printSpeedMode, !speedMode.isStandard {
-                Label(speedMode.displayTitle, systemImage: speedMode.symbolName)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(speedMode.color)
-                    .lineLimit(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(speedMode.color.opacity(0.12), in: Capsule())
-                    .help(L10n.format("Print speed: %@", speedMode.displayTitle))
             }
         }
         .monospacedDigit()
@@ -256,15 +261,6 @@ private extension PrintSpeedMode {
         case .standard: return .accentColor
         case .sport: return .orange
         case .ludicrous: return .pink
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .silent: return "moon.zzz.fill"
-        case .standard: return "gauge.with.dots.needle.50percent"
-        case .sport: return "bolt.fill"
-        case .ludicrous: return "rocket.fill"
         }
     }
 }
