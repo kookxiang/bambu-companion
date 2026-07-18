@@ -52,6 +52,10 @@ enum PrintSpeedMode: Int, Equatable {
         "\(title) \(multiplier)%"
     }
 
+    var modeTitle: String {
+        L10n.format("%@ mode", title)
+    }
+
     var isStandard: Bool {
         self == .standard
     }
@@ -228,6 +232,10 @@ struct PrinterStatus: Equatable {
     var fans = PrinterFanStatus()
     var amsUnits: [AMSUnitStatus] = []
     var updatedAt: Date?
+
+    var hasDualNozzleTemperatures: Bool {
+        leftNozzleTemperature != nil && rightNozzleTemperature != nil
+    }
     var alertUpdate: PrinterAlertUpdate = .unchanged
     var currentStageUpdate: PrinterStageUpdate = .unchanged
 

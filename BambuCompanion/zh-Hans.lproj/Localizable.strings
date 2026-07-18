@@ -73,6 +73,7 @@
 "Printer name" = "打印机名称";
 "Printing" = "打印中";
 "Print speed: %@" = "打印速度：%@";
+"%@ mode" = "%@模式";
 "Ludicrous" = "狂暴";
 "Silent" = "静音";
 "Sport" = "运动";

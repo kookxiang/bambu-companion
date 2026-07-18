@@ -36,7 +36,7 @@ struct StatusSummaryView: View {
                                     .minimumScaleFactor(0.75)
 
                                 if let speedMode = status.printSpeedMode, !speedMode.isStandard {
-                                    Label("\(speedMode.multiplier)%", systemImage: speedMode.symbolName)
+                                    Label(speedMode.modeTitle, systemImage: speedMode.symbolName)
                                         .font(.caption2.weight(.semibold))
                                         .foregroundStyle(speedMode.color)
                                         .lineLimit(1)
@@ -153,7 +153,7 @@ struct StatusSummaryView: View {
 
     @ViewBuilder
     private var nozzleMetric: some View {
-        if status.leftNozzleTemperature != nil || status.rightNozzleTemperature != nil {
+        if status.hasDualNozzleTemperatures {
             DualNozzleMetricView(
                 leftSpecification: status.leftNozzleSpecification,
                 leftTemperature: nozzleTemperature(status.leftNozzleTemperature, target: status.targetLeftNozzleTemperature),

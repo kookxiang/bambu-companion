@@ -73,6 +73,7 @@
 "Printer name" = "Printer name";
 "Printing" = "Printing";
 "Print speed: %@" = "Print speed: %@";
+"%@ mode" = "%@ mode";
 "Ludicrous" = "Ludicrous";
 "Silent" = "Silent";
 "Sport" = "Sport";
