@@ -1,17 +1,31 @@
 import SwiftUI
 
 struct SettingsView: View {
+    private enum FocusedField: Hashable {
+        case serialNumber
+        case accessCode
+    }
+
     @EnvironmentObject private var appState: AppState
     @State private var draft = PrinterConfiguration(displayName: "", host: "", serialNumber: "", accessCode: "")
     @State private var message: String?
+    @FocusState private var focusedField: FocusedField?
 
     var body: some View {
         Form {
             Section {
                 TextField("Printer name", text: $draft.displayName)
                 TextField("Printer IP / Host", text: $draft.host)
-                TextField("Serial number", text: $draft.serialNumber)
-                SecureField("LAN access code", text: $draft.accessCode)
+                focusRevealingField(
+                    "Serial number",
+                    text: $draft.serialNumber,
+                    field: .serialNumber
+                )
+                focusRevealingField(
+                    "LAN access code",
+                    text: $draft.accessCode,
+                    field: .accessCode
+                )
             } header: {
                 Text("Printer")
             }
@@ -50,6 +64,21 @@ struct SettingsView: View {
         .frame(width: 440)
         .onAppear {
             draft = appState.configuration
+        }
+    }
+
+    @ViewBuilder
+    private func focusRevealingField(
+        _ title: LocalizedStringKey,
+        text: Binding<String>,
+        field: FocusedField
+    ) -> some View {
+        if focusedField == field {
+            TextField(title, text: text)
+                .focused($focusedField, equals: field)
+        } else {
+            SecureField(title, text: text)
+                .focused($focusedField, equals: field)
         }
     }
 
