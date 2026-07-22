@@ -725,6 +725,7 @@ final class MQTTReportParserTests: XCTestCase {
               }
             },
             "ams": {
+              "tray_now": 255,
               "ams": [
                 {
                   "id": "0",
@@ -775,6 +776,42 @@ final class MQTTReportParserTests: XCTestCase {
                   "id": "0",
                   "tray": [
                     {"id": "0", "tray_type": "PLA"},
+                    {"id": "1", "tray_type": "PETG"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """
+
+        let status = try MQTTReportParser.parse(Data(json.utf8))
+
+        XCTAssertFalse(status.amsUnits[0].slots[0].isActive)
+        XCTAssertFalse(status.amsUnits[0].slots[1].isActive)
+    }
+
+    func testDualNozzleExternalSpoolDoesNotFallBackToStaleTrayNow() throws {
+        let json = """
+        {
+          "print": {
+            "mapping": [65535, 65280],
+            "device": {
+              "extruder": {
+                "state": 2,
+                "info": [
+                  {"id": 0, "snow": 65280},
+                  {"id": 1, "snow": 65279}
+                ]
+              }
+            },
+            "ams": {
+              "tray_now": 0,
+              "ams": [
+                {
+                  "id": "0",
+                  "tray": [
+                    {"id": "0", "tray_type": ""},
                     {"id": "1", "tray_type": "PETG"}
                   ]
                 }

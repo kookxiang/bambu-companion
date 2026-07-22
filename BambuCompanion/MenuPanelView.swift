@@ -9,12 +9,22 @@ struct MenuPanelView: View {
     private static let estimatedFixedSectionHeight: CGFloat = 40
 
     let updater: SPUUpdater
+    let onPreferredContentHeightChange: (CGFloat) -> Void
 
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
     @StateObject private var pictureInPictureState = PictureInPicturePresentationState.shared
     @State private var screenVisibleHeight: CGFloat = 0
     @State private var fixedSectionHeight: CGFloat = Self.estimatedFixedSectionHeight
+    @State private var scrollableContentHeight: CGFloat?
+
+    init(
+        updater: SPUUpdater,
+        onPreferredContentHeightChange: @escaping (CGFloat) -> Void = { _ in }
+    ) {
+        self.updater = updater
+        self.onPreferredContentHeightChange = onPreferredContentHeightChange
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Self.panelSpacing) {
@@ -24,9 +34,23 @@ struct MenuPanelView: View {
                         StatusSummaryView(status: appState.status, coverImageState: appState.coverImageState)
                         VideoPreviewView(url: appState.videoStreamURL)
                     }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background {
+                        ViewHeightReader { height in
+                            guard height > 0,
+                                  abs((scrollableContentHeight ?? 0) - height) > 0.5 else {
+                                return
+                            }
+                            scrollableContentHeight = height
+                        }
+                    }
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: contentViewportHeight,
+                        alignment: .topLeading
+                    )
                 }
-                .frame(maxHeight: maximumContentHeight, alignment: .top)
+                .frame(height: contentViewportHeight, alignment: .top)
                 .scrollBounceBehavior(.basedOnSize)
             } else {
                 setupPrompt
@@ -41,10 +65,27 @@ struct MenuPanelView: View {
             MenuPanelScreenReader { height in
                 screenVisibleHeight = height
             }
+            if appState.configuration.isComplete {
+                MenuPanelHeightReporter(
+                    contentHeight: panelContentHeight,
+                    onChange: onPreferredContentHeightChange
+                )
+            }
         }
-        .onPreferenceChange(FixedSectionHeightPreferenceKey.self) { height in
-            fixedSectionHeight = height
+    }
+
+    private var contentViewportHeight: CGFloat {
+        guard let scrollableContentHeight else {
+            return min(Self.fallbackContentViewportHeight, maximumContentHeight)
         }
+        return min(scrollableContentHeight, maximumContentHeight)
+    }
+
+    private var panelContentHeight: CGFloat {
+        contentViewportHeight
+            + fixedSectionHeight
+            + Self.panelSpacing
+            + (Self.panelPadding * 2)
     }
 
     private var maximumContentHeight: CGFloat {
@@ -59,7 +100,7 @@ struct MenuPanelView: View {
             screenVisibleHeight
                 - (Self.panelPadding * 2)
                 - Self.panelSpacing
-                - max(fixedSectionHeight, Self.estimatedFixedSectionHeight)
+                - fixedSectionHeight
         )
     }
 
@@ -69,11 +110,11 @@ struct MenuPanelView: View {
             footer
         }
         .background {
-            GeometryReader { geometry in
-                Color.clear.preference(
-                    key: FixedSectionHeightPreferenceKey.self,
-                    value: geometry.size.height
-                )
+            ViewHeightReader { height in
+                guard height > 0, abs(fixedSectionHeight - height) > 0.5 else {
+                    return
+                }
+                fixedSectionHeight = height
             }
         }
     }
@@ -181,15 +222,73 @@ struct MenuPanelView: View {
 
     private func openSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        openSettings()
+        if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            openSettings()
+        }
     }
 }
 
-private struct FixedSectionHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
+private struct ViewHeightReader: NSViewRepresentable {
+    let onChange: (CGFloat) -> Void
 
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+    func makeNSView(context: Context) -> HeightReportingView {
+        let view = HeightReportingView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ view: HeightReportingView, context: Context) {
+        view.onChange = onChange
+        view.reportHeight()
+    }
+
+    final class HeightReportingView: NSView {
+        var onChange: ((CGFloat) -> Void)?
+        private var lastHeight: CGFloat = 0
+
+        override func layout() {
+            super.layout()
+            reportHeight()
+        }
+
+        func reportHeight() {
+            let height = bounds.height
+            guard height > 0, abs(lastHeight - height) > 0.5 else {
+                return
+            }
+            lastHeight = height
+            DispatchQueue.main.async { [weak self] in
+                self?.onChange?(height)
+            }
+        }
+    }
+}
+
+private struct MenuPanelHeightReporter: NSViewRepresentable {
+    let contentHeight: CGFloat
+    let onChange: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        guard contentHeight > 0,
+              abs(context.coordinator.lastHeight - contentHeight) > 0.5 else {
+            return
+        }
+        context.coordinator.lastHeight = contentHeight
+        DispatchQueue.main.async {
+            onChange(contentHeight)
+        }
+    }
+
+    final class Coordinator {
+        var lastHeight: CGFloat = 0
     }
 }
 

@@ -1,146 +1,143 @@
 import AppKit
+import Combine
 import Sparkle
 import SwiftUI
 
 @main
 struct BambuCompanionApp: App {
-    @StateObject private var appState = AppState()
-    private let updaterController: SPUStandardUpdaterController
-    private let shouldOpenMenuAtLaunch: Bool
-
-    init() {
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: nil,
-            userDriverDelegate: nil
-        )
-        shouldOpenMenuAtLaunch = UserDefaults.standard.bool(
-            forKey: VideoDefaultsKey.pictureInPictureEnabled
-        )
-    }
+    @NSApplicationDelegateAdaptor(BambuCompanionAppDelegate.self)
+    private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuPanelView(updater: updaterController.updater)
-                .environmentObject(appState)
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: appState.menuBarSymbolName)
-                if let progress = appState.menuBarProgressTitle {
-                    Text(progress)
-                        .monospacedDigit()
-                }
-            }
-            .background {
-                MenuBarExtraAutoOpener(shouldOpen: shouldOpenMenuAtLaunch)
-                    .frame(width: 0, height: 0)
-            }
-        }
-        .menuBarExtraStyle(.window)
-
         Settings {
             SettingsView()
-                .environmentObject(appState)
+                .environmentObject(appDelegate.appState)
         }
     }
 }
 
-private struct MenuBarExtraAutoOpener: NSViewRepresentable {
-    let shouldOpen: Bool
+@MainActor
+private final class BambuCompanionAppDelegate: NSObject, NSApplicationDelegate {
+    let appState = AppState()
 
-    func makeNSView(context: Context) -> AutoOpenView {
-        let view = AutoOpenView()
-        view.shouldOpen = shouldOpen
-        return view
-    }
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let popover = NSPopover()
+    private var appStateObserver: AnyCancellable?
 
-    func updateNSView(_ view: AutoOpenView, context: Context) {
-        // The launch preference is intentionally captured once in App.init().
-    }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        configurePopover()
+        configureStatusItem()
 
-    final class AutoOpenView: NSView {
-        var shouldOpen = false
-
-        private var didOpen = false
-        private var attemptCount = 0
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            scheduleOpenIfNeeded()
+        appStateObserver = appState.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.updateStatusItem()
+            }
         }
 
-        private func scheduleOpenIfNeeded() {
-            guard shouldOpen, !didOpen, attemptCount < 20, window != nil else {
-                return
-            }
+        if UserDefaults.standard.bool(forKey: VideoDefaultsKey.pictureInPictureEnabled) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.openMenuBarExtra()
+                self?.showPopover()
             }
         }
+    }
 
-        private func openMenuBarExtra() {
-            guard shouldOpen, !didOpen else {
-                return
+    private func configurePopover() {
+        let panel = MenuPanelView(
+            updater: updaterController.updater,
+            onPreferredContentHeightChange: { [weak self] height in
+                self?.setPopoverHeight(height)
             }
-            var ancestor = superview
-            while let view = ancestor {
-                if let button = view as? NSStatusBarButton {
-                    didOpen = true
-                    button.performClick(nil)
-                    return
-                }
-                ancestor = view.superview
-            }
+        )
+        .environmentObject(appState)
 
-            if let contentView = window?.contentView,
-               let button = findStatusBarButton(in: contentView) {
-                didOpen = true
-                button.performClick(nil)
-                return
-            }
+        popover.behavior = .transient
+        popover.animates = false
+        popover.contentSize = NSSize(width: 372, height: 528)
+        popover.contentViewController = TopAlignedHostingViewController(
+            rootView: AnyView(panel)
+        )
+    }
 
-            if let window, let contentView = window.contentView {
-                didOpen = true
-                let location = contentView.convert(
-                    NSPoint(x: contentView.bounds.midX, y: contentView.bounds.midY),
-                    to: nil
-                )
-                sendMouseEvent(.leftMouseDown, at: location, to: window)
-                sendMouseEvent(.leftMouseUp, at: location, to: window)
-                return
-            }
-
-            attemptCount += 1
-            scheduleOpenIfNeeded()
+    private func configureStatusItem() {
+        guard let button = statusItem.button else {
+            return
         }
+        button.target = self
+        button.action = #selector(togglePopover(_:))
+        button.imagePosition = .imageLeading
+        updateStatusItem()
+    }
 
-        private func findStatusBarButton(in view: NSView) -> NSStatusBarButton? {
-            if let button = view as? NSStatusBarButton {
-                return button
-            }
-            for subview in view.subviews {
-                if let button = findStatusBarButton(in: subview) {
-                    return button
-                }
-            }
-            return nil
+    private func updateStatusItem() {
+        guard let button = statusItem.button else {
+            return
         }
+        let image = NSImage(
+            systemSymbolName: appState.menuBarSymbolName,
+            accessibilityDescription: nil
+        )
+        image?.isTemplate = true
+        button.image = image
+        button.title = appState.menuBarProgressTitle.map { " \($0)" } ?? ""
+    }
 
-        private func sendMouseEvent(_ type: NSEvent.EventType, at location: NSPoint, to window: NSWindow) {
-            guard let event = NSEvent.mouseEvent(
-                with: type,
-                location: location,
-                modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: 0,
-                clickCount: 1,
-                pressure: type == .leftMouseDown ? 1 : 0
-            ) else {
-                return
-            }
-            window.sendEvent(event)
+    private func setPopoverHeight(_ height: CGFloat) {
+        guard height > 0, abs(popover.contentSize.height - height) > 0.5 else {
+            return
         }
+        popover.contentSize = NSSize(width: 372, height: height)
+    }
+
+    @objc private func togglePopover(_ sender: NSStatusBarButton) {
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            showPopover()
+        }
+    }
+
+    private func showPopover() {
+        guard let button = statusItem.button, !popover.isShown else {
+            return
+        }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+}
+
+@MainActor
+private final class TopAlignedHostingViewController: NSViewController {
+    private let hostingController: NSHostingController<AnyView>
+
+    init(rootView: AnyView) {
+        hostingController = NSHostingController(rootView: rootView)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func loadView() {
+        let containerView = NSView()
+        let hostedView = hostingController.view
+        hostedView.translatesAutoresizingMaskIntoConstraints = false
+        hostedView.setContentHuggingPriority(.required, for: .vertical)
+        hostedView.setContentCompressionResistancePriority(.required, for: .vertical)
+
+        addChild(hostingController)
+        containerView.addSubview(hostedView)
+        NSLayoutConstraint.activate([
+            hostedView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hostedView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hostedView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+        ])
+        view = containerView
     }
 }

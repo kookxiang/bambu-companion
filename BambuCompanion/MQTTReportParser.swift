@@ -430,11 +430,29 @@ enum MQTTReportParser {
 
     private static func activeAMSSlot(from print: [String: Any], ams: [String: Any]) -> (amsID: String, slotIndex: Int)? {
         let trayNow = intValue(ams["tray_now"])
+        let extruderSource = activeFilamentSourceFromExtruder(print)
+
+        if extruderSource?.isDualNozzle == true {
+            switch extruderSource {
+            case let .ams(amsID, slotIndex, _):
+                return (amsID, slotIndex)
+            case .external:
+                return nil
+            case .unavailable, nil:
+                break
+            }
+        }
+
         if trayNow == 254 || trayNow == 255 {
             return nil
         }
-        if let slot = activeAMSSlotFromExtruder(print) {
-            return slot
+        switch extruderSource {
+        case let .ams(amsID, slotIndex, _):
+            return (amsID, slotIndex)
+        case .external:
+            return nil
+        case .unavailable, nil:
+            break
         }
         if let trayNow {
             return activeAMSSlot(fromEncodedTray: trayNow)
@@ -442,11 +460,28 @@ enum MQTTReportParser {
         return nil
     }
 
-    private static func activeAMSSlotFromExtruder(_ print: [String: Any]) -> (amsID: String, slotIndex: Int)? {
+    private enum ExtruderFilamentSource {
+        case ams(amsID: String, slotIndex: Int, isDualNozzle: Bool)
+        case external(isDualNozzle: Bool)
+        case unavailable(isDualNozzle: Bool)
+
+        var isDualNozzle: Bool {
+            switch self {
+            case let .ams(_, _, isDualNozzle),
+                 let .external(isDualNozzle),
+                 let .unavailable(isDualNozzle):
+                return isDualNozzle
+            }
+        }
+    }
+
+    private static func activeFilamentSourceFromExtruder(_ print: [String: Any]) -> ExtruderFilamentSource? {
         guard let extruder = (print["device"] as? [String: Any])?["extruder"] as? [String: Any],
-              let info = extruder["info"] as? [[String: Any]] else {
+              let info = extruder["info"] as? [[String: Any]],
+              !info.isEmpty else {
             return nil
         }
+        let isDualNozzle = Set(info.compactMap { intValue($0["id"]) }).count > 1
 
         let activeNozzleID: Int
         if let state = intValue(extruder["state"]) {
@@ -457,15 +492,18 @@ enum MQTTReportParser {
 
         guard let activeEntry = info.first(where: { intValue($0["id"]) == activeNozzleID }),
               let snow = intValue(activeEntry["snow"]) else {
-            return nil
+            return .unavailable(isDualNozzle: isDualNozzle)
+        }
+        guard snow >= 0 else {
+            return .unavailable(isDualNozzle: isDualNozzle)
         }
 
         let slotIndex = snow & 0x3
         let amsIndex = snow >> 8
-        guard slotIndex < 4, amsIndex < 128 else {
-            return nil
+        guard amsIndex < 128 else {
+            return .external(isDualNozzle: isDualNozzle)
         }
-        return ("\(amsIndex)", slotIndex)
+        return .ams(amsID: "\(amsIndex)", slotIndex: slotIndex, isDualNozzle: isDualNozzle)
     }
 
     private static func activeAMSSlot(fromEncodedTray trayNow: Int) -> (amsID: String, slotIndex: Int)? {

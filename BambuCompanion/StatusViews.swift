@@ -775,6 +775,10 @@ private struct CoverImageView: View {
     }
 }
 
+private enum MetricCardLayout {
+    static let minimumContentHeight: CGFloat = 36
+}
+
 private struct MetricView: View {
     let title: LocalizedStringKey
     let value: String
@@ -791,7 +795,11 @@ private struct MetricView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: MetricCardLayout.minimumContentHeight,
+            alignment: .leading
+        )
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
@@ -808,10 +816,15 @@ private struct DynamicMetricView: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.callout.monospacedDigit())
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+                .allowsTightening(true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: MetricCardLayout.minimumContentHeight,
+            alignment: .leading
+        )
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
@@ -972,7 +985,11 @@ private struct NozzleMetricView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: MetricCardLayout.minimumContentHeight,
+            alignment: .leading
+        )
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
@@ -1011,7 +1028,11 @@ private struct DualNozzleMetricView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.65)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: MetricCardLayout.minimumContentHeight,
+            alignment: .leading
+        )
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
         .help(helpText)
