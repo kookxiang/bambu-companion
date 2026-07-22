@@ -13,7 +13,7 @@ struct MenuPanelView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openSettings) private var openSettings
     @StateObject private var pictureInPictureState = PictureInPicturePresentationState.shared
-    @State private var screenVisibleHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 0
+    @State private var screenVisibleHeight: CGFloat = 0
     @State private var fixedSectionHeight: CGFloat = Self.estimatedFixedSectionHeight
 
     var body: some View {
